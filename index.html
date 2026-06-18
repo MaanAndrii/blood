@@ -577,12 +577,12 @@
     </div>
 
     <div class="stat-card">
-      <div class="stat-title">📈 Систолічний тиск (ранок)</div>
+      <div class="stat-title">📈 Систолічний тиск — ліва/права, ранок/вечір</div>
       <div class="chart-wrap"><canvas id="chartSys"></canvas></div>
     </div>
 
     <div class="stat-card">
-      <div class="stat-title">📉 Діастолічний тиск (ранок)</div>
+      <div class="stat-title">📉 Діастолічний тиск — ліва/права, ранок/вечір</div>
       <div class="chart-wrap"><canvas id="chartDia"></canvas></div>
     </div>
 
@@ -604,7 +604,47 @@
 
   <!-- ══ EXPORT PAGE ══ -->
   <div class="page" id="page-export">
-    <div class="section-label">Формат</div>
+
+    <!-- Google Drive sync -->
+    <div class="section-label">☁️ Google Drive</div>
+    <div class="card" id="driveCard">
+      <div id="driveSignedOut">
+        <p style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.5">
+          Увійдіть в Google-акаунт, щоб автоматично зберігати резервну копію на Drive після кожного запису.
+        </p>
+        <button class="btn-save" onclick="driveSignIn()" style="background:var(--surface);border:1.5px solid var(--border)">
+          <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+          Увійти через Google
+        </button>
+      </div>
+      <div id="driveSignedIn" style="display:none">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+          <img id="driveAvatar" width="32" height="32" style="border-radius:50%" src="" alt=""/>
+          <div>
+            <div id="driveName" style="font-size:13px;font-weight:600"></div>
+            <div id="driveEmail" style="font-size:11px;color:var(--muted)"></div>
+          </div>
+          <button onclick="driveSignOut()" style="margin-left:auto;background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer">Вийти</button>
+        </div>
+        <div id="driveSyncStatus" style="font-size:12px;color:var(--muted);margin-bottom:12px">
+          Остання синхронізація: <span id="lastSyncTime">—</span>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn-save" onclick="drivePush()" style="flex:1">
+            ☁️ Зберегти зараз
+          </button>
+          <button class="btn-outline" onclick="drivePull()">
+            ⬇️ Відновити
+          </button>
+        </div>
+        <div style="margin-top:10px;padding:10px;background:rgba(79,142,247,.08);border-radius:8px;font-size:11px;color:var(--muted);line-height:1.5">
+          📁 Файл: <code style="color:var(--accent)">health_backup.json</code> у папці «Мій диск».<br/>
+          Авто-збереження відбувається після кожного нового запису.
+        </div>
+      </div>
+    </div>
+
+    <div class="section-label" style="margin-top:20px">Локальний експорт</div>
     <div class="export-grid">
       <div class="export-card" onclick="exportCSV()">
         <span class="export-icon">📄</span>
@@ -618,7 +658,7 @@
       </div>
     </div>
 
-    <div class="section-label" style="margin-top:20px">Відновлення</div>
+    <div class="section-label" style="margin-top:20px">Відновлення з файлу</div>
     <div class="card">
       <p style="font-size:13px;color:var(--muted);margin-bottom:12px">Імпортувати дані з JSON-резервної копії</p>
       <label class="btn-outline" style="display:inline-flex;cursor:pointer">
@@ -700,7 +740,7 @@ function showPage(name) {
   if (name === 'add') renderTodaySummary();
   if (name === 'history') renderHistory();
   if (name === 'stats') renderCharts();
-  if (name === 'export') renderExportStats();
+  if (name === 'export') { renderExportStats(); renderDriveUI(); }
 }
 
 // ── SAVE ────────────────────────────────────────────────────────────────────
@@ -737,9 +777,15 @@ function saveEntry() {
 
   showToast('✅ Запис збережено!');
   renderTodaySummary();
+  autoSync();
 }
 
 // ── TODAY SUMMARY ────────────────────────────────────────────────────────────
+function bpStr(sys, dia) {
+  if (sys == null && dia == null) return '—';
+  return `${sys ?? '?'}/${dia ?? '?'}`;
+}
+
 function renderTodaySummary() {
   const today = todayStr();
   const e = entries.find(x => x.date === today);
@@ -748,40 +794,36 @@ function renderTodaySummary() {
   if (!e) { box.style.display = 'none'; return; }
   box.style.display = 'block';
 
-  const ms = avg([e.morning.sys_l, e.morning.sys_r]);
-  const md = avg([e.morning.dia_l, e.morning.dia_r]);
-  const es = avg([e.evening.sys_l, e.evening.sys_r]);
-  const ed = avg([e.evening.dia_l, e.evening.dia_r]);
-  const mp = e.morning.pulse, ep = e.evening.pulse;
+  const m = e.morning, ev = e.evening;
 
   grid.innerHTML = `
     <div class="summary-item">
-      <div class="summary-value val-sys">${ms ?? '—'}</div>
-      <div class="summary-label">Сист. ранок</div>
+      <div class="summary-value val-sys" style="font-size:16px">${bpStr(m.sys_l, m.dia_l)}</div>
+      <div class="summary-label">🌅 Ранок — ліва</div>
     </div>
     <div class="summary-item">
-      <div class="summary-value val-dia">${md ?? '—'}</div>
-      <div class="summary-label">Діаст. ранок</div>
+      <div class="summary-value val-sys" style="font-size:16px">${bpStr(m.sys_r, m.dia_r)}</div>
+      <div class="summary-label">🌅 Ранок — права</div>
     </div>
     <div class="summary-item">
-      <div class="summary-value val-sys">${es ?? '—'}</div>
-      <div class="summary-label">Сист. вечір</div>
+      <div class="summary-value val-evening" style="font-size:16px;color:var(--evening)">${bpStr(ev.sys_l, ev.dia_l)}</div>
+      <div class="summary-label">🌙 Вечір — ліва</div>
     </div>
     <div class="summary-item">
-      <div class="summary-value val-dia">${ed ?? '—'}</div>
-      <div class="summary-label">Діаст. вечір</div>
+      <div class="summary-value val-evening" style="font-size:16px;color:var(--evening)">${bpStr(ev.sys_r, ev.dia_r)}</div>
+      <div class="summary-label">🌙 Вечір — права</div>
     </div>
     <div class="summary-item">
-      <div class="summary-value val-pulse">${mp ?? '—'}</div>
-      <div class="summary-label">Пульс ранок</div>
+      <div class="summary-value val-pulse">${m.pulse ?? '—'}</div>
+      <div class="summary-label">💚 Пульс ранок</div>
     </div>
     <div class="summary-item">
-      <div class="summary-value val-pulse">${ep ?? '—'}</div>
-      <div class="summary-label">Пульс вечір</div>
+      <div class="summary-value val-pulse">${ev.pulse ?? '—'}</div>
+      <div class="summary-label">💚 Пульс вечір</div>
     </div>
     ${e.weight ? `<div class="summary-item" style="grid-column:1/-1">
       <div class="summary-value val-weight">${e.weight} кг</div>
-      <div class="summary-label">Вага</div>
+      <div class="summary-label">⚖️ Вага</div>
     </div>` : ''}
   `;
 }
@@ -810,10 +852,8 @@ function renderHistory() {
     return;
   }
   list.innerHTML = data.map(e => {
-    const ms = avg([e.morning.sys_l, e.morning.sys_r]);
-    const md = avg([e.morning.dia_l, e.morning.dia_r]);
-    const es = avg([e.evening.sys_l, e.evening.sys_r]);
-    const ed = avg([e.evening.dia_l, e.evening.dia_r]);
+    const m = e.morning, ev = e.evening;
+    function bp(sys, dia) { return (sys ?? '—') + '/' + (dia ?? '—'); }
     return `<div class="history-item">
       <div class="history-header">
         <span class="history-date">${fmtDate(e.date)}</span>
@@ -821,20 +861,28 @@ function renderHistory() {
       </div>
       <div class="history-body">
         <div class="history-row">
-          <span class="history-row-label">🌅 Ранок</span>
-          <span class="history-row-val" style="color:var(--warn)">${ms ?? '—'}/${md ?? '—'}</span>
+          <span class="history-row-label">🌅 Ранок Л</span>
+          <span class="history-row-val" style="color:var(--morning)">${bp(m.sys_l, m.dia_l)}</span>
+        </div>
+        <div class="history-row">
+          <span class="history-row-label">🌅 Ранок П</span>
+          <span class="history-row-val" style="color:var(--morning)">${bp(m.sys_r, m.dia_r)}</span>
+        </div>
+        <div class="history-row">
+          <span class="history-row-label">🌙 Вечір Л</span>
+          <span class="history-row-val" style="color:var(--evening)">${bp(ev.sys_l, ev.dia_l)}</span>
+        </div>
+        <div class="history-row">
+          <span class="history-row-label">🌙 Вечір П</span>
+          <span class="history-row-val" style="color:var(--evening)">${bp(ev.sys_r, ev.dia_r)}</span>
         </div>
         <div class="history-row">
           <span class="history-row-label">💚 Пульс р.</span>
-          <span class="history-row-val" style="color:var(--accent2)">${e.morning.pulse ?? '—'}</span>
-        </div>
-        <div class="history-row">
-          <span class="history-row-label">🌙 Вечір</span>
-          <span class="history-row-val" style="color:var(--evening)">${es ?? '—'}/${ed ?? '—'}</span>
+          <span class="history-row-val" style="color:var(--accent2)">${m.pulse ?? '—'}</span>
         </div>
         <div class="history-row">
           <span class="history-row-label">💚 Пульс в.</span>
-          <span class="history-row-val" style="color:var(--accent2)">${e.evening.pulse ?? '—'}</span>
+          <span class="history-row-val" style="color:var(--accent2)">${ev.pulse ?? '—'}</span>
         </div>
         ${e.weight ? `<div class="history-row" style="grid-column:1/-1">
           <span class="history-row-label">⚖️ Вага</span>
@@ -885,33 +933,57 @@ function renderCharts() {
   const data = filterEntries(statsFilter).slice().reverse();
   const labels = data.map(e => fmtDate(e.date));
 
-  // Systolic
+  // Systolic — 4 лінії: ранок Л, ранок П, вечір Л, вечір П
   buildChart('chartSys', labels, [
     {
-      label: 'Ранок', data: data.map(e => avg([e.morning.sys_l, e.morning.sys_r])),
-      borderColor: '#fbbf24', backgroundColor: 'rgba(251,191,36,.1)',
-      borderWidth: 2, tension: .4, pointRadius: 4, pointBackgroundColor: '#fbbf24', fill: true
+      label: 'Ранок Л', data: data.map(e => e.morning.sys_l),
+      borderColor: '#fbbf24', backgroundColor: 'rgba(251,191,36,.07)',
+      borderWidth: 2, tension: .4, pointRadius: 3, pointBackgroundColor: '#fbbf24', fill: false
     },
     {
-      label: 'Вечір', data: data.map(e => avg([e.evening.sys_l, e.evening.sys_r])),
-      borderColor: '#818cf8', backgroundColor: 'rgba(129,140,248,.1)',
-      borderWidth: 2, tension: .4, pointRadius: 4, pointBackgroundColor: '#818cf8', fill: true
+      label: 'Ранок П', data: data.map(e => e.morning.sys_r),
+      borderColor: '#f97316', backgroundColor: 'rgba(249,115,22,.07)',
+      borderWidth: 2, tension: .4, pointRadius: 3, pointBackgroundColor: '#f97316', fill: false,
+      borderDash: [4,3]
+    },
+    {
+      label: 'Вечір Л', data: data.map(e => e.evening.sys_l),
+      borderColor: '#818cf8', backgroundColor: 'rgba(129,140,248,.07)',
+      borderWidth: 2, tension: .4, pointRadius: 3, pointBackgroundColor: '#818cf8', fill: false
+    },
+    {
+      label: 'Вечір П', data: data.map(e => e.evening.sys_r),
+      borderColor: '#a78bfa', backgroundColor: 'rgba(167,139,250,.07)',
+      borderWidth: 2, tension: .4, pointRadius: 3, pointBackgroundColor: '#a78bfa', fill: false,
+      borderDash: [4,3]
     }
-  ], { plugins: { legend: { display: true, labels: { color: '#e8edf8', font: { size: 11 } } } } });
+  ], { plugins: { legend: { display: true, labels: { color: '#e8edf8', font: { size: 10 }, boxWidth: 20 } } } });
 
-  // Diastolic
+  // Diastolic — 4 лінії
   buildChart('chartDia', labels, [
     {
-      label: 'Ранок', data: data.map(e => avg([e.morning.dia_l, e.morning.dia_r])),
-      borderColor: '#4f8ef7', backgroundColor: 'rgba(79,142,247,.1)',
-      borderWidth: 2, tension: .4, pointRadius: 4, pointBackgroundColor: '#4f8ef7', fill: true
+      label: 'Ранок Л', data: data.map(e => e.morning.dia_l),
+      borderColor: '#4f8ef7', backgroundColor: 'rgba(79,142,247,.07)',
+      borderWidth: 2, tension: .4, pointRadius: 3, pointBackgroundColor: '#4f8ef7', fill: false
     },
     {
-      label: 'Вечір', data: data.map(e => avg([e.evening.dia_l, e.evening.dia_r])),
-      borderColor: '#c084fc', backgroundColor: 'rgba(192,132,252,.1)',
-      borderWidth: 2, tension: .4, pointRadius: 4, pointBackgroundColor: '#c084fc', fill: true
+      label: 'Ранок П', data: data.map(e => e.morning.dia_r),
+      borderColor: '#38bdf8', backgroundColor: 'rgba(56,189,248,.07)',
+      borderWidth: 2, tension: .4, pointRadius: 3, pointBackgroundColor: '#38bdf8', fill: false,
+      borderDash: [4,3]
+    },
+    {
+      label: 'Вечір Л', data: data.map(e => e.evening.dia_l),
+      borderColor: '#c084fc', backgroundColor: 'rgba(192,132,252,.07)',
+      borderWidth: 2, tension: .4, pointRadius: 3, pointBackgroundColor: '#c084fc', fill: false
+    },
+    {
+      label: 'Вечір П', data: data.map(e => e.evening.dia_r),
+      borderColor: '#e879f9', backgroundColor: 'rgba(232,121,249,.07)',
+      borderWidth: 2, tension: .4, pointRadius: 3, pointBackgroundColor: '#e879f9', fill: false,
+      borderDash: [4,3]
     }
-  ], { plugins: { legend: { display: true, labels: { color: '#e8edf8', font: { size: 11 } } } } });
+  ], { plugins: { legend: { display: true, labels: { color: '#e8edf8', font: { size: 10 }, boxWidth: 20 } } } });
 
   // Pulse
   buildChart('chartPulse', labels, [
@@ -936,27 +1008,194 @@ function renderCharts() {
     }
   ]);
 
-  // Avg stats
-  const mSys = data.map(e => avg([e.morning.sys_l, e.morning.sys_r])).filter(x => x);
-  const mDia = data.map(e => avg([e.morning.dia_l, e.morning.dia_r])).filter(x => x);
-  const eSys = data.map(e => avg([e.evening.sys_l, e.evening.sys_r])).filter(x => x);
-  const eDia = data.map(e => avg([e.evening.dia_l, e.evening.dia_r])).filter(x => x);
-  const pulses = [...data.map(e => e.morning.pulse), ...data.map(e => e.evening.pulse)].filter(x => x);
-  const weights = data.map(e => e.weight).filter(x => x);
-
-  document.getElementById('avgStatsBody').innerHTML = [
-    ['Сист. ранок', avg(mSys), 'мм', 'val-sys'],
-    ['Діаст. ранок', avg(mDia), 'мм', 'val-dia'],
-    ['Сист. вечір', avg(eSys), 'мм', 'val-sys'],
-    ['Діаст. вечір', avg(eDia), 'мм', 'val-dia'],
-    ['Середній пульс', avg(pulses), 'уд/хв', 'val-pulse'],
-    ['Середня вага', avg(weights), 'кг', 'val-weight'],
-  ].map(([label, value, unit, cls]) =>
+  // Avg stats — кожна рука окремо
+  function avgOf(arr) { const a = arr.filter(x=>x!=null); return a.length ? Math.round(a.reduce((s,x)=>s+x,0)/a.length) : null; }
+  const avgStats = [
+    ['Сист. ранок — ліва', avgOf(data.map(e=>e.morning.sys_l)), 'мм', 'val-sys'],
+    ['Сист. ранок — права', avgOf(data.map(e=>e.morning.sys_r)), 'мм', 'val-sys'],
+    ['Діаст. ранок — ліва', avgOf(data.map(e=>e.morning.dia_l)), 'мм', 'val-dia'],
+    ['Діаст. ранок — права', avgOf(data.map(e=>e.morning.dia_r)), 'мм', 'val-dia'],
+    ['Сист. вечір — ліва', avgOf(data.map(e=>e.evening.sys_l)), 'мм', 'val-sys'],
+    ['Сист. вечір — права', avgOf(data.map(e=>e.evening.sys_r)), 'мм', 'val-sys'],
+    ['Діаст. вечір — ліва', avgOf(data.map(e=>e.evening.dia_l)), 'мм', 'val-dia'],
+    ['Діаст. вечір — права', avgOf(data.map(e=>e.evening.dia_r)), 'мм', 'val-dia'],
+    ['Пульс ранок', avgOf(data.map(e=>e.morning.pulse)), 'уд/хв', 'val-pulse'],
+    ['Пульс вечір', avgOf(data.map(e=>e.evening.pulse)), 'уд/хв', 'val-pulse'],
+    ['Вага', avgOf(data.map(e=>e.weight)), 'кг', 'val-weight'],
+  ];
+  document.getElementById('avgStatsBody').innerHTML = avgStats.map(([label, value, unit, cls]) =>
     `<div class="stat-row">
       <span>${label}</span>
       <span class="${cls}">${value != null ? value + ' ' + unit : '—'}</span>
     </div>`
   ).join('');
+}
+
+// ── GOOGLE DRIVE SYNC ────────────────────────────────────────────────────────
+const DRIVE_FILE_NAME = 'health_backup.json';
+const GAPI_CLIENT_ID  = '__YOUR_GOOGLE_CLIENT_ID__'; // замінити на свій
+const GAPI_SCOPES     = 'https://www.googleapis.com/auth/drive.file';
+
+let driveToken   = null;
+let driveFileId  = localStorage.getItem('drive_file_id') || null;
+let driveUser    = JSON.parse(localStorage.getItem('drive_user') || 'null');
+
+// Завантаження Google Identity Services
+function loadGIS() {
+  return new Promise(resolve => {
+    if (window.google?.accounts) { resolve(); return; }
+    const s = document.createElement('script');
+    s.src = 'https://accounts.google.com/gsi/client';
+    s.onload = resolve;
+    document.head.appendChild(s);
+  });
+}
+
+async function driveSignIn() {
+  if (GAPI_CLIENT_ID === '__YOUR_GOOGLE_CLIENT_ID__') {
+    showDriveSetupGuide();
+    return;
+  }
+  await loadGIS();
+  const client = google.accounts.oauth2.initTokenClient({
+    client_id: GAPI_CLIENT_ID,
+    scope: GAPI_SCOPES,
+    callback: async (resp) => {
+      if (resp.error) { showToast('❌ Помилка авторизації', 'var(--warn)'); return; }
+      driveToken = resp.access_token;
+      await fetchDriveUserInfo();
+      renderDriveUI();
+      showToast('✅ Підключено до Google Drive!');
+    }
+  });
+  client.requestAccessToken();
+}
+
+async function fetchDriveUserInfo() {
+  try {
+    const r = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: { Authorization: 'Bearer ' + driveToken }
+    });
+    driveUser = await r.json();
+    localStorage.setItem('drive_user', JSON.stringify(driveUser));
+  } catch {}
+}
+
+function driveSignOut() {
+  driveToken = null;
+  driveUser  = null;
+  driveFileId = null;
+  localStorage.removeItem('drive_user');
+  localStorage.removeItem('drive_file_id');
+  renderDriveUI();
+  showToast('Вийшли з Google', 'var(--warn)');
+}
+
+function renderDriveUI() {
+  const signedIn  = driveToken != null;
+  document.getElementById('driveSignedOut').style.display = signedIn ? 'none' : 'block';
+  document.getElementById('driveSignedIn').style.display  = signedIn ? 'block' : 'none';
+  if (signedIn && driveUser) {
+    document.getElementById('driveName').textContent  = driveUser.name || '';
+    document.getElementById('driveEmail').textContent = driveUser.email || '';
+    if (driveUser.picture) document.getElementById('driveAvatar').src = driveUser.picture;
+  }
+  const t = localStorage.getItem('drive_last_sync');
+  document.getElementById('lastSyncTime').textContent = t
+    ? new Date(t).toLocaleString('uk-UA', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})
+    : '—';
+}
+
+// Знайти або створити файл на Drive
+async function findOrCreateFile() {
+  if (driveFileId) return driveFileId;
+  // Пошук існуючого
+  const q = encodeURIComponent(`name='${DRIVE_FILE_NAME}' and trashed=false`);
+  const search = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id)`, {
+    headers: { Authorization: 'Bearer ' + driveToken }
+  });
+  const { files } = await search.json();
+  if (files?.length) {
+    driveFileId = files[0].id;
+    localStorage.setItem('drive_file_id', driveFileId);
+    return driveFileId;
+  }
+  // Створити новий
+  const meta = await fetch('https://www.googleapis.com/drive/v3/files', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + driveToken, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: DRIVE_FILE_NAME, mimeType: 'application/json' })
+  });
+  const file = await meta.json();
+  driveFileId = file.id;
+  localStorage.setItem('drive_file_id', driveFileId);
+  return driveFileId;
+}
+
+async function drivePush() {
+  if (!driveToken) { showToast('⚠️ Не підключено до Drive', 'var(--warn)'); return; }
+  showToast('⏳ Зберігаємо…', 'var(--accent)');
+  try {
+    const fid  = await findOrCreateFile();
+    const body = JSON.stringify({ version: 2, exported: new Date().toISOString(), entries }, null, 2);
+    await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fid}?uploadType=media`, {
+      method: 'PATCH',
+      headers: { Authorization: 'Bearer ' + driveToken, 'Content-Type': 'application/json' },
+      body
+    });
+    const now = new Date().toISOString();
+    localStorage.setItem('drive_last_sync', now);
+    renderDriveUI();
+    showToast('☁️ Збережено на Drive!');
+  } catch (e) {
+    showToast('❌ Помилка збереження', 'var(--warn)');
+  }
+}
+
+async function drivePull() {
+  if (!driveToken) { showToast('⚠️ Не підключено до Drive', 'var(--warn)'); return; }
+  if (!confirm('Завантажити дані з Drive? Локальні дані будуть об\'єднані.')) return;
+  showToast('⏳ Завантажуємо…', 'var(--accent)');
+  try {
+    const fid = await findOrCreateFile();
+    const r   = await fetch(`https://www.googleapis.com/drive/v3/files/${fid}?alt=media`, {
+      headers: { Authorization: 'Bearer ' + driveToken }
+    });
+    const data = await r.json();
+    const imported = data.entries || [];
+    let added = 0;
+    imported.forEach(ie => {
+      if (!entries.find(x => x.date === ie.date)) { entries.push(ie); added++; }
+    });
+    entries.sort((a,b) => b.date.localeCompare(a.date));
+    saveData(entries);
+    renderExportStats();
+    showToast(`⬇️ Отримано ${added} нових записів!`);
+  } catch {
+    showToast('❌ Не вдалось завантажити', 'var(--warn)');
+  }
+}
+
+// Авто-збереження після кожного запису
+async function autoSync() {
+  if (driveToken) {
+    try { await drivePush(); } catch {}
+  }
+}
+
+function showDriveSetupGuide() {
+  alert(
+    'Щоб увімкнути синхронізацію з Google Drive:\n\n' +
+    '1. Відкрийте console.cloud.google.com\n' +
+    '2. Створіть новий проєкт\n' +
+    '3. APIs & Services → Enable APIs → Google Drive API\n' +
+    '4. Credentials → Create Credentials → OAuth 2.0 Client ID\n' +
+    '   Тип: Web application\n' +
+    '   Authorized origins: ваш домен або http://localhost\n' +
+    '5. Скопіюйте Client ID\n' +
+    '6. Замініть __YOUR_GOOGLE_CLIENT_ID__ у коді на ваш Client ID\n\n' +
+    'Це безкоштовно і займає ~5 хвилин.'
+  );
 }
 
 // ── EXPORT ───────────────────────────────────────────────────────────────────

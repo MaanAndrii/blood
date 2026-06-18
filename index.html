@@ -1,0 +1,1050 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#1a2744" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Здоров'я" />
+  <title>Моніторинг здоров'я</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg:        #0f1628;
+      --surface:   #1a2744;
+      --card:      #1f3060;
+      --border:    #2a3f6f;
+      --accent:    #4f8ef7;
+      --accent2:   #34d399;
+      --accent3:   #f472b6;
+      --warn:      #fb923c;
+      --text:      #e8edf8;
+      --muted:     #7a8fb5;
+      --morning:   #fbbf24;
+      --evening:   #818cf8;
+      --radius:    14px;
+      --radius-sm: 8px;
+      --mono:      'JetBrains Mono', monospace;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    /* ── HEADER ── */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 16px 12px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .app-title {
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: -0.3px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .app-title .pulse-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--accent2);
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+    @keyframes pulse-dot {
+      0%,100% { opacity:1; transform:scale(1); }
+      50% { opacity:.5; transform:scale(.8); }
+    }
+    .today-badge {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 400;
+    }
+
+    /* ── NAV TABS ── */
+    nav {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    nav::-webkit-scrollbar { display:none; }
+    .tab {
+      flex: 1;
+      min-width: 80px;
+      padding: 11px 8px;
+      text-align: center;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: color .2s, border-color .2s;
+      white-space: nowrap;
+      user-select: none;
+    }
+    .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .tab-icon { font-size: 16px; display: block; margin-bottom: 2px; }
+
+    /* ── MAIN CONTENT ── */
+    main { flex: 1; padding: 16px; padding-bottom: 24px; }
+    .page { display: none; animation: fadeIn .2s ease; }
+    .page.active { display: block; }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
+
+    /* ── SECTION LABEL ── */
+    .section-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--muted);
+      margin-bottom: 10px;
+      margin-top: 20px;
+    }
+    .section-label:first-child { margin-top: 0; }
+
+    /* ── CARDS ── */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .card-title {
+      font-size: 14px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .badge {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 20px;
+    }
+    .badge-morning { background: rgba(251,191,36,.15); color: var(--morning); }
+    .badge-evening { background: rgba(129,140,248,.15); color: var(--evening); }
+
+    /* ── FORM GRID ── */
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .form-grid.wide { grid-template-columns: 1fr; }
+    .field { display: flex; flex-direction: column; gap: 5px; }
+    .field label {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .field input {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 18px;
+      font-weight: 500;
+      padding: 10px 12px;
+      width: 100%;
+      transition: border-color .15s;
+      -webkit-appearance: none;
+    }
+    .field input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    .field input::placeholder { color: var(--border); font-size: 14px; }
+
+    /* ── SAVE BUTTON ── */
+    .btn-save {
+      width: 100%;
+      padding: 14px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius);
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 14px;
+      transition: opacity .15s, transform .1s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .btn-save:active { opacity: .8; transform: scale(.99); }
+
+    .btn-outline {
+      background: transparent;
+      border: 1.5px solid var(--border);
+      color: var(--text);
+      border-radius: var(--radius);
+      font-size: 13px;
+      font-weight: 500;
+      padding: 9px 14px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: border-color .15s;
+    }
+    .btn-outline:active { border-color: var(--accent); }
+
+    /* ── TODAY SUMMARY ── */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .summary-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 12px;
+      text-align: center;
+    }
+    .summary-value {
+      font-family: var(--mono);
+      font-size: 22px;
+      font-weight: 500;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+    .summary-label { font-size: 11px; color: var(--muted); }
+    .val-sys { color: var(--warn); }
+    .val-dia { color: var(--accent); }
+    .val-pulse { color: var(--accent2); }
+    .val-weight { color: var(--accent3); }
+
+    /* ── HISTORY LIST ── */
+    .history-item {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+      margin-bottom: 8px;
+    }
+    .history-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .history-date {
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .history-body {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+    .history-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      padding: 5px 8px;
+      background: var(--surface);
+      border-radius: 6px;
+    }
+    .history-row-label { color: var(--muted); }
+    .history-row-val { font-family: var(--mono); font-weight: 500; }
+    .delete-btn {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 16px;
+      padding: 2px 6px;
+      border-radius: 6px;
+      transition: color .15s, background .15s;
+    }
+    .delete-btn:active { color: #ef4444; background: rgba(239,68,68,.1); }
+
+    /* ── STATS ── */
+    .stat-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+    .stat-title {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 14px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      font-size: 11px;
+    }
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 7px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+    .stat-row:last-child { border-bottom: none; }
+    .stat-row span:last-child { font-family: var(--mono); font-weight: 500; }
+    canvas { max-width: 100%; border-radius: var(--radius-sm); }
+
+    /* ── EXPORT ── */
+    .export-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .export-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 14px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .15s, transform .1s;
+      user-select: none;
+    }
+    .export-card:active { border-color: var(--accent); transform: scale(.98); }
+    .export-icon { font-size: 28px; margin-bottom: 8px; display: block; }
+    .export-name { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
+    .export-desc { font-size: 11px; color: var(--muted); }
+
+    /* ── TOAST ── */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: var(--accent2);
+      color: #052e16;
+      padding: 12px 20px;
+      border-radius: 30px;
+      font-size: 14px;
+      font-weight: 600;
+      z-index: 999;
+      transition: transform .3s cubic-bezier(.34,1.56,.64,1);
+      white-space: nowrap;
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+
+    /* ── FILTER ROW ── */
+    .filter-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 14px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      padding-bottom: 2px;
+    }
+    .filter-row::-webkit-scrollbar { display: none; }
+    .filter-chip {
+      flex-shrink: 0;
+      padding: 6px 14px;
+      border-radius: 20px;
+      border: 1.5px solid var(--border);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      color: var(--muted);
+      background: var(--card);
+      transition: all .15s;
+      user-select: none;
+    }
+    .filter-chip.active {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: rgba(79,142,247,.1);
+    }
+
+    /* ── EMPTY STATE ── */
+    .empty-state {
+      text-align: center;
+      padding: 48px 24px;
+      color: var(--muted);
+    }
+    .empty-state .icon { font-size: 48px; margin-bottom: 12px; opacity: .5; }
+    .empty-state p { font-size: 14px; line-height: 1.5; }
+
+    /* ── DATE INPUT ── */
+    input[type="date"] {
+      color-scheme: dark;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      padding: 10px 12px;
+      width: 100%;
+    }
+    input[type="date"]:focus { outline: none; border-color: var(--accent); }
+
+    /* ── RANGE INDICATOR ── */
+    .range-bar {
+      display: flex;
+      gap: 4px;
+      margin-top: 6px;
+    }
+    .range-bar span {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    .range-ok { background: rgba(52,211,153,.15); color: var(--accent2); }
+    .range-high { background: rgba(251,146,60,.15); color: var(--warn); }
+    .range-low { background: rgba(129,140,248,.15); color: var(--evening); }
+
+    /* ── CHART CONTAINER ── */
+    .chart-wrap {
+      position: relative;
+      height: 180px;
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="app-title">
+    <span class="pulse-dot"></span>
+    Моніторинг здоров'я
+  </div>
+  <span class="today-badge" id="headerDate"></span>
+</header>
+
+<nav>
+  <div class="tab active" onclick="showPage('add')">
+    <span class="tab-icon">➕</span>Запис
+  </div>
+  <div class="tab" onclick="showPage('history')">
+    <span class="tab-icon">📋</span>Журнал
+  </div>
+  <div class="tab" onclick="showPage('stats')">
+    <span class="tab-icon">📊</span>Графіки
+  </div>
+  <div class="tab" onclick="showPage('export')">
+    <span class="tab-icon">📤</span>Експорт
+  </div>
+</nav>
+
+<main>
+
+  <!-- ══ ADD PAGE ══ -->
+  <div class="page active" id="page-add">
+
+    <!-- Today summary -->
+    <div id="todaySummary" style="display:none">
+      <div class="section-label">Сьогодні</div>
+      <div class="summary-grid" id="summaryGrid"></div>
+    </div>
+
+    <!-- Date -->
+    <div class="section-label">Дата запису</div>
+    <div class="card" style="padding:12px">
+      <input type="date" id="entryDate" />
+    </div>
+
+    <!-- Morning BP -->
+    <div class="section-label">🌅 Ранковий вимір</div>
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">❤️ Тиск та пульс</span>
+        <span class="badge badge-morning">Ранок</span>
+      </div>
+      <div class="form-grid" style="margin-bottom:12px">
+        <div class="field">
+          <label>🔴 Сист. ліва рука</label>
+          <input type="number" id="m_sys_l" placeholder="120" min="60" max="240" inputmode="numeric"/>
+        </div>
+        <div class="field">
+          <label>🔵 Діаст. ліва рука</label>
+          <input type="number" id="m_dia_l" placeholder="80" min="40" max="140" inputmode="numeric"/>
+        </div>
+        <div class="field">
+          <label>🔴 Сист. права рука</label>
+          <input type="number" id="m_sys_r" placeholder="120" min="60" max="240" inputmode="numeric"/>
+        </div>
+        <div class="field">
+          <label>🔵 Діаст. права рука</label>
+          <input type="number" id="m_dia_r" placeholder="80" min="40" max="140" inputmode="numeric"/>
+        </div>
+      </div>
+      <div class="form-grid">
+        <div class="field">
+          <label>💚 Пульс (уд/хв)</label>
+          <input type="number" id="m_pulse" placeholder="70" min="30" max="200" inputmode="numeric"/>
+        </div>
+      </div>
+    </div>
+
+    <!-- Evening BP -->
+    <div class="section-label">🌙 Вечірній вимір</div>
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">❤️ Тиск та пульс</span>
+        <span class="badge badge-evening">Вечір</span>
+      </div>
+      <div class="form-grid" style="margin-bottom:12px">
+        <div class="field">
+          <label>🔴 Сист. ліва рука</label>
+          <input type="number" id="e_sys_l" placeholder="120" min="60" max="240" inputmode="numeric"/>
+        </div>
+        <div class="field">
+          <label>🔵 Діаст. ліва рука</label>
+          <input type="number" id="e_dia_l" placeholder="80" min="40" max="140" inputmode="numeric"/>
+        </div>
+        <div class="field">
+          <label>🔴 Сист. права рука</label>
+          <input type="number" id="e_sys_r" placeholder="120" min="60" max="240" inputmode="numeric"/>
+        </div>
+        <div class="field">
+          <label>🔵 Діаст. права рука</label>
+          <input type="number" id="e_dia_r" placeholder="80" min="40" max="140" inputmode="numeric"/>
+        </div>
+      </div>
+      <div class="form-grid">
+        <div class="field">
+          <label>💚 Пульс (уд/хв)</label>
+          <input type="number" id="e_pulse" placeholder="70" min="30" max="200" inputmode="numeric"/>
+        </div>
+      </div>
+    </div>
+
+    <!-- Weight -->
+    <div class="section-label">⚖️ Вага</div>
+    <div class="card">
+      <div class="form-grid">
+        <div class="field">
+          <label>Вага (кг)</label>
+          <input type="number" id="weight" placeholder="70.0" min="30" max="250" step="0.1" inputmode="decimal"/>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn-save" onclick="saveEntry()">
+      💾 Зберегти запис
+    </button>
+  </div>
+
+  <!-- ══ HISTORY PAGE ══ -->
+  <div class="page" id="page-history">
+    <div class="filter-row">
+      <div class="filter-chip active" onclick="setFilter(this,'all')">Всі</div>
+      <div class="filter-chip" onclick="setFilter(this,'7')">7 днів</div>
+      <div class="filter-chip" onclick="setFilter(this,'30')">30 днів</div>
+      <div class="filter-chip" onclick="setFilter(this,'90')">3 місяці</div>
+    </div>
+    <div id="historyList"></div>
+  </div>
+
+  <!-- ══ STATS PAGE ══ -->
+  <div class="page" id="page-stats">
+    <div class="filter-row">
+      <div class="filter-chip active" onclick="setStatsFilter(this,'7')">7 днів</div>
+      <div class="filter-chip" onclick="setStatsFilter(this,'14')">14 днів</div>
+      <div class="filter-chip" onclick="setStatsFilter(this,'30')">30 днів</div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-title">📈 Систолічний тиск (ранок)</div>
+      <div class="chart-wrap"><canvas id="chartSys"></canvas></div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-title">📉 Діастолічний тиск (ранок)</div>
+      <div class="chart-wrap"><canvas id="chartDia"></canvas></div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-title">💚 Пульс</div>
+      <div class="chart-wrap"><canvas id="chartPulse"></canvas></div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-title">⚖️ Вага</div>
+      <div class="chart-wrap"><canvas id="chartWeight"></canvas></div>
+    </div>
+
+    <div class="stat-card" id="avgStats">
+      <div class="stat-title">📊 Середні значення</div>
+      <div id="avgStatsBody"></div>
+    </div>
+  </div>
+
+  <!-- ══ EXPORT PAGE ══ -->
+  <div class="page" id="page-export">
+    <div class="section-label">Формат</div>
+    <div class="export-grid">
+      <div class="export-card" onclick="exportCSV()">
+        <span class="export-icon">📄</span>
+        <div class="export-name">CSV</div>
+        <div class="export-desc">Excel, Google Sheets</div>
+      </div>
+      <div class="export-card" onclick="exportJSON()">
+        <span class="export-icon">🗄️</span>
+        <div class="export-name">JSON</div>
+        <div class="export-desc">Резервна копія</div>
+      </div>
+    </div>
+
+    <div class="section-label" style="margin-top:20px">Відновлення</div>
+    <div class="card">
+      <p style="font-size:13px;color:var(--muted);margin-bottom:12px">Імпортувати дані з JSON-резервної копії</p>
+      <label class="btn-outline" style="display:inline-flex;cursor:pointer">
+        📂 Вибрати файл
+        <input type="file" accept=".json" id="importFile" style="display:none" onchange="importJSON(event)"/>
+      </label>
+    </div>
+
+    <div class="section-label" style="margin-top:20px">Статистика</div>
+    <div class="card" id="exportStats"></div>
+  </div>
+
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── DATA LAYER ──────────────────────────────────────────────────────────────
+const DB_KEY = 'health_entries_v2';
+
+function loadData() {
+  try { return JSON.parse(localStorage.getItem(DB_KEY)) || []; }
+  catch { return []; }
+}
+function saveData(arr) {
+  localStorage.setItem(DB_KEY, JSON.stringify(arr));
+}
+
+let entries = loadData();
+let historyFilter = 'all';
+let statsFilter = '7';
+let charts = {};
+
+// ── HELPERS ─────────────────────────────────────────────────────────────────
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function fmtDate(str) {
+  if (!str) return '';
+  const [y,m,d] = str.split('-');
+  return `${d}.${m}.${y}`;
+}
+function v(id) {
+  const val = document.getElementById(id).value;
+  return val === '' ? null : Number(val);
+}
+function avg(arr) {
+  const a = arr.filter(x => x != null);
+  if (!a.length) return null;
+  return Math.round(a.reduce((s,x) => s+x, 0) / a.length * 10) / 10;
+}
+
+function bpStatus(sys) {
+  if (sys == null) return '';
+  if (sys < 90) return '<span class="range-low">Низький</span>';
+  if (sys <= 120) return '<span class="range-ok">Норма</span>';
+  if (sys <= 139) return '<span class="range-high">Підвищений</span>';
+  return '<span class="range-high">Високий</span>';
+}
+
+// ── TOAST ───────────────────────────────────────────────────────────────────
+function showToast(msg, color) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = color || 'var(--accent2)';
+  t.style.color = color ? '#fff' : '#052e16';
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ── NAV ─────────────────────────────────────────────────────────────────────
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  const idx = ['add','history','stats','export'].indexOf(name);
+  document.querySelectorAll('.tab')[idx].classList.add('active');
+  if (name === 'add') renderTodaySummary();
+  if (name === 'history') renderHistory();
+  if (name === 'stats') renderCharts();
+  if (name === 'export') renderExportStats();
+}
+
+// ── SAVE ────────────────────────────────────────────────────────────────────
+function saveEntry() {
+  const date = document.getElementById('entryDate').value;
+  if (!date) { showToast('⚠️ Оберіть дату', 'var(--warn)'); return; }
+
+  const entry = {
+    date,
+    morning: {
+      sys_l: v('m_sys_l'), dia_l: v('m_dia_l'),
+      sys_r: v('m_sys_r'), dia_r: v('m_dia_r'),
+      pulse: v('m_pulse')
+    },
+    evening: {
+      sys_l: v('e_sys_l'), dia_l: v('e_dia_l'),
+      sys_r: v('e_sys_r'), dia_r: v('e_dia_r'),
+      pulse: v('e_pulse')
+    },
+    weight: v('weight'),
+    saved: new Date().toISOString()
+  };
+
+  // Remove existing for same date
+  entries = entries.filter(e => e.date !== date);
+  entries.push(entry);
+  entries.sort((a,b) => b.date.localeCompare(a.date));
+  saveData(entries);
+
+  // Clear form
+  ['m_sys_l','m_dia_l','m_sys_r','m_dia_r','m_pulse',
+   'e_sys_l','e_dia_l','e_sys_r','e_dia_r','e_pulse','weight']
+    .forEach(id => document.getElementById(id).value = '');
+
+  showToast('✅ Запис збережено!');
+  renderTodaySummary();
+}
+
+// ── TODAY SUMMARY ────────────────────────────────────────────────────────────
+function renderTodaySummary() {
+  const today = todayStr();
+  const e = entries.find(x => x.date === today);
+  const box = document.getElementById('todaySummary');
+  const grid = document.getElementById('summaryGrid');
+  if (!e) { box.style.display = 'none'; return; }
+  box.style.display = 'block';
+
+  const ms = avg([e.morning.sys_l, e.morning.sys_r]);
+  const md = avg([e.morning.dia_l, e.morning.dia_r]);
+  const es = avg([e.evening.sys_l, e.evening.sys_r]);
+  const ed = avg([e.evening.dia_l, e.evening.dia_r]);
+  const mp = e.morning.pulse, ep = e.evening.pulse;
+
+  grid.innerHTML = `
+    <div class="summary-item">
+      <div class="summary-value val-sys">${ms ?? '—'}</div>
+      <div class="summary-label">Сист. ранок</div>
+    </div>
+    <div class="summary-item">
+      <div class="summary-value val-dia">${md ?? '—'}</div>
+      <div class="summary-label">Діаст. ранок</div>
+    </div>
+    <div class="summary-item">
+      <div class="summary-value val-sys">${es ?? '—'}</div>
+      <div class="summary-label">Сист. вечір</div>
+    </div>
+    <div class="summary-item">
+      <div class="summary-value val-dia">${ed ?? '—'}</div>
+      <div class="summary-label">Діаст. вечір</div>
+    </div>
+    <div class="summary-item">
+      <div class="summary-value val-pulse">${mp ?? '—'}</div>
+      <div class="summary-label">Пульс ранок</div>
+    </div>
+    <div class="summary-item">
+      <div class="summary-value val-pulse">${ep ?? '—'}</div>
+      <div class="summary-label">Пульс вечір</div>
+    </div>
+    ${e.weight ? `<div class="summary-item" style="grid-column:1/-1">
+      <div class="summary-value val-weight">${e.weight} кг</div>
+      <div class="summary-label">Вага</div>
+    </div>` : ''}
+  `;
+}
+
+// ── HISTORY ─────────────────────────────────────────────────────────────────
+function setFilter(el, val) {
+  document.querySelectorAll('.filter-row .filter-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  historyFilter = val;
+  renderHistory();
+}
+
+function filterEntries(days) {
+  if (days === 'all') return entries;
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - Number(days));
+  const cutStr = cutoff.toISOString().slice(0,10);
+  return entries.filter(e => e.date >= cutStr);
+}
+
+function renderHistory() {
+  const list = document.getElementById('historyList');
+  const data = filterEntries(historyFilter);
+  if (!data.length) {
+    list.innerHTML = `<div class="empty-state"><div class="icon">📋</div><p>Записів поки немає.<br/>Додайте перший вимір!</p></div>`;
+    return;
+  }
+  list.innerHTML = data.map(e => {
+    const ms = avg([e.morning.sys_l, e.morning.sys_r]);
+    const md = avg([e.morning.dia_l, e.morning.dia_r]);
+    const es = avg([e.evening.sys_l, e.evening.sys_r]);
+    const ed = avg([e.evening.dia_l, e.evening.dia_r]);
+    return `<div class="history-item">
+      <div class="history-header">
+        <span class="history-date">${fmtDate(e.date)}</span>
+        <button class="delete-btn" onclick="deleteEntry('${e.date}')">🗑</button>
+      </div>
+      <div class="history-body">
+        <div class="history-row">
+          <span class="history-row-label">🌅 Ранок</span>
+          <span class="history-row-val" style="color:var(--warn)">${ms ?? '—'}/${md ?? '—'}</span>
+        </div>
+        <div class="history-row">
+          <span class="history-row-label">💚 Пульс р.</span>
+          <span class="history-row-val" style="color:var(--accent2)">${e.morning.pulse ?? '—'}</span>
+        </div>
+        <div class="history-row">
+          <span class="history-row-label">🌙 Вечір</span>
+          <span class="history-row-val" style="color:var(--evening)">${es ?? '—'}/${ed ?? '—'}</span>
+        </div>
+        <div class="history-row">
+          <span class="history-row-label">💚 Пульс в.</span>
+          <span class="history-row-val" style="color:var(--accent2)">${e.evening.pulse ?? '—'}</span>
+        </div>
+        ${e.weight ? `<div class="history-row" style="grid-column:1/-1">
+          <span class="history-row-label">⚖️ Вага</span>
+          <span class="history-row-val" style="color:var(--accent3)">${e.weight} кг</span>
+        </div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function deleteEntry(date) {
+  if (!confirm(`Видалити запис за ${fmtDate(date)}?`)) return;
+  entries = entries.filter(e => e.date !== date);
+  saveData(entries);
+  renderHistory();
+  showToast('🗑 Запис видалено', 'var(--warn)');
+}
+
+// ── CHARTS ──────────────────────────────────────────────────────────────────
+function setStatsFilter(el, val) {
+  document.querySelectorAll('#page-stats .filter-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  statsFilter = val;
+  renderCharts();
+}
+
+const chartDefaults = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: { legend: { display: false } },
+  scales: {
+    x: { ticks: { color: '#7a8fb5', font: { size: 10 }, maxRotation: 45 }, grid: { color: '#2a3f6f' } },
+    y: { ticks: { color: '#7a8fb5', font: { size: 10 } }, grid: { color: '#2a3f6f' } }
+  }
+};
+
+function buildChart(id, labels, datasets, extraOpts = {}) {
+  if (charts[id]) charts[id].destroy();
+  const ctx = document.getElementById(id).getContext('2d');
+  charts[id] = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets },
+    options: { ...chartDefaults, ...extraOpts }
+  });
+}
+
+function renderCharts() {
+  const data = filterEntries(statsFilter).slice().reverse();
+  const labels = data.map(e => fmtDate(e.date));
+
+  // Systolic
+  buildChart('chartSys', labels, [
+    {
+      label: 'Ранок', data: data.map(e => avg([e.morning.sys_l, e.morning.sys_r])),
+      borderColor: '#fbbf24', backgroundColor: 'rgba(251,191,36,.1)',
+      borderWidth: 2, tension: .4, pointRadius: 4, pointBackgroundColor: '#fbbf24', fill: true
+    },
+    {
+      label: 'Вечір', data: data.map(e => avg([e.evening.sys_l, e.evening.sys_r])),
+      borderColor: '#818cf8', backgroundColor: 'rgba(129,140,248,.1)',
+      borderWidth: 2, tension: .4, pointRadius: 4, pointBackgroundColor: '#818cf8', fill: true
+    }
+  ], { plugins: { legend: { display: true, labels: { color: '#e8edf8', font: { size: 11 } } } } });
+
+  // Diastolic
+  buildChart('chartDia', labels, [
+    {
+      label: 'Ранок', data: data.map(e => avg([e.morning.dia_l, e.morning.dia_r])),
+      borderColor: '#4f8ef7', backgroundColor: 'rgba(79,142,247,.1)',
+      borderWidth: 2, tension: .4, pointRadius: 4, pointBackgroundColor: '#4f8ef7', fill: true
+    },
+    {
+      label: 'Вечір', data: data.map(e => avg([e.evening.dia_l, e.evening.dia_r])),
+      borderColor: '#c084fc', backgroundColor: 'rgba(192,132,252,.1)',
+      borderWidth: 2, tension: .4, pointRadius: 4, pointBackgroundColor: '#c084fc', fill: true
+    }
+  ], { plugins: { legend: { display: true, labels: { color: '#e8edf8', font: { size: 11 } } } } });
+
+  // Pulse
+  buildChart('chartPulse', labels, [
+    {
+      label: 'Ранок', data: data.map(e => e.morning.pulse),
+      borderColor: '#34d399', backgroundColor: 'rgba(52,211,153,.1)',
+      borderWidth: 2, tension: .4, pointRadius: 4, pointBackgroundColor: '#34d399', fill: true
+    },
+    {
+      label: 'Вечір', data: data.map(e => e.evening.pulse),
+      borderColor: '#6ee7b7', backgroundColor: 'rgba(110,231,183,.05)',
+      borderWidth: 2, tension: .4, pointRadius: 4, pointBackgroundColor: '#6ee7b7', fill: true
+    }
+  ], { plugins: { legend: { display: true, labels: { color: '#e8edf8', font: { size: 11 } } } } });
+
+  // Weight
+  buildChart('chartWeight', labels, [
+    {
+      label: 'Вага (кг)', data: data.map(e => e.weight),
+      borderColor: '#f472b6', backgroundColor: 'rgba(244,114,182,.1)',
+      borderWidth: 2, tension: .4, pointRadius: 4, pointBackgroundColor: '#f472b6', fill: true
+    }
+  ]);
+
+  // Avg stats
+  const mSys = data.map(e => avg([e.morning.sys_l, e.morning.sys_r])).filter(x => x);
+  const mDia = data.map(e => avg([e.morning.dia_l, e.morning.dia_r])).filter(x => x);
+  const eSys = data.map(e => avg([e.evening.sys_l, e.evening.sys_r])).filter(x => x);
+  const eDia = data.map(e => avg([e.evening.dia_l, e.evening.dia_r])).filter(x => x);
+  const pulses = [...data.map(e => e.morning.pulse), ...data.map(e => e.evening.pulse)].filter(x => x);
+  const weights = data.map(e => e.weight).filter(x => x);
+
+  document.getElementById('avgStatsBody').innerHTML = [
+    ['Сист. ранок', avg(mSys), 'мм', 'val-sys'],
+    ['Діаст. ранок', avg(mDia), 'мм', 'val-dia'],
+    ['Сист. вечір', avg(eSys), 'мм', 'val-sys'],
+    ['Діаст. вечір', avg(eDia), 'мм', 'val-dia'],
+    ['Середній пульс', avg(pulses), 'уд/хв', 'val-pulse'],
+    ['Середня вага', avg(weights), 'кг', 'val-weight'],
+  ].map(([label, value, unit, cls]) =>
+    `<div class="stat-row">
+      <span>${label}</span>
+      <span class="${cls}">${value != null ? value + ' ' + unit : '—'}</span>
+    </div>`
+  ).join('');
+}
+
+// ── EXPORT ───────────────────────────────────────────────────────────────────
+function exportCSV() {
+  if (!entries.length) { showToast('⚠️ Немає даних для експорту', 'var(--warn)'); return; }
+  const cols = [
+    'Дата',
+    'Ранок Сист. Л','Ранок Діаст. Л','Ранок Сист. П','Ранок Діаст. П','Ранок Пульс',
+    'Вечір Сист. Л','Вечір Діаст. Л','Вечір Сист. П','Вечір Діаст. П','Вечір Пульс',
+    'Вага'
+  ];
+  const rows = entries.map(e => [
+    e.date,
+    e.morning.sys_l ?? '', e.morning.dia_l ?? '', e.morning.sys_r ?? '', e.morning.dia_r ?? '', e.morning.pulse ?? '',
+    e.evening.sys_l ?? '', e.evening.dia_l ?? '', e.evening.sys_r ?? '', e.evening.dia_r ?? '', e.evening.pulse ?? '',
+    e.weight ?? ''
+  ].join(','));
+  download('\uFEFF' + [cols.join(','), ...rows].join('\n'), 'health_data.csv', 'text/csv');
+  showToast('📄 CSV завантажено!');
+}
+
+function exportJSON() {
+  if (!entries.length) { showToast('⚠️ Немає даних для експорту', 'var(--warn)'); return; }
+  download(JSON.stringify({ version: 2, exported: new Date().toISOString(), entries }, null, 2),
+    'health_backup.json', 'application/json');
+  showToast('🗄️ JSON завантажено!');
+}
+
+function importJSON(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      const imported = data.entries || data;
+      if (!Array.isArray(imported)) throw new Error();
+      const merge = [...entries];
+      let added = 0;
+      imported.forEach(ie => {
+        if (!merge.find(x => x.date === ie.date)) { merge.push(ie); added++; }
+      });
+      entries = merge.sort((a,b) => b.date.localeCompare(a.date));
+      saveData(entries);
+      showToast(`✅ Імпортовано ${added} записів!`);
+      renderExportStats();
+    } catch { showToast('❌ Помилка файлу', 'var(--warn)'); }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+function download(content, name, type) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([content], { type }));
+  a.download = name;
+  a.click();
+}
+
+function renderExportStats() {
+  const box = document.getElementById('exportStats');
+  const total = entries.length;
+  const latest = entries[0]?.date;
+  const oldest = entries[entries.length - 1]?.date;
+  const withWeight = entries.filter(e => e.weight).length;
+
+  box.innerHTML = `
+    <div class="stat-row"><span>Всього записів</span><span>${total}</span></div>
+    <div class="stat-row"><span>Перший запис</span><span>${oldest ? fmtDate(oldest) : '—'}</span></div>
+    <div class="stat-row"><span>Останній запис</span><span>${latest ? fmtDate(latest) : '—'}</span></div>
+    <div class="stat-row"><span>Записів з вагою</span><span>${withWeight}</span></div>
+  `;
+}
+
+// ── INIT ─────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('entryDate').value = todayStr();
+  const days = ['Нд','Пн','Вт','Ср','Чт','Пт','Сб'];
+  const now = new Date();
+  document.getElementById('headerDate').textContent =
+    `${days[now.getDay()]}, ${now.getDate()}.${String(now.getMonth()+1).padStart(2,'0')}`;
+  renderTodaySummary();
+});
+
+// ── SERVICE WORKER ───────────────────────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>

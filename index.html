@@ -155,6 +155,34 @@
     .badge-morning { background: rgba(251,191,36,.15); color: var(--morning); }
     .badge-evening { background: rgba(129,140,248,.15); color: var(--evening); }
 
+    /* ── BP COLUMNS ── */
+    .bp-columns {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .bp-col {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px;
+    }
+    .bp-col-header {
+      text-align: center;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 4px 0;
+      margin-bottom: 12px;
+      border-radius: 20px;
+    }
+    .bp-col .field { gap: 4px; margin-bottom: 8px; }
+    .bp-col .field:last-child { margin-bottom: 0; }
+    .bp-col .field input {
+      font-size: 16px;
+      padding: 8px 8px;
+    }
+
     /* ── FORM GRID ── */
     .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .form-grid.wide { grid-template-columns: 1fr; }
@@ -517,67 +545,52 @@
       <button class="btn-outline" onclick="goToday()" style="white-space:nowrap;padding:9px 12px;font-size:12px">📅 Сьогодні</button>
     </div>
 
-    <!-- Morning BP -->
-    <div class="section-label">🌅 Ранковий вимір</div>
-    <div class="card">
-      <div class="card-header">
-        <span class="card-title">❤️ Тиск та пульс</span>
-        <span class="badge badge-morning">Ранок</span>
-      </div>
-      <div class="form-grid" style="margin-bottom:12px">
+    <!-- Morning / Evening BP side by side -->
+    <div class="section-label">❤️ Тиск та пульс</div>
+    <div class="bp-columns">
+      <div class="bp-col">
+        <div class="bp-col-header badge badge-morning">🌅 Ранок</div>
         <div class="field">
-          <label>🔴 Сист. ліва рука</label>
+          <label>🔴 Сист. Л</label>
           <input type="number" id="m_sys_l" placeholder="120" min="60" max="240" inputmode="numeric"/>
         </div>
         <div class="field">
-          <label>🔵 Діаст. ліва рука</label>
+          <label>🔵 Діаст. Л</label>
           <input type="number" id="m_dia_l" placeholder="80" min="40" max="140" inputmode="numeric"/>
         </div>
         <div class="field">
-          <label>🔴 Сист. права рука</label>
+          <label>🔴 Сист. П</label>
           <input type="number" id="m_sys_r" placeholder="120" min="60" max="240" inputmode="numeric"/>
         </div>
         <div class="field">
-          <label>🔵 Діаст. права рука</label>
+          <label>🔵 Діаст. П</label>
           <input type="number" id="m_dia_r" placeholder="80" min="40" max="140" inputmode="numeric"/>
         </div>
-      </div>
-      <div class="form-grid">
         <div class="field">
-          <label>💚 Пульс (уд/хв)</label>
+          <label>💚 Пульс</label>
           <input type="number" id="m_pulse" placeholder="70" min="30" max="200" inputmode="numeric"/>
         </div>
       </div>
-    </div>
-
-    <!-- Evening BP -->
-    <div class="section-label">🌙 Вечірній вимір</div>
-    <div class="card">
-      <div class="card-header">
-        <span class="card-title">❤️ Тиск та пульс</span>
-        <span class="badge badge-evening">Вечір</span>
-      </div>
-      <div class="form-grid" style="margin-bottom:12px">
+      <div class="bp-col">
+        <div class="bp-col-header badge badge-evening">🌙 Вечір</div>
         <div class="field">
-          <label>🔴 Сист. ліва рука</label>
+          <label>🔴 Сист. Л</label>
           <input type="number" id="e_sys_l" placeholder="120" min="60" max="240" inputmode="numeric"/>
         </div>
         <div class="field">
-          <label>🔵 Діаст. ліва рука</label>
+          <label>🔵 Діаст. Л</label>
           <input type="number" id="e_dia_l" placeholder="80" min="40" max="140" inputmode="numeric"/>
         </div>
         <div class="field">
-          <label>🔴 Сист. права рука</label>
+          <label>🔴 Сист. П</label>
           <input type="number" id="e_sys_r" placeholder="120" min="60" max="240" inputmode="numeric"/>
         </div>
         <div class="field">
-          <label>🔵 Діаст. права рука</label>
+          <label>🔵 Діаст. П</label>
           <input type="number" id="e_dia_r" placeholder="80" min="40" max="140" inputmode="numeric"/>
         </div>
-      </div>
-      <div class="form-grid">
         <div class="field">
-          <label>💚 Пульс (уд/хв)</label>
+          <label>💚 Пульс</label>
           <input type="number" id="e_pulse" placeholder="70" min="30" max="200" inputmode="numeric"/>
         </div>
       </div>
@@ -1493,6 +1506,26 @@ document.addEventListener('DOMContentLoaded', () => {
   renderTodaySummary();
   tryRestoreSession();
 });
+
+// ── SWIPE NAVIGATION ─────────────────────────────────────────────────────────
+(function () {
+  const PAGES = ['add', 'history', 'stats', 'export'];
+  let startX = 0, startY = 0;
+
+  document.querySelector('main').addEventListener('touchstart', e => {
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+  }, { passive: true });
+
+  document.querySelector('main').addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - startX;
+    const dy = e.changedTouches[0].clientY - startY;
+    if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    const cur = PAGES.findIndex(p => document.getElementById('page-' + p).classList.contains('active'));
+    if (dx < 0 && cur < PAGES.length - 1) showPage(PAGES[cur + 1]);
+    if (dx > 0 && cur > 0) showPage(PAGES[cur - 1]);
+  }, { passive: true });
+})();
 
 // ── SERVICE WORKER ───────────────────────────────────────────────────────────
 if ('serviceWorker' in navigator) {

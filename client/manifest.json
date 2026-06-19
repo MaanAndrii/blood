@@ -2,7 +2,7 @@
   "name": "Моніторинг здоров'я",
   "short_name": "Здоров'я",
   "description": "Щоденний журнал тиску, пульсу та ваги",
-  "start_url": "./index.html",
+  "start_url": "/",
   "display": "standalone",
   "background_color": "#0f1628",
   "theme_color": "#1a2744",
@@ -20,7 +20,7 @@
   "shortcuts": [
     {
       "name": "Новий запис",
-      "url": "./index.html#add",
+      "url": "/#add",
       "description": "Додати вимір"
     }
   ]

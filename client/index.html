@@ -1003,6 +1003,27 @@
   </div>
 </div>
 
+<!-- ══ ADMIN MODAL ══ -->
+<div class="modal-overlay" id="adminModal">
+  <div class="modal-box" style="max-width:440px;width:90%">
+    <div class="modal-title">⚙️ Адмін — Користувачі</div>
+    <div id="adminUsersList" style="margin-bottom:16px;max-height:260px;overflow-y:auto"></div>
+    <div style="border-top:1px solid var(--border);padding-top:14px">
+      <div style="font-size:13px;font-weight:600;margin-bottom:8px">Додати користувача</div>
+      <div class="field" style="margin-bottom:8px">
+        <input type="email" id="adminNewEmail" placeholder="email@example.com" style="width:100%;box-sizing:border-box" />
+      </div>
+      <div class="field" style="margin-bottom:12px">
+        <input type="text" id="adminNewName" placeholder="Ім'я (необов'язково)" style="width:100%;box-sizing:border-box" />
+      </div>
+      <button class="btn-save" style="width:100%;margin-top:0" onclick="adminAddUser()">Додати</button>
+    </div>
+    <div class="modal-actions" style="margin-top:12px">
+      <button class="btn-outline" style="flex:1" onclick="closeAdminPanel()">Закрити</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -1121,11 +1142,23 @@ function renderUserChip() {
   const initials = name.split(' ').slice(0,2).map(w => w[0] || '').join('').toUpperCase() || '?';
   document.getElementById('userChipName').textContent = name.split(' ')[0] || name;
 
-  // If we stored avatar_url on the user object, show it; otherwise show initials
-  // /api/auth/me returns {id, email, name, is_admin} — no avatar in JWT
-  // Just show initials
   const avatarEl = document.getElementById('userChipAvatar');
   avatarEl.textContent = initials;
+
+  const menu = document.getElementById('userMenu');
+  menu.innerHTML = '';
+  if (currentUser.is_admin) {
+    const adminItem = document.createElement('div');
+    adminItem.className = 'user-menu-item';
+    adminItem.textContent = '⚙️ Адмін';
+    adminItem.onclick = () => { menu.classList.remove('open'); showAdminPanel(); };
+    menu.appendChild(adminItem);
+  }
+  const logoutItem = document.createElement('div');
+  logoutItem.className = 'user-menu-item danger';
+  logoutItem.textContent = '🚪 Вийти';
+  logoutItem.onclick = logout;
+  menu.appendChild(logoutItem);
 }
 
 function toggleUserMenu() {
@@ -1709,6 +1742,73 @@ async function exportPDF() {
 // Close modal on overlay click
 document.getElementById('pdfModal').addEventListener('click', function(e) {
   if (e.target === this) closePdfModal();
+});
+
+// ── ADMIN PANEL ──────────────────────────────────────────────────────────────
+async function showAdminPanel() {
+  document.getElementById('adminModal').classList.add('open');
+  await adminLoadUsers();
+}
+
+function closeAdminPanel() {
+  document.getElementById('adminModal').classList.remove('open');
+}
+
+async function adminLoadUsers() {
+  const list = document.getElementById('adminUsersList');
+  list.innerHTML = '<div style="color:var(--text-secondary);font-size:13px">Завантаження…</div>';
+  try {
+    const r = await fetch('/api/users');
+    if (!r.ok) throw new Error();
+    const users = await r.json();
+    if (!users.length) { list.innerHTML = '<div style="color:var(--text-secondary);font-size:13px">Немає користувачів</div>'; return; }
+    list.innerHTML = users.map(u => `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
+        <div>
+          <div style="font-size:14px;font-weight:500">${u.name || '—'}</div>
+          <div style="font-size:12px;color:var(--text-secondary)">${u.email}${u.is_admin ? ' · адмін' : ''}</div>
+        </div>
+        ${u.id !== currentUser.id ? `<button class="btn-outline" style="padding:4px 10px;font-size:12px;color:var(--danger);border-color:var(--danger)" onclick="adminDeleteUser(${u.id},'${u.email}')">Видалити</button>` : '<span style="font-size:12px;color:var(--text-secondary)">ви</span>'}
+      </div>`).join('');
+  } catch {
+    list.innerHTML = '<div style="color:var(--danger);font-size:13px">Помилка завантаження</div>';
+  }
+}
+
+async function adminAddUser() {
+  const email = document.getElementById('adminNewEmail').value.trim();
+  const name = document.getElementById('adminNewName').value.trim();
+  if (!email) { showToast('Введіть email', 'var(--danger)'); return; }
+  try {
+    const r = await fetch('/api/users/invite', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, name })
+    });
+    if (!r.ok) { const e = await r.json(); throw new Error(e.error || 'Помилка'); }
+    document.getElementById('adminNewEmail').value = '';
+    document.getElementById('adminNewName').value = '';
+    showToast('Користувача додано', 'var(--success)');
+    await adminLoadUsers();
+  } catch (e) {
+    showToast(e.message, 'var(--danger)');
+  }
+}
+
+async function adminDeleteUser(id, email) {
+  if (!confirm(`Видалити користувача ${email}?`)) return;
+  try {
+    const r = await fetch(`/api/users/${id}`, { method: 'DELETE' });
+    if (!r.ok) throw new Error();
+    showToast('Користувача видалено', 'var(--success)');
+    await adminLoadUsers();
+  } catch {
+    showToast('Помилка видалення', 'var(--danger)');
+  }
+}
+
+document.getElementById('adminModal').addEventListener('click', function(e) {
+  if (e.target === this) closeAdminPanel();
 });
 
 // ── REMINDERS ────────────────────────────────────────────────────────────────

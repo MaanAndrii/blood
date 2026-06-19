@@ -20,6 +20,26 @@ router.get('/', requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
+// POST /api/users/invite — admin only: pre-register user by email
+router.post('/invite', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { email, name } = req.body;
+    if (!email) return res.status(400).json({ error: 'email required' });
+
+    const result = await pool.query(
+      `INSERT INTO users (email, name, is_admin)
+       VALUES ($1, $2, FALSE)
+       ON CONFLICT (email) DO UPDATE SET name = COALESCE(EXCLUDED.name, users.name)
+       RETURNING *`,
+      [email.toLowerCase().trim(), name || null]
+    );
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('POST /api/users/invite error:', err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
 // PUT /api/users/:id — admin only: update user or pre-register by email
 // If :id is 'new' or body has only email, pre-register that email
 router.put('/:id', requireAuth, requireAdmin, async (req, res) => {

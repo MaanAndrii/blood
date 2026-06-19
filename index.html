@@ -513,7 +513,7 @@
     <!-- Date -->
     <div class="section-label">Дата запису</div>
     <div class="card" style="padding:12px">
-      <input type="date" id="entryDate" />
+      <input type="date" id="entryDate" onchange="onDateChange(this.value)" />
     </div>
 
     <!-- Morning BP -->
@@ -831,12 +831,7 @@ function saveEntry() {
   autoSync();
 }
 
-function editEntry(date) {
-  const e = entries.find(x => x.date === date);
-  if (!e) return;
-  editingDate = date;
-
-  document.getElementById('entryDate').value = e.date;
+function fillFormFromEntry(e) {
   const set = (id, val) => { document.getElementById(id).value = val ?? ''; };
   set('m_sys_l', e.morning.sys_l);  set('m_dia_l', e.morning.dia_l);
   set('m_sys_r', e.morning.sys_r);  set('m_dia_r', e.morning.dia_r);
@@ -845,6 +840,28 @@ function editEntry(date) {
   set('e_sys_r', e.evening.sys_r);  set('e_dia_r', e.evening.dia_r);
   set('e_pulse', e.evening.pulse);
   set('weight',  e.weight);
+}
+
+function onDateChange(date) {
+  if (editingDate) return; // не перебиваємо ручне редагування
+  const e = entries.find(x => x.date === date);
+  if (e) {
+    fillFormFromEntry(e);
+    showToast('📋 Дані за цей день підтягнуто', 'var(--accent)');
+  } else {
+    ['m_sys_l','m_dia_l','m_sys_r','m_dia_r','m_pulse',
+     'e_sys_l','e_dia_l','e_sys_r','e_dia_r','e_pulse','weight']
+      .forEach(id => document.getElementById(id).value = '');
+  }
+}
+
+function editEntry(date) {
+  const e = entries.find(x => x.date === date);
+  if (!e) return;
+  editingDate = date;
+
+  document.getElementById('entryDate').value = e.date;
+  fillFormFromEntry(e);
 
   setEditMode(true);
   showPage('add');

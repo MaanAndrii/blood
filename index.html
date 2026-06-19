@@ -512,8 +512,9 @@
 
     <!-- Date -->
     <div class="section-label">Дата запису</div>
-    <div class="card" style="padding:12px">
-      <input type="date" id="entryDate" onchange="onDateChange(this.value)" />
+    <div class="card" style="padding:12px;display:flex;gap:8px;align-items:center">
+      <input type="date" id="entryDate" onchange="onDateChange(this.value)" style="flex:1" />
+      <button class="btn-outline" onclick="goToday()" style="white-space:nowrap;padding:9px 12px;font-size:12px">📅 Сьогодні</button>
     </div>
 
     <!-- Morning BP -->
@@ -840,6 +841,14 @@ function fillFormFromEntry(e) {
   set('e_sys_r', e.evening.sys_r);  set('e_dia_r', e.evening.dia_r);
   set('e_pulse', e.evening.pulse);
   set('weight',  e.weight);
+}
+
+function goToday() {
+  const today = todayStr();
+  const input = document.getElementById('entryDate');
+  if (input.value === today) return;
+  input.value = today;
+  onDateChange(today);
 }
 
 function onDateChange(date) {

@@ -1076,10 +1076,9 @@ async function saveEntryToServer(entry) {
 
 async function deleteEntryFromServer(date) {
   const r = await fetch('/api/entries/' + date, { method: 'DELETE' });
-  if (r.status === 404) return; // Already gone — treat as success
   if (!r.ok) {
     const err = await r.json().catch(() => ({}));
-    throw new Error(err.error || 'Server error');
+    throw new Error(err.error || `HTTP ${r.status}`);
   }
 }
 
@@ -1479,20 +1478,19 @@ function renderHistory() {
 async function deleteEntry(date) {
   if (!confirm(`Видалити запис за ${fmtDate(date)}?`)) return;
 
-  // Optimistic update
-  entries = entries.filter(e => String(e.date).slice(0,10) !== date);
-  saveLocalData(entries);
-  renderHistory();
-  showToast('🗑 Запис видалено', 'var(--warn)');
-
   try {
     await deleteEntryFromServer(date);
   } catch (err) {
     showToast('⚠️ Помилка видалення: ' + err.message, 'var(--warn)');
-    // Re-fetch to reconcile
-    await fetchEntries();
-    renderHistory();
+    return;
   }
+
+  // Only update local state after server confirms
+  entries = entries.filter(e => String(e.date).slice(0,10) !== date);
+  saveLocalData(entries);
+  renderHistory();
+  renderTodaySummary();
+  showToast('🗑 Запис видалено', 'var(--warn)');
 }
 
 // ── CHARTS ──────────────────────────────────────────────────────────────────

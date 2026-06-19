@@ -7,9 +7,7 @@ const router = express.Router();
 // Convert DB row to API format
 function rowToEntry(row) {
   return {
-    date: row.date instanceof Date
-      ? row.date.toISOString().slice(0, 10)
-      : String(row.date).slice(0, 10),
+    date: String(row.date).slice(0, 10),
     morning: {
       sys_l: row.m_sys_l,
       dia_l: row.m_dia_l,

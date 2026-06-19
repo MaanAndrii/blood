@@ -1,4 +1,9 @@
-const { Pool } = require('pg');
+const { Pool, types } = require('pg');
+
+// Return DATE columns as plain strings (e.g. '2026-06-19') instead of
+// Date objects. Without this, pg creates Date at local midnight which
+// toISOString() shifts back a day in UTC+N timezones (e.g. UTC+3 → June 18).
+types.setTypeParser(1082, val => val);
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,

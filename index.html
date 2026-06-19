@@ -283,6 +283,7 @@
     }
     .history-row-label { color: var(--muted); }
     .history-row-val { font-family: var(--mono); font-weight: 500; }
+    .history-actions { display: flex; gap: 4px; }
     .delete-btn {
       background: none;
       border: none;
@@ -294,8 +295,42 @@
       transition: color .15s, background .15s;
     }
     .delete-btn:active { color: #ef4444; background: rgba(239,68,68,.1); }
+    .edit-btn {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 16px;
+      padding: 2px 6px;
+      border-radius: 6px;
+      transition: color .15s, background .15s;
+    }
+    .edit-btn:active { color: var(--accent); background: rgba(79,142,247,.1); }
 
-    /* ── STATS ── */
+    /* ── EDIT MODE BANNER ── */
+    .edit-banner {
+      background: rgba(79,142,247,.12);
+      border: 1.5px solid var(--accent);
+      border-radius: var(--radius);
+      padding: 10px 14px;
+      margin-bottom: 14px;
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 13px;
+    }
+    .edit-banner.active { display: flex; }
+    .edit-banner-label { color: var(--accent); font-weight: 600; }
+    .btn-cancel {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      font-weight: 500;
+      padding: 5px 12px;
+      cursor: pointer;
+    }
     .stat-card {
       background: var(--card);
       border: 1px solid var(--border);
@@ -463,6 +498,12 @@
   <!-- ══ ADD PAGE ══ -->
   <div class="page active" id="page-add">
 
+    <!-- Edit mode banner -->
+    <div class="edit-banner" id="editBanner">
+      <span class="edit-banner-label">✏️ Режим редагування</span>
+      <button class="btn-cancel" onclick="cancelEdit()">Скасувати</button>
+    </div>
+
     <!-- Today summary -->
     <div id="todaySummary" style="display:none">
       <div class="section-label">Сьогодні</div>
@@ -552,7 +593,7 @@
       </div>
     </div>
 
-    <button class="btn-save" onclick="saveEntry()">
+    <button class="btn-save" id="btnSave" onclick="saveEntry()">
       💾 Зберегти запис
     </button>
   </div>
@@ -691,6 +732,7 @@ let entries = loadData();
 let historyFilter = 'all';
 let statsFilter = '7';
 let charts = {};
+let editingDate = null;
 
 // ── HELPERS ─────────────────────────────────────────────────────────────────
 function todayStr() {
@@ -775,9 +817,54 @@ function saveEntry() {
    'e_sys_l','e_dia_l','e_sys_r','e_dia_r','e_pulse','weight']
     .forEach(id => document.getElementById(id).value = '');
 
-  showToast('✅ Запис збережено!');
+  const wasEditing = editingDate !== null;
+  editingDate = null;
+  setEditMode(false);
+
+  if (wasEditing) {
+    showToast('✏️ Запис оновлено!');
+    showPage('history');
+  } else {
+    showToast('✅ Запис збережено!');
+  }
   renderTodaySummary();
   autoSync();
+}
+
+function editEntry(date) {
+  const e = entries.find(x => x.date === date);
+  if (!e) return;
+  editingDate = date;
+
+  document.getElementById('entryDate').value = e.date;
+  const set = (id, val) => { document.getElementById(id).value = val ?? ''; };
+  set('m_sys_l', e.morning.sys_l);  set('m_dia_l', e.morning.dia_l);
+  set('m_sys_r', e.morning.sys_r);  set('m_dia_r', e.morning.dia_r);
+  set('m_pulse', e.morning.pulse);
+  set('e_sys_l', e.evening.sys_l);  set('e_dia_l', e.evening.dia_l);
+  set('e_sys_r', e.evening.sys_r);  set('e_dia_r', e.evening.dia_r);
+  set('e_pulse', e.evening.pulse);
+  set('weight',  e.weight);
+
+  setEditMode(true);
+  showPage('add');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function cancelEdit() {
+  editingDate = null;
+  setEditMode(false);
+  ['m_sys_l','m_dia_l','m_sys_r','m_dia_r','m_pulse',
+   'e_sys_l','e_dia_l','e_sys_r','e_dia_r','e_pulse','weight']
+    .forEach(id => document.getElementById(id).value = '');
+  document.getElementById('entryDate').value = todayStr();
+}
+
+function setEditMode(on) {
+  document.getElementById('editBanner').classList.toggle('active', on);
+  document.getElementById('btnSave').innerHTML = on
+    ? '✏️ Оновити запис'
+    : '💾 Зберегти запис';
 }
 
 // ── TODAY SUMMARY ────────────────────────────────────────────────────────────
@@ -857,7 +944,10 @@ function renderHistory() {
     return `<div class="history-item">
       <div class="history-header">
         <span class="history-date">${fmtDate(e.date)}</span>
-        <button class="delete-btn" onclick="deleteEntry('${e.date}')">🗑</button>
+        <div class="history-actions">
+          <button class="edit-btn" onclick="editEntry('${e.date}')">✏️</button>
+          <button class="delete-btn" onclick="deleteEntry('${e.date}')">🗑</button>
+        </div>
       </div>
       <div class="history-body">
         <div class="history-row">
@@ -1039,6 +1129,7 @@ const GAPI_SCOPES     = 'https://www.googleapis.com/auth/drive.file';
 let driveToken   = null;
 let driveFileId  = localStorage.getItem('drive_file_id') || null;
 let driveUser    = JSON.parse(localStorage.getItem('drive_user') || 'null');
+let driveRefreshTimer = null;
 
 // Завантаження Google Identity Services
 function loadGIS() {
@@ -1065,10 +1156,35 @@ async function driveSignIn() {
       driveToken = resp.access_token;
       await fetchDriveUserInfo();
       renderDriveUI();
+      scheduleTokenRefresh();
       showToast('✅ Підключено до Google Drive!');
     }
   });
   client.requestAccessToken();
+}
+
+// Оновлює токен кожні 50 хв поки вкладка відкрита (токен живе ~60 хв)
+function scheduleTokenRefresh() {
+  clearTimeout(driveRefreshTimer);
+  driveRefreshTimer = setTimeout(async () => {
+    if (!driveUser || GAPI_CLIENT_ID === '__YOUR_GOOGLE_CLIENT_ID__') return;
+    try {
+      await loadGIS();
+      const client = google.accounts.oauth2.initTokenClient({
+        client_id: GAPI_CLIENT_ID,
+        scope: GAPI_SCOPES,
+        prompt: '',
+        callback: (resp) => {
+          if (!resp.error && resp.access_token) {
+            driveToken = resp.access_token;
+            renderDriveUI();
+            scheduleTokenRefresh();
+          }
+        }
+      });
+      client.requestAccessToken({ prompt: '' });
+    } catch {}
+  }, 50 * 60 * 1000);
 }
 
 async function fetchDriveUserInfo() {
@@ -1082,6 +1198,7 @@ async function fetchDriveUserInfo() {
 }
 
 function driveSignOut() {
+  clearTimeout(driveRefreshTimer);
   driveToken = null;
   driveUser  = null;
   driveFileId = null;
@@ -1143,6 +1260,7 @@ async function ensureToken() {
           if (!resp.error && resp.access_token) {
             driveToken = resp.access_token;
             renderDriveUI();
+            scheduleTokenRefresh();
             resolve(true);
           } else {
             resolve(false);
@@ -1167,6 +1285,7 @@ async function tryRestoreSession() {
         if (!resp.error && resp.access_token) {
           driveToken = resp.access_token;
           renderDriveUI();
+          scheduleTokenRefresh();
         }
       }
     });

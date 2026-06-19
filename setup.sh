@@ -72,8 +72,7 @@ step "Крок 2/9 — npm залежності"
 
 cd "$APP_DIR"
 info "npm install (без завантаження Chromium)..."
-npm install &>/dev/null
-npm install puppeteer --ignore-scripts &>/dev/null
+PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=1 npm install
 ok "Залежності встановлено"
 
 info "Patching Puppeteer — системний Chromium..."

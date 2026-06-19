@@ -619,7 +619,7 @@
       </div>
       <div id="driveSignedIn" style="display:none">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
-          <img id="driveAvatar" width="32" height="32" style="border-radius:50%" src="" alt=""/>
+          <div id="driveAvatarWrap" style="flex-shrink:0"></div>
           <div>
             <div id="driveName" style="font-size:13px;font-weight:600"></div>
             <div id="driveEmail" style="font-size:11px;color:var(--muted)"></div>
@@ -629,7 +629,7 @@
         <div id="driveSyncStatus" style="font-size:12px;color:var(--muted);margin-bottom:12px">
           Остання синхронізація: <span id="lastSyncTime">—</span>
         </div>
-        <div style="display:flex;gap:8px">
+        <div style="display:flex;gap:8px;align-items:center">
           <button class="btn-save" onclick="drivePush()" style="flex:1">
             ☁️ Зберегти зараз
           </button>
@@ -1092,18 +1092,86 @@ function driveSignOut() {
 }
 
 function renderDriveUI() {
-  const signedIn  = driveToken != null;
+  const signedIn = driveUser != null;
   document.getElementById('driveSignedOut').style.display = signedIn ? 'none' : 'block';
   document.getElementById('driveSignedIn').style.display  = signedIn ? 'block' : 'none';
-  if (signedIn && driveUser) {
-    document.getElementById('driveName').textContent  = driveUser.name || '';
-    document.getElementById('driveEmail').textContent = driveUser.email || '';
-    if (driveUser.picture) document.getElementById('driveAvatar').src = driveUser.picture;
+  if (!signedIn) return;
+
+  document.getElementById('driveName').textContent  = driveUser.name  || '';
+  document.getElementById('driveEmail').textContent = driveUser.email || '';
+
+  const wrap = document.getElementById('driveAvatarWrap');
+  if (driveUser.picture) {
+    const img = document.createElement('img');
+    img.width = img.height = 32;
+    img.style.cssText = 'border-radius:50%;display:block';
+    img.alt = '';
+    img.onerror = () => showInitialsAvatar(driveUser.name);
+    img.src = driveUser.picture;
+    wrap.replaceChildren(img);
+  } else {
+    showInitialsAvatar(driveUser.name);
   }
-  const t = localStorage.getItem('drive_last_sync');
-  document.getElementById('lastSyncTime').textContent = t
-    ? new Date(t).toLocaleString('uk-UA', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})
-    : '—';
+
+  const statusEl = document.getElementById('driveSyncStatus');
+  if (!driveToken) {
+    statusEl.innerHTML = '⚠️ <span style="color:var(--warn)">Потребує повторного входу</span>';
+  } else {
+    const t = localStorage.getItem('drive_last_sync');
+    statusEl.innerHTML = 'Остання синхронізація: <span>' +
+      (t ? new Date(t).toLocaleString('uk-UA', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—') +
+      '</span>';
+  }
+}
+
+function showInitialsAvatar(name) {
+  const initials = (name || '?').split(' ').slice(0, 2).map(w => w[0] || '').join('').toUpperCase() || '?';
+  const wrap = document.getElementById('driveAvatarWrap');
+  wrap.innerHTML = `<div style="width:32px;height:32px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:#fff">${initials}</div>`;
+}
+
+async function ensureToken() {
+  if (driveToken) return true;
+  if (!driveUser || GAPI_CLIENT_ID === '__YOUR_GOOGLE_CLIENT_ID__') return false;
+  return new Promise(async resolve => {
+    try {
+      await loadGIS();
+      const client = google.accounts.oauth2.initTokenClient({
+        client_id: GAPI_CLIENT_ID,
+        scope: GAPI_SCOPES,
+        callback: (resp) => {
+          if (!resp.error && resp.access_token) {
+            driveToken = resp.access_token;
+            renderDriveUI();
+            resolve(true);
+          } else {
+            resolve(false);
+          }
+        }
+      });
+      client.requestAccessToken();
+    } catch { resolve(false); }
+  });
+}
+
+async function tryRestoreSession() {
+  if (!driveUser || GAPI_CLIENT_ID === '__YOUR_GOOGLE_CLIENT_ID__') return;
+  renderDriveUI();
+  try {
+    await loadGIS();
+    const client = google.accounts.oauth2.initTokenClient({
+      client_id: GAPI_CLIENT_ID,
+      scope: GAPI_SCOPES,
+      prompt: '',
+      callback: (resp) => {
+        if (!resp.error && resp.access_token) {
+          driveToken = resp.access_token;
+          renderDriveUI();
+        }
+      }
+    });
+    client.requestAccessToken({ prompt: '' });
+  } catch {}
 }
 
 // Знайти або створити файл на Drive
@@ -1133,7 +1201,7 @@ async function findOrCreateFile() {
 }
 
 async function drivePush() {
-  if (!driveToken) { showToast('⚠️ Не підключено до Drive', 'var(--warn)'); return; }
+  if (!await ensureToken()) { showToast('⚠️ Не вдалось підключитись до Drive', 'var(--warn)'); return; }
   showToast('⏳ Зберігаємо…', 'var(--accent)');
   try {
     const fid  = await findOrCreateFile();
@@ -1153,7 +1221,7 @@ async function drivePush() {
 }
 
 async function drivePull() {
-  if (!driveToken) { showToast('⚠️ Не підключено до Drive', 'var(--warn)'); return; }
+  if (!await ensureToken()) { showToast('⚠️ Не вдалось підключитись до Drive', 'var(--warn)'); return; }
   if (!confirm('Завантажити дані з Drive? Локальні дані будуть об\'єднані.')) return;
   showToast('⏳ Завантажуємо…', 'var(--accent)');
   try {
@@ -1178,7 +1246,7 @@ async function drivePull() {
 
 // Авто-збереження після кожного запису
 async function autoSync() {
-  if (driveToken) {
+  if (driveUser) {
     try { await drivePush(); } catch {}
   }
 }
@@ -1278,6 +1346,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('headerDate').textContent =
     `${days[now.getDay()]}, ${now.getDate()}.${String(now.getMonth()+1).padStart(2,'0')}`;
   renderTodaySummary();
+  tryRestoreSession();
 });
 
 // ── SERVICE WORKER ───────────────────────────────────────────────────────────

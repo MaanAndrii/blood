@@ -4,6 +4,7 @@ const express = require('express');
 const cookieParser = require('cookie-parser');
 const passport = require('passport');
 const path = require('path');
+const rateLimit = require('express-rate-limit');
 
 const { initDb } = require('./db');
 const authRouter = require('./routes/auth');
@@ -16,10 +17,16 @@ const { scheduleReminders } = require('./services/push');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// ── Rate Limiting ────────────────────────────────────────────────────────────
+const generalLimit = rateLimit({ windowMs: 15 * 60 * 1000, max: 200, standardHeaders: true, legacyHeaders: false });
+const authLimit    = rateLimit({ windowMs: 15 * 60 * 1000, max: 20,  standardHeaders: true, legacyHeaders: false });
+
 // ── Middleware ──────────────────────────────────────────────────────────────
 app.use(express.json());
 app.use(cookieParser());
 app.use(passport.initialize());
+app.use('/api/', generalLimit);
+app.use('/api/auth', authLimit);
 
 // ── Health check (no auth required — used by monitoring/Cloudflare) ─────────
 app.get('/api/health', (req, res) => res.json({ ok: true, ts: new Date().toISOString() }));

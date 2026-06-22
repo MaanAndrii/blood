@@ -1740,6 +1740,31 @@ function bpStr(sys, dia) {
   return `${sys ?? '?'}/${dia ?? '?'}`;
 }
 
+function bpCategory(sys, dia) {
+  if (sys == null || dia == null) return null;
+  if (sys > 180 || dia > 120) return { label: 'Криз',          color: '#dc2626' };
+  if (sys >= 140 || dia >= 90) return { label: 'Гіпертонія ІІ', color: '#ef4444' };
+  if (sys >= 130 || dia >= 80) return { label: 'Гіпертонія І',  color: '#f97316' };
+  if (sys >= 120)              return { label: 'Підвищений',    color: '#eab308' };
+  return                              { label: 'Норма',         color: '#22c55e' };
+}
+
+function bpBadge(sys, dia) {
+  const cat = bpCategory(sys, dia);
+  if (!cat) return '';
+  return `<span style="display:inline-block;margin-left:6px;padding:1px 7px;border-radius:10px;font-size:10px;font-weight:600;background:${cat.color}22;color:${cat.color};border:1px solid ${cat.color}66">${cat.label}</span>`;
+}
+
+function armDiffWarning(sys_l, sys_r) {
+  if (sys_l == null || sys_r == null) return '';
+  const diff = Math.abs(sys_l - sys_r);
+  if (diff <= 10) return '';
+  return `<div class="history-row" style="grid-column:1/-1">
+    <span class="history-row-label">⚠️ Різниця рук</span>
+    <span class="history-row-val" style="color:#f97316;font-weight:600">${diff} мм рт.ст. — рекомендується консультація лікаря</span>
+  </div>`;
+}
+
 function renderTodaySummary() {
   const today = todayStr();
   const e = entries.find(x => String(x.date).slice(0,10) === today);
@@ -1758,11 +1783,11 @@ function renderTodaySummary() {
     <div class="summary-col">
       <div class="summary-col-header" style="color:var(--morning)">🌅 Ранок</div>
       <div class="summary-item">
-        <div class="summary-value val-sys" style="font-size:16px">${bpStr(m.sys_l, m.dia_l)}</div>
+        <div class="summary-value val-sys" style="font-size:16px">${bpStr(m.sys_l, m.dia_l)}${bpBadge(m.sys_l, m.dia_l)}</div>
         <div class="summary-label">ліва рука</div>
       </div>
       <div class="summary-item">
-        <div class="summary-value val-sys" style="font-size:16px">${bpStr(m.sys_r, m.dia_r)}</div>
+        <div class="summary-value val-sys" style="font-size:16px">${bpStr(m.sys_r, m.dia_r)}${bpBadge(m.sys_r, m.dia_r)}</div>
         <div class="summary-label">права рука</div>
       </div>
       <div class="summary-item">
@@ -1773,11 +1798,11 @@ function renderTodaySummary() {
     <div class="summary-col">
       <div class="summary-col-header" style="color:var(--evening)">🌙 Вечір</div>
       <div class="summary-item">
-        <div class="summary-value" style="font-size:16px;color:var(--evening)">${bpStr(ev.sys_l, ev.dia_l)}</div>
+        <div class="summary-value" style="font-size:16px;color:var(--evening)">${bpStr(ev.sys_l, ev.dia_l)}${bpBadge(ev.sys_l, ev.dia_l)}</div>
         <div class="summary-label">ліва рука</div>
       </div>
       <div class="summary-item">
-        <div class="summary-value" style="font-size:16px;color:var(--evening)">${bpStr(ev.sys_r, ev.dia_r)}</div>
+        <div class="summary-value" style="font-size:16px;color:var(--evening)">${bpStr(ev.sys_r, ev.dia_r)}${bpBadge(ev.sys_r, ev.dia_r)}</div>
         <div class="summary-label">права рука</div>
       </div>
       <div class="summary-item">
@@ -1830,20 +1855,22 @@ function renderHistory() {
       <div class="history-body">
         <div class="history-row">
           <span class="history-row-label">🌅 Ранок Л</span>
-          <span class="history-row-val" style="color:var(--morning)">${bp(m.sys_l, m.dia_l)}</span>
+          <span class="history-row-val" style="color:var(--morning)">${bp(m.sys_l, m.dia_l)}${bpBadge(m.sys_l, m.dia_l)}</span>
         </div>
         <div class="history-row">
           <span class="history-row-label">🌅 Ранок П</span>
-          <span class="history-row-val" style="color:var(--morning)">${bp(m.sys_r, m.dia_r)}</span>
+          <span class="history-row-val" style="color:var(--morning)">${bp(m.sys_r, m.dia_r)}${bpBadge(m.sys_r, m.dia_r)}</span>
         </div>
+        ${armDiffWarning(m.sys_l, m.sys_r)}
         <div class="history-row">
           <span class="history-row-label">🌙 Вечір Л</span>
-          <span class="history-row-val" style="color:var(--evening)">${bp(ev.sys_l, ev.dia_l)}</span>
+          <span class="history-row-val" style="color:var(--evening)">${bp(ev.sys_l, ev.dia_l)}${bpBadge(ev.sys_l, ev.dia_l)}</span>
         </div>
         <div class="history-row">
           <span class="history-row-label">🌙 Вечір П</span>
-          <span class="history-row-val" style="color:var(--evening)">${bp(ev.sys_r, ev.dia_r)}</span>
+          <span class="history-row-val" style="color:var(--evening)">${bp(ev.sys_r, ev.dia_r)}${bpBadge(ev.sys_r, ev.dia_r)}</span>
         </div>
+        ${armDiffWarning(ev.sys_l, ev.sys_r)}
         <div class="history-row">
           <span class="history-row-label">💚 Пульс р.</span>
           <span class="history-row-val" style="color:var(--accent2)">${m.pulse ?? '—'}</span>

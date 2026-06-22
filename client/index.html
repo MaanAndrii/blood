@@ -1030,6 +1030,9 @@
 
     <div class="section-label" style="margin-top:20px">🔔 Нагадування</div>
     <div class="card" id="remindersCard">
+      <div id="vapidStatus" style="display:none;background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.3);border-radius:var(--radius-sm);padding:10px 12px;font-size:12px;color:var(--morning);margin-bottom:12px">
+        ⚠️ Push-нагадування не налаштовані на сервері (відсутні VAPID-ключі в <code>.env</code>). Нагадування спрацюють лише поки застосунок відкритий.
+      </div>
       <div id="notifStatus" class="notif-status default"></div>
       <div class="toggle-row">
         <span class="toggle-label">Нагадувати про виміри</span>
@@ -1072,11 +1075,13 @@
     <div class="modal-title">📋 PDF Довідка для лікаря</div>
     <div class="field" style="margin-bottom:12px">
       <label>Дата від</label>
-      <input type="date" id="pdfDateFrom" />
+      <input type="date" id="pdfDateFrom"
+        oninput="document.getElementById('pdfDateTo').min = this.value" />
     </div>
     <div class="field">
       <label>Дата до</label>
-      <input type="date" id="pdfDateTo" />
+      <input type="date" id="pdfDateTo"
+        oninput="document.getElementById('pdfDateFrom').max = this.value" />
     </div>
     <div class="modal-actions">
       <button class="btn-outline" style="flex:1" onclick="closePdfModal()">Скасувати</button>
@@ -1226,7 +1231,26 @@ function renderUserChip() {
   document.getElementById('userChipName').textContent = name.split(' ')[0] || name;
 
   const avatarEl = document.getElementById('userChipAvatar');
-  avatarEl.textContent = initials;
+  if (currentUser.avatar_url) {
+    avatarEl.innerHTML = '';
+    avatarEl.className = '';
+    avatarEl.style.cssText = 'width:26px;height:26px;border-radius:50%;overflow:hidden;flex-shrink:0';
+    const img = document.createElement('img');
+    img.src = currentUser.avatar_url;
+    img.alt = initials;
+    img.style.cssText = 'width:100%;height:100%;object-fit:cover';
+    img.onerror = () => {
+      avatarEl.innerHTML = '';
+      avatarEl.className = 'user-chip-initials';
+      avatarEl.style.cssText = '';
+      avatarEl.textContent = initials;
+    };
+    avatarEl.appendChild(img);
+  } else {
+    avatarEl.className = 'user-chip-initials';
+    avatarEl.style.cssText = '';
+    avatarEl.textContent = initials;
+  }
 
   const menu = document.getElementById('userMenu');
   menu.innerHTML = '';
@@ -1735,6 +1759,10 @@ function renderHistory() {
           <span class="history-row-label">⚖️ Вага</span>
           <span class="history-row-val" style="color:var(--accent3)">${e.weight} кг</span>
         </div>` : ''}
+        ${e.notes ? `<div class="history-row" style="grid-column:1/-1;align-items:flex-start">
+          <span class="history-row-label">📝 Нотатки</span>
+          <span class="history-row-val" style="color:var(--text);font-size:13px;font-family:var(--font);font-weight:400;white-space:pre-wrap;word-break:break-word">${e.notes.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</span>
+        </div>` : ''}
       </div>
     </div>`;
   }).join('');
@@ -1968,7 +1996,10 @@ function openPdfModal() {
   const fromStr = from.toISOString().slice(0,10);
 
   document.getElementById('pdfDateFrom').value = fromStr;
-  document.getElementById('pdfDateTo').value = today;
+  document.getElementById('pdfDateFrom').max   = today;
+  document.getElementById('pdfDateTo').value   = today;
+  document.getElementById('pdfDateTo').min     = fromStr;
+  document.getElementById('pdfDateTo').max     = today;
   document.getElementById('pdfModal').classList.add('open');
 }
 
@@ -2170,11 +2201,19 @@ function urlBase64ToUint8Array(base64String) {
   return outputArray;
 }
 
-function renderRemindersUI() {
+async function renderRemindersUI() {
   const s = loadReminderSettings();
   document.getElementById('remindersEnabled').checked  = s.enabled  ?? false;
   document.getElementById('reminderMorning').value     = s.morning  || '08:00';
   document.getElementById('reminderEvening').value     = s.evening  || '20:00';
+
+  // Check if VAPID is configured on server
+  try {
+    const r = await fetch('/api/push/vapid-public-key');
+    document.getElementById('vapidStatus').style.display = r.ok ? 'none' : '';
+  } catch {
+    document.getElementById('vapidStatus').style.display = '';
+  }
 
   const perm = 'Notification' in window ? Notification.permission : 'unsupported';
   const statusEl = document.getElementById('notifStatus');

@@ -292,11 +292,23 @@
       font-weight: 600;
       cursor: pointer;
       transition: all .15s;
+      position: relative;
     }
     .toggle-btn.active {
       background: var(--accent);
       border-color: var(--accent);
       color: #fff;
+    }
+    .toggle-btn.has-data::after {
+      content: '';
+      position: absolute;
+      top: 5px; right: 6px;
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--success);
+    }
+    .toggle-btn.active.has-data::after {
+      background: rgba(255,255,255,0.85);
     }
     .rollers-row {
       display: flex;
@@ -381,6 +393,10 @@
       text-align: center;
       margin-bottom: 6px;
     }
+    /* "—" (null) item in rollers */
+    .roller-item.roller-null { font-family: var(--font); color: var(--muted); opacity: 0.4; font-size: 26px; }
+    .roller-item.roller-null.near { opacity: 0.35; font-size: 22px; }
+    .roller-item.roller-null.selected { opacity: 0.7; font-size: 30px; color: var(--muted); }
     .roller-null-badge {
       display: inline-block;
       background: var(--surface);
@@ -1338,10 +1354,11 @@ function showPage(name) {
 
 // ── DRUM ROLLERS ────────────────────────────────────────────────────────────
 const ITEM_H = 52;
+// nullAt: insert "—" item between this value and the next (natural "unset" default)
 const ROLLER_CFG = [
-  { id: 'sys',   min: 60,  max: 240, def: 120 },
-  { id: 'dia',   min: 40,  max: 140, def: 80  },
-  { id: 'pulse', min: 30,  max: 200, def: 70  },
+  { id: 'sys',   min: 60,  max: 240, nullAt: 119 },
+  { id: 'dia',   min: 40,  max: 140, nullAt: 79  },
+  { id: 'pulse', min: 30,  max: 200, nullAt: 69  },
 ];
 
 let rollerPeriod = 'morning';
@@ -1363,6 +1380,13 @@ function initRollers() {
     top.className = 'roller-spacer';
     track.appendChild(top);
     for (let val = cfg.min; val <= cfg.max; val++) {
+      if (val === cfg.nullAt + 1) {
+        const nullEl = document.createElement('div');
+        nullEl.className = 'roller-item roller-null';
+        nullEl.dataset.value = '';
+        nullEl.textContent = '—';
+        track.appendChild(nullEl);
+      }
       const el = document.createElement('div');
       el.className = 'roller-item';
       el.dataset.value = val;
@@ -1381,9 +1405,10 @@ function initRollers() {
         _saveRollerToFormData();
       }, 120);
     }, { passive: true });
-    _setRollerScroll(cfg.id, cfg.def);
+    _setRollerValue(cfg.id, null); // start at "—"
   });
   updateRollerHint();
+  updateToggleStatus();
 }
 
 function _updateRollerVisuals(id) {
@@ -1404,24 +1429,35 @@ function _snapRoller(id) {
   track.scrollTo({ top: idx * ITEM_H, behavior: 'smooth' });
 }
 
-function _setRollerScroll(id, value) {
-  const cfg = ROLLER_CFG.find(c => c.id === id);
-  if (!cfg) return;
+// Scroll to a specific value (or null → "—" item)
+function _setRollerValue(id, value) {
   const track = document.getElementById('roller-' + id);
   if (!track) return;
-  const idx = Math.max(0, Math.min(value - cfg.min, cfg.max - cfg.min));
+  const items = track.querySelectorAll('.roller-item');
+  let idx = -1;
+  items.forEach((item, i) => {
+    if (value === null || value === undefined) {
+      if (item.dataset.value === '') idx = i;
+    } else {
+      if (parseInt(item.dataset.value, 10) === value) idx = i;
+    }
+  });
+  if (idx === -1) return;
   requestAnimationFrame(() => {
     track.scrollTop = idx * ITEM_H;
     _updateRollerVisuals(id);
   });
 }
 
+// Returns current selected value, or null if "—" is selected
 function _getRollerValue(id) {
-  const cfg = ROLLER_CFG.find(c => c.id === id);
   const track = document.getElementById('roller-' + id);
-  if (!cfg || !track) return null;
+  if (!track) return null;
   const idx = Math.round(track.scrollTop / ITEM_H);
-  return cfg.min + Math.max(0, Math.min(idx, cfg.max - cfg.min));
+  const items = track.querySelectorAll('.roller-item');
+  const item = items[Math.max(0, Math.min(idx, items.length - 1))];
+  if (!item || item.dataset.value === '') return null;
+  return parseInt(item.dataset.value, 10);
 }
 
 function _saveRollerToFormData() {
@@ -1431,14 +1467,27 @@ function _saveRollerToFormData() {
   rollerFormData[p]['sys_'   + h] = _getRollerValue('sys');
   rollerFormData[p]['dia_'   + h] = _getRollerValue('dia');
   rollerFormData[p]['pulse_' + h] = _getRollerValue('pulse');
+  updateToggleStatus();
 }
 
 function _loadRollerFromFormData() {
   const h = rollerHand, p = rollerPeriod;
-  const cfg0 = ROLLER_CFG[0], cfg1 = ROLLER_CFG[1], cfg2 = ROLLER_CFG[2];
-  _setRollerScroll('sys',   rollerFormData[p]['sys_'   + h] ?? cfg0.def);
-  _setRollerScroll('dia',   rollerFormData[p]['dia_'   + h] ?? cfg1.def);
-  _setRollerScroll('pulse', rollerFormData[p]['pulse_' + h] ?? cfg2.def);
+  _setRollerValue('sys',   rollerFormData[p]['sys_'   + h]);
+  _setRollerValue('dia',   rollerFormData[p]['dia_'   + h]);
+  _setRollerValue('pulse', rollerFormData[p]['pulse_' + h]);
+}
+
+// Show green dot on period/hand buttons that already have data
+function updateToggleStatus() {
+  const fd = rollerFormData;
+  ['morning', 'evening'].forEach(p => {
+    const has = fd[p].sys_l !== null || fd[p].sys_r !== null;
+    document.getElementById('btn-period-' + p)?.classList.toggle('has-data', has);
+  });
+  ['l', 'r'].forEach(h => {
+    const has = fd[rollerPeriod]['sys_' + h] !== null;
+    document.getElementById('btn-hand-' + h)?.classList.toggle('has-data', has);
+  });
 }
 
 function setRollerPeriod(p) {
@@ -1448,6 +1497,7 @@ function setRollerPeriod(p) {
   document.getElementById('btn-period-evening').classList.toggle('active', p === 'evening');
   _loadRollerFromFormData();
   updateRollerHint();
+  updateToggleStatus();
 }
 
 function setRollerHand(h) {
@@ -1457,6 +1507,7 @@ function setRollerHand(h) {
   document.getElementById('btn-hand-r').classList.toggle('active', h === 'r');
   _loadRollerFromFormData();
   updateRollerHint();
+  updateToggleStatus();
 }
 
 function updateRollerHint() {
@@ -1481,6 +1532,7 @@ function resetRollerState() {
   document.getElementById('btn-hand-r')?.classList.remove('active');
   _loadRollerFromFormData();
   updateRollerHint();
+  updateToggleStatus();
 }
 
 // ── SAVE ────────────────────────────────────────────────────────────────────
@@ -1491,6 +1543,30 @@ async function saveEntry() {
   // Persist current roller position before reading
   _saveRollerToFormData();
   const fd = rollerFormData;
+  const wt       = v('weight');
+  const notesVal = document.getElementById('notes').value.trim();
+
+  // Confirm if nothing entered
+  const hasBP = ['morning','evening'].some(p =>
+    ['sys_l','dia_l','pulse_l','sys_r','dia_r','pulse_r'].some(k => fd[p][k] !== null)
+  );
+  if (!hasBP && wt === null && !notesVal) {
+    if (!confirm('Всі значення порожні. Зберегти порожній запис?')) return;
+  }
+
+  // Validate: systolic must exceed diastolic
+  const bpPairs = [
+    ['Ранок ліва', fd.morning.sys_l, fd.morning.dia_l],
+    ['Ранок права', fd.morning.sys_r, fd.morning.dia_r],
+    ['Вечір ліва',  fd.evening.sys_l, fd.evening.dia_l],
+    ['Вечір права', fd.evening.sys_r, fd.evening.dia_r],
+  ];
+  for (const [label, sys, dia] of bpPairs) {
+    if (sys !== null && dia !== null && sys <= dia) {
+      showToast(`⚠️ ${label}: систолічний (${sys}) має бути більший за діастолічний (${dia})`, 'var(--warn)');
+      return;
+    }
+  }
 
   const avgPulse = (p) => {
     const pl = fd[p].pulse_l, pr = fd[p].pulse_r;
@@ -1514,8 +1590,8 @@ async function saveEntry() {
       dia_r:  fd.evening.dia_r,
       pulse:  avgPulse('evening'),
     },
-    weight: v('weight'),
-    notes:  document.getElementById('notes').value.trim() || null,
+    weight: wt,
+    notes:  notesVal || null,
     saved:  new Date().toISOString()
   };
 
@@ -1541,13 +1617,27 @@ async function saveEntry() {
   editingDate = null;
   setEditMode(false);
 
+  const summary = _buildSaveSummary(entry);
   if (prevDate !== null) {
-    showToast('✏️ Запис оновлено!');
+    showToast('✏️ ' + summary);
     showPage('history');
   } else {
-    showToast('✅ Запис збережено!');
+    showToast('✅ ' + summary);
   }
   renderTodaySummary();
+}
+
+function _buildSaveSummary(entry) {
+  const m = entry.morning, e = entry.evening;
+  const parts = [];
+  if (m.sys_l && m.dia_l) parts.push(`Р.Л ${m.sys_l}/${m.dia_l}`);
+  if (m.sys_r && m.dia_r) parts.push(`Р.П ${m.sys_r}/${m.dia_r}`);
+  if (m.pulse)             parts.push(`♥ ${m.pulse}`);
+  if (e.sys_l && e.dia_l) parts.push(`В.Л ${e.sys_l}/${e.dia_l}`);
+  if (e.sys_r && e.dia_r) parts.push(`В.П ${e.sys_r}/${e.dia_r}`);
+  if (e.pulse)             parts.push(`♥ ${e.pulse}`);
+  if (entry.weight)        parts.push(`⚖️ ${entry.weight} кг`);
+  return parts.length ? parts.join(' · ') : 'Збережено';
 }
 
 function fillFormFromEntry(e) {
@@ -1587,6 +1677,7 @@ function fillFormFromEntry(e) {
   document.getElementById('btn-hand-r')?.classList.remove('active');
   _loadRollerFromFormData();
   updateRollerHint();
+  updateToggleStatus();
   document.getElementById('weight').value = e.weight ?? '';
   document.getElementById('notes').value  = e.notes  ?? '';
 }

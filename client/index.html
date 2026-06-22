@@ -271,32 +271,121 @@
     .badge-morning { background: rgba(251,191,36,.15); color: var(--morning); }
     .badge-evening { background: rgba(129,140,248,.15); color: var(--evening); }
 
-    /* ── BP COLUMNS ── */
-    .bp-columns {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      margin-bottom: 12px;
+    /* ── DRUM ROLLERS ── */
+    .period-toggle, .hand-toggle {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 10px;
     }
-    .bp-col {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 12px;
-    }
-    .bp-col-header {
-      text-align: center;
-      font-size: 12px;
+    .toggle-btn {
+      flex: 1;
+      padding: 9px 0;
+      border-radius: var(--radius-sm);
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 13px;
       font-weight: 600;
-      padding: 4px 0;
-      margin-bottom: 12px;
-      border-radius: 20px;
+      cursor: pointer;
+      transition: all .15s;
     }
-    .bp-col .field { gap: 4px; margin-bottom: 8px; }
-    .bp-col .field:last-child { margin-bottom: 0; }
-    .bp-col .field input {
-      font-size: 16px;
-      padding: 8px 8px;
+    .toggle-btn.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    .rollers-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .roller-col {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+    .roller-col-label {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--muted);
+      text-align: center;
+    }
+    .roller-outer {
+      position: relative;
+      width: 100%;
+      height: 156px;
+      overflow: hidden;
+      border-radius: var(--radius-sm);
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+    }
+    .roller-track {
+      height: 100%;
+      overflow-y: scroll;
+      scroll-snap-type: y mandatory;
+      scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+    }
+    .roller-track::-webkit-scrollbar { display: none; }
+    .roller-spacer { height: 52px; flex-shrink: 0; }
+    .roller-item {
+      height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      scroll-snap-align: center;
+      font-size: 20px;
+      font-weight: 600;
+      font-family: var(--mono);
+      color: var(--text);
+      opacity: 0.25;
+      transition: opacity .08s, font-size .08s;
+    }
+    .roller-item.near { opacity: 0.55; font-size: 22px; }
+    .roller-item.selected { opacity: 1; font-size: 26px; color: var(--accent); }
+    .roller-outer::before, .roller-outer::after {
+      content: '';
+      position: absolute;
+      left: 0; right: 0;
+      height: 52px;
+      pointer-events: none;
+      z-index: 2;
+    }
+    .roller-outer::before {
+      top: 0;
+      background: linear-gradient(to bottom, var(--surface) 20%, transparent);
+    }
+    .roller-outer::after {
+      bottom: 0;
+      background: linear-gradient(to top, var(--surface) 20%, transparent);
+    }
+    .roller-center-bar {
+      position: absolute;
+      left: 8px; right: 8px;
+      top: 52px;
+      height: 52px;
+      border-top: 1.5px solid var(--border);
+      border-bottom: 1.5px solid var(--border);
+      pointer-events: none;
+      z-index: 1;
+    }
+    .roller-hint {
+      font-size: 11px;
+      color: var(--muted);
+      text-align: center;
+      margin-bottom: 6px;
+    }
+    .roller-null-badge {
+      display: inline-block;
+      background: var(--surface);
+      border: 1.5px dashed var(--border);
+      border-radius: 20px;
+      font-size: 11px;
+      color: var(--muted);
+      padding: 2px 8px;
+      margin-bottom: 8px;
     }
 
     /* ── FORM GRID ── */
@@ -803,55 +892,48 @@
       <button class="btn-outline" onclick="goToday()" style="white-space:nowrap;padding:9px 12px;font-size:12px">📅 Сьогодні</button>
     </div>
 
-    <!-- Morning / Evening BP side by side -->
+    <!-- BP Drum Rollers -->
     <div class="section-label">❤️ Тиск та пульс</div>
-    <div class="bp-columns">
-      <div class="bp-col">
-        <div class="bp-col-header badge badge-morning">🌅 Ранок</div>
-        <div class="field">
-          <label>🔴 Сист. Л</label>
-          <input type="number" id="m_sys_l" placeholder="120" min="60" max="240" inputmode="numeric"/>
+    <div class="card" style="padding:14px">
+      <div class="period-toggle">
+        <button class="toggle-btn active" id="btn-period-morning" onclick="setRollerPeriod('morning')">🌅 Ранок</button>
+        <button class="toggle-btn" id="btn-period-evening" onclick="setRollerPeriod('evening')">🌙 Вечір</button>
+      </div>
+      <div class="hand-toggle">
+        <button class="toggle-btn active" id="btn-hand-l" onclick="setRollerHand('l')">👈 Ліва рука</button>
+        <button class="toggle-btn" id="btn-hand-r" onclick="setRollerHand('r')">Права рука 👉</button>
+      </div>
+      <div class="rollers-row">
+        <div class="roller-col">
+          <div class="roller-col-label">Систолічний</div>
+          <div class="roller-outer">
+            <div class="roller-center-bar"></div>
+            <div class="roller-track" id="roller-sys"></div>
+          </div>
         </div>
-        <div class="field">
-          <label>🔵 Діаст. Л</label>
-          <input type="number" id="m_dia_l" placeholder="80" min="40" max="140" inputmode="numeric"/>
+        <div class="roller-col">
+          <div class="roller-col-label">Діастолічний</div>
+          <div class="roller-outer">
+            <div class="roller-center-bar"></div>
+            <div class="roller-track" id="roller-dia"></div>
+          </div>
         </div>
-        <div class="field">
-          <label>🔴 Сист. П</label>
-          <input type="number" id="m_sys_r" placeholder="120" min="60" max="240" inputmode="numeric"/>
-        </div>
-        <div class="field">
-          <label>🔵 Діаст. П</label>
-          <input type="number" id="m_dia_r" placeholder="80" min="40" max="140" inputmode="numeric"/>
-        </div>
-        <div class="field">
-          <label>💚 Пульс</label>
-          <input type="number" id="m_pulse" placeholder="70" min="30" max="200" inputmode="numeric"/>
+        <div class="roller-col">
+          <div class="roller-col-label">Пульс</div>
+          <div class="roller-outer">
+            <div class="roller-center-bar"></div>
+            <div class="roller-track" id="roller-pulse"></div>
+          </div>
         </div>
       </div>
-      <div class="bp-col">
-        <div class="bp-col-header badge badge-evening">🌙 Вечір</div>
-        <div class="field">
-          <label>🔴 Сист. Л</label>
-          <input type="number" id="e_sys_l" placeholder="120" min="60" max="240" inputmode="numeric"/>
-        </div>
-        <div class="field">
-          <label>🔵 Діаст. Л</label>
-          <input type="number" id="e_dia_l" placeholder="80" min="40" max="140" inputmode="numeric"/>
-        </div>
-        <div class="field">
-          <label>🔴 Сист. П</label>
-          <input type="number" id="e_sys_r" placeholder="120" min="60" max="240" inputmode="numeric"/>
-        </div>
-        <div class="field">
-          <label>🔵 Діаст. П</label>
-          <input type="number" id="e_dia_r" placeholder="80" min="40" max="140" inputmode="numeric"/>
-        </div>
-        <div class="field">
-          <label>💚 Пульс</label>
-          <input type="number" id="e_pulse" placeholder="70" min="30" max="200" inputmode="numeric"/>
-        </div>
-      </div>
+      <div class="roller-hint" id="rollerHint"></div>
+    </div>
+
+    <!-- Notes -->
+    <div class="section-label">📝 Нотатки</div>
+    <div class="card">
+      <textarea id="notes" rows="3" placeholder="Самопочуття, ліки, обставини..."
+        style="width:100%;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:var(--font);font-size:14px;padding:10px 12px;resize:vertical;box-sizing:border-box;outline:none"></textarea>
     </div>
 
     <!-- Weight -->
@@ -1112,6 +1194,7 @@ async function initApp() {
 
     await fetchEntries();
     showApp();
+    initRollers();
 
     // Init page
     document.getElementById('entryDate').value = todayStr();
@@ -1225,54 +1308,208 @@ function showPage(name) {
   if (name === 'export') { renderExportStats(); renderRemindersUI(); }
 }
 
+// ── DRUM ROLLERS ────────────────────────────────────────────────────────────
+const ITEM_H = 52;
+const ROLLER_CFG = [
+  { id: 'sys',   min: 60,  max: 240, def: 120 },
+  { id: 'dia',   min: 40,  max: 140, def: 80  },
+  { id: 'pulse', min: 30,  max: 200, def: 70  },
+];
+
+let rollerPeriod = 'morning';
+let rollerHand   = 'l';
+let rollerTouched = new Set();
+let _rollerTimers = {};
+
+let rollerFormData = {
+  morning: { sys_l: null, dia_l: null, pulse_l: null, sys_r: null, dia_r: null, pulse_r: null },
+  evening: { sys_l: null, dia_l: null, pulse_l: null, sys_r: null, dia_r: null, pulse_r: null },
+};
+
+function initRollers() {
+  ROLLER_CFG.forEach(cfg => {
+    const track = document.getElementById('roller-' + cfg.id);
+    if (!track) return;
+    track.innerHTML = '';
+    const top = document.createElement('div');
+    top.className = 'roller-spacer';
+    track.appendChild(top);
+    for (let val = cfg.min; val <= cfg.max; val++) {
+      const el = document.createElement('div');
+      el.className = 'roller-item';
+      el.dataset.value = val;
+      el.textContent = val;
+      track.appendChild(el);
+    }
+    const bot = document.createElement('div');
+    bot.className = 'roller-spacer';
+    track.appendChild(bot);
+    track.addEventListener('scroll', () => {
+      rollerTouched.add(rollerPeriod + '-' + rollerHand);
+      _updateRollerVisuals(cfg.id);
+      clearTimeout(_rollerTimers[cfg.id]);
+      _rollerTimers[cfg.id] = setTimeout(() => {
+        _snapRoller(cfg.id);
+        _saveRollerToFormData();
+      }, 120);
+    }, { passive: true });
+    _setRollerScroll(cfg.id, cfg.def);
+  });
+  updateRollerHint();
+}
+
+function _updateRollerVisuals(id) {
+  const track = document.getElementById('roller-' + id);
+  if (!track) return;
+  const idx = Math.round(track.scrollTop / ITEM_H);
+  track.querySelectorAll('.roller-item').forEach((el, i) => {
+    el.classList.remove('selected', 'near');
+    if (i === idx) el.classList.add('selected');
+    else if (Math.abs(i - idx) === 1) el.classList.add('near');
+  });
+}
+
+function _snapRoller(id) {
+  const track = document.getElementById('roller-' + id);
+  if (!track) return;
+  const idx = Math.round(track.scrollTop / ITEM_H);
+  track.scrollTo({ top: idx * ITEM_H, behavior: 'smooth' });
+}
+
+function _setRollerScroll(id, value) {
+  const cfg = ROLLER_CFG.find(c => c.id === id);
+  if (!cfg) return;
+  const track = document.getElementById('roller-' + id);
+  if (!track) return;
+  const idx = Math.max(0, Math.min(value - cfg.min, cfg.max - cfg.min));
+  requestAnimationFrame(() => {
+    track.scrollTop = idx * ITEM_H;
+    _updateRollerVisuals(id);
+  });
+}
+
+function _getRollerValue(id) {
+  const cfg = ROLLER_CFG.find(c => c.id === id);
+  const track = document.getElementById('roller-' + id);
+  if (!cfg || !track) return null;
+  const idx = Math.round(track.scrollTop / ITEM_H);
+  return cfg.min + Math.max(0, Math.min(idx, cfg.max - cfg.min));
+}
+
+function _saveRollerToFormData() {
+  const key = rollerPeriod + '-' + rollerHand;
+  if (!rollerTouched.has(key)) return;
+  const h = rollerHand, p = rollerPeriod;
+  rollerFormData[p]['sys_'   + h] = _getRollerValue('sys');
+  rollerFormData[p]['dia_'   + h] = _getRollerValue('dia');
+  rollerFormData[p]['pulse_' + h] = _getRollerValue('pulse');
+}
+
+function _loadRollerFromFormData() {
+  const h = rollerHand, p = rollerPeriod;
+  const cfg0 = ROLLER_CFG[0], cfg1 = ROLLER_CFG[1], cfg2 = ROLLER_CFG[2];
+  _setRollerScroll('sys',   rollerFormData[p]['sys_'   + h] ?? cfg0.def);
+  _setRollerScroll('dia',   rollerFormData[p]['dia_'   + h] ?? cfg1.def);
+  _setRollerScroll('pulse', rollerFormData[p]['pulse_' + h] ?? cfg2.def);
+}
+
+function setRollerPeriod(p) {
+  _saveRollerToFormData();
+  rollerPeriod = p;
+  document.getElementById('btn-period-morning').classList.toggle('active', p === 'morning');
+  document.getElementById('btn-period-evening').classList.toggle('active', p === 'evening');
+  _loadRollerFromFormData();
+  updateRollerHint();
+}
+
+function setRollerHand(h) {
+  _saveRollerToFormData();
+  rollerHand = h;
+  document.getElementById('btn-hand-l').classList.toggle('active', h === 'l');
+  document.getElementById('btn-hand-r').classList.toggle('active', h === 'r');
+  _loadRollerFromFormData();
+  updateRollerHint();
+}
+
+function updateRollerHint() {
+  const el = document.getElementById('rollerHint');
+  if (!el) return;
+  const p = rollerPeriod === 'morning' ? 'Ранок' : 'Вечір';
+  const h = rollerHand === 'l' ? 'ліва рука' : 'права рука';
+  el.textContent = p + ' — ' + h;
+}
+
+function resetRollerState() {
+  rollerPeriod = 'morning';
+  rollerHand = 'l';
+  rollerTouched = new Set();
+  rollerFormData = {
+    morning: { sys_l: null, dia_l: null, pulse_l: null, sys_r: null, dia_r: null, pulse_r: null },
+    evening: { sys_l: null, dia_l: null, pulse_l: null, sys_r: null, dia_r: null, pulse_r: null },
+  };
+  document.getElementById('btn-period-morning')?.classList.add('active');
+  document.getElementById('btn-period-evening')?.classList.remove('active');
+  document.getElementById('btn-hand-l')?.classList.add('active');
+  document.getElementById('btn-hand-r')?.classList.remove('active');
+  _loadRollerFromFormData();
+  updateRollerHint();
+}
+
 // ── SAVE ────────────────────────────────────────────────────────────────────
 async function saveEntry() {
   const date = document.getElementById('entryDate').value;
   if (!date) { showToast('⚠️ Оберіть дату', 'var(--warn)'); return; }
 
+  // Persist current roller position before reading
+  _saveRollerToFormData();
+  const fd = rollerFormData;
+
+  const avgPulse = (p) => {
+    const pl = fd[p].pulse_l, pr = fd[p].pulse_r;
+    if (pl !== null && pr !== null) return Math.round((pl + pr) / 2);
+    return pl ?? pr ?? null;
+  };
+
   const entry = {
     date,
     morning: {
-      sys_l: v('m_sys_l'), dia_l: v('m_dia_l'),
-      sys_r: v('m_sys_r'), dia_r: v('m_dia_r'),
-      pulse: v('m_pulse')
+      sys_l:  fd.morning.sys_l,
+      dia_l:  fd.morning.dia_l,
+      sys_r:  fd.morning.sys_r,
+      dia_r:  fd.morning.dia_r,
+      pulse:  avgPulse('morning'),
     },
     evening: {
-      sys_l: v('e_sys_l'), dia_l: v('e_dia_l'),
-      sys_r: v('e_sys_r'), dia_r: v('e_dia_r'),
-      pulse: v('e_pulse')
+      sys_l:  fd.evening.sys_l,
+      dia_l:  fd.evening.dia_l,
+      sys_r:  fd.evening.sys_r,
+      dia_r:  fd.evening.dia_r,
+      pulse:  avgPulse('evening'),
     },
     weight: v('weight'),
-    saved: new Date().toISOString()
+    notes:  document.getElementById('notes').value.trim() || null,
+    saved:  new Date().toISOString()
   };
 
   const prevDate = editingDate;
   const dateChanged = prevDate !== null && prevDate !== date;
 
-  // Server first — only update local state after confirmation
   try {
-    if (dateChanged) {
-      await deleteEntryFromServer(prevDate);
-    }
+    if (dateChanged) await deleteEntryFromServer(prevDate);
     const saved = await saveEntryToServer(entry);
-    // Merge server response into local state
-    if (dateChanged) {
-      entries = entries.filter(e => String(e.date).slice(0,10) !== prevDate);
-    }
+    if (dateChanged) entries = entries.filter(e => String(e.date).slice(0,10) !== prevDate);
     entries = entries.filter(e => String(e.date).slice(0,10) !== date);
     entries.push(saved || entry);
     entries.sort((a,b) => String(b.date).localeCompare(String(a.date)));
     saveLocalData(entries);
   } catch (err) {
     showToast('⚠️ Помилка збереження: ' + err.message, 'var(--warn)');
-    return; // Keep form open so user can retry — data not lost
+    return;
   }
 
-  // Clear form only after successful save
-  ['m_sys_l','m_dia_l','m_sys_r','m_dia_r','m_pulse',
-   'e_sys_l','e_dia_l','e_sys_r','e_dia_r','e_pulse','weight']
-    .forEach(id => document.getElementById(id).value = '');
-
+  resetRollerState();
+  document.getElementById('weight').value = '';
+  document.getElementById('notes').value = '';
   editingDate = null;
   setEditMode(false);
 
@@ -1286,14 +1523,42 @@ async function saveEntry() {
 }
 
 function fillFormFromEntry(e) {
-  const set = (id, val) => { document.getElementById(id).value = val ?? ''; };
-  set('m_sys_l', e.morning.sys_l);  set('m_dia_l', e.morning.dia_l);
-  set('m_sys_r', e.morning.sys_r);  set('m_dia_r', e.morning.dia_r);
-  set('m_pulse', e.morning.pulse);
-  set('e_sys_l', e.evening.sys_l);  set('e_dia_l', e.evening.dia_l);
-  set('e_sys_r', e.evening.sys_r);  set('e_dia_r', e.evening.dia_r);
-  set('e_pulse', e.evening.pulse);
-  set('weight',  e.weight);
+  // Populate rollerFormData from entry; pulse stored per-period, spread to both hands
+  rollerFormData = {
+    morning: {
+      sys_l:   e.morning.sys_l  ?? null,
+      dia_l:   e.morning.dia_l  ?? null,
+      pulse_l: e.morning.pulse  ?? null,
+      sys_r:   e.morning.sys_r  ?? null,
+      dia_r:   e.morning.dia_r  ?? null,
+      pulse_r: e.morning.pulse  ?? null,
+    },
+    evening: {
+      sys_l:   e.evening.sys_l  ?? null,
+      dia_l:   e.evening.dia_l  ?? null,
+      pulse_l: e.evening.pulse  ?? null,
+      sys_r:   e.evening.sys_r  ?? null,
+      dia_r:   e.evening.dia_r  ?? null,
+      pulse_r: e.evening.pulse  ?? null,
+    },
+  };
+  // Mark all non-null combinations as touched
+  rollerTouched = new Set();
+  ['morning', 'evening'].forEach(p => {
+    ['l','r'].forEach(h => {
+      if (rollerFormData[p]['sys_' + h] !== null) rollerTouched.add(p + '-' + h);
+    });
+  });
+  rollerPeriod = 'morning';
+  rollerHand = 'l';
+  document.getElementById('btn-period-morning')?.classList.add('active');
+  document.getElementById('btn-period-evening')?.classList.remove('active');
+  document.getElementById('btn-hand-l')?.classList.add('active');
+  document.getElementById('btn-hand-r')?.classList.remove('active');
+  _loadRollerFromFormData();
+  updateRollerHint();
+  document.getElementById('weight').value = e.weight ?? '';
+  document.getElementById('notes').value  = e.notes  ?? '';
 }
 
 function goToday() {
@@ -1311,9 +1576,9 @@ function onDateChange(date) {
     fillFormFromEntry(e);
     showToast('📋 Дані за цей день підтягнуто', 'var(--accent)');
   } else {
-    ['m_sys_l','m_dia_l','m_sys_r','m_dia_r','m_pulse',
-     'e_sys_l','e_dia_l','e_sys_r','e_dia_r','e_pulse','weight']
-      .forEach(id => document.getElementById(id).value = '');
+    resetRollerState();
+    document.getElementById('weight').value = '';
+    document.getElementById('notes').value  = '';
   }
 }
 
@@ -1335,9 +1600,9 @@ async function editEntry(date) {
 function cancelEdit() {
   editingDate = null;
   setEditMode(false);
-  ['m_sys_l','m_dia_l','m_sys_r','m_dia_r','m_pulse',
-   'e_sys_l','e_dia_l','e_sys_r','e_dia_r','e_pulse','weight']
-    .forEach(id => document.getElementById(id).value = '');
+  resetRollerState();
+  document.getElementById('weight').value = '';
+  document.getElementById('notes').value  = '';
   document.getElementById('entryDate').value = todayStr();
 }
 

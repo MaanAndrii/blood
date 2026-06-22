@@ -31,16 +31,12 @@ function buildHtml(user, entries, dateFrom, dateTo) {
 
   // Filter entries by date range
   const filtered = entries.filter(e => {
-    const d = e.date instanceof Date ? e.date.toISOString().slice(0, 10) : String(e.date).slice(0, 10);
+    const d = String(e.date).slice(0, 10);
     return (!dateFrom || d >= dateFrom) && (!dateTo || d <= dateTo);
-  }).sort((a, b) => {
-    const da = a.date instanceof Date ? a.date.toISOString().slice(0, 10) : String(a.date).slice(0, 10);
-    const db = b.date instanceof Date ? b.date.toISOString().slice(0, 10) : String(b.date).slice(0, 10);
-    return da.localeCompare(db);
-  });
+  }).sort((a, b) => String(a.date).slice(0, 10).localeCompare(String(b.date).slice(0, 10)));
 
   const rows = filtered.map(e => {
-    const dateStr = e.date instanceof Date ? e.date.toISOString().slice(0, 10) : String(e.date).slice(0, 10);
+    const dateStr = String(e.date).slice(0, 10);
     return `
       <tr>
         <td>${fmtDateUk(dateStr)}</td>

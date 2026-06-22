@@ -65,6 +65,17 @@ router.post('/', requireAuth, async (req, res) => {
         return res.status(400).json({ error: `${name} must be between ${min} and ${max}` });
       }
     }
+    const bpPairs = [
+      ['morning.sys_l/dia_l', morning.sys_l, morning.dia_l],
+      ['morning.sys_r/dia_r', morning.sys_r, morning.dia_r],
+      ['evening.sys_l/dia_l', evening.sys_l, evening.dia_l],
+      ['evening.sys_r/dia_r', evening.sys_r, evening.dia_r],
+    ];
+    for (const [label, sys, dia] of bpPairs) {
+      if (sys != null && dia != null && sys <= dia) {
+        return res.status(400).json({ error: `${label}: systolic must be greater than diastolic` });
+      }
+    }
     if (weight != null && (isNaN(weight) || weight < 20 || weight > 300)) {
       return res.status(400).json({ error: 'weight must be between 20 and 300 kg' });
     }

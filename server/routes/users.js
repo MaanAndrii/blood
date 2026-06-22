@@ -4,6 +4,27 @@ const { requireAuth, requireAdmin } = require('../middleware/auth');
 
 const router = express.Router();
 
+// PUT /api/users/me — update own profile (name, date_of_birth)
+router.put('/me', requireAuth, async (req, res) => {
+  try {
+    const { name, date_of_birth } = req.body;
+    const sets = [], vals = [];
+    let idx = 1;
+    if (name !== undefined)          { sets.push(`name = $${idx++}`);          vals.push(name?.trim() || null); }
+    if (date_of_birth !== undefined) { sets.push(`date_of_birth = $${idx++}`); vals.push(date_of_birth || null); }
+    if (!sets.length) return res.status(400).json({ error: 'Nothing to update' });
+    vals.push(req.user.id);
+    const result = await pool.query(
+      `UPDATE users SET ${sets.join(', ')} WHERE id = $${idx} RETURNING id, name, date_of_birth, email, avatar_url, is_admin`,
+      vals
+    );
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('PUT /api/users/me error:', err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
 // GET /api/users — admin only: list all users
 router.get('/', requireAuth, requireAdmin, async (req, res) => {
   try {

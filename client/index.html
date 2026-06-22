@@ -1131,6 +1131,36 @@
   </div>
 </div>
 
+<!-- ══ PROFILE MODAL ══ -->
+<div class="modal-overlay" id="profileModal">
+  <div class="modal-box" style="max-width:380px;width:90%">
+    <div class="modal-title">👤 Особисті дані</div>
+
+    <div class="field" style="margin-bottom:14px">
+      <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:6px">Google-акаунт</label>
+      <div id="profileEmail" style="font-size:13px;color:var(--text-secondary);padding:8px 0"></div>
+    </div>
+
+    <div class="field" style="margin-bottom:14px">
+      <label for="profileName" style="font-size:12px;color:var(--muted);display:block;margin-bottom:6px">Ім'я</label>
+      <input type="text" id="profileName" placeholder="Ваше ім'я"
+        style="width:100%;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:var(--font);font-size:14px;padding:10px 12px;box-sizing:border-box;outline:none"
+        onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'" />
+    </div>
+
+    <div class="field" style="margin-bottom:20px">
+      <label for="profileDob" style="font-size:12px;color:var(--muted);display:block;margin-bottom:6px">Дата народження</label>
+      <input type="date" id="profileDob" style="width:100%" />
+      <div style="font-size:11px;color:var(--muted);margin-top:5px">Використовується у PDF-довідці для лікаря</div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-outline" style="flex:1" onclick="closeProfileModal()">Скасувати</button>
+      <button class="btn-save" style="flex:2;margin-top:0" onclick="saveProfile()">Зберегти</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -1204,6 +1234,8 @@ async function logout() {
   try {
     await fetch('/api/auth/logout', { method: 'POST' });
   } catch {}
+  localStorage.removeItem(DB_KEY);
+  localStorage.removeItem(REMINDER_KEY);
   window.location.reload();
 }
 
@@ -1274,6 +1306,13 @@ function renderUserChip() {
 
   const menu = document.getElementById('userMenu');
   menu.innerHTML = '';
+
+  const profileItem = document.createElement('div');
+  profileItem.className = 'user-menu-item';
+  profileItem.textContent = '👤 Профіль';
+  profileItem.onclick = () => { menu.classList.remove('open'); openProfileModal(); };
+  menu.appendChild(profileItem);
+
   if (currentUser.is_admin) {
     const adminItem = document.createElement('div');
     adminItem.className = 'user-menu-item';
@@ -1290,6 +1329,39 @@ function renderUserChip() {
 
 function toggleUserMenu() {
   document.getElementById('userMenu').classList.toggle('open');
+}
+
+function openProfileModal() {
+  if (!currentUser) return;
+  document.getElementById('profileEmail').textContent = currentUser.email || '';
+  document.getElementById('profileName').value = currentUser.name || '';
+  document.getElementById('profileDob').value  = currentUser.date_of_birth
+    ? String(currentUser.date_of_birth).slice(0, 10) : '';
+  document.getElementById('profileModal').classList.add('open');
+}
+
+function closeProfileModal() {
+  document.getElementById('profileModal').classList.remove('open');
+}
+
+async function saveProfile() {
+  const name          = document.getElementById('profileName').value.trim();
+  const date_of_birth = document.getElementById('profileDob').value || null;
+  try {
+    const r = await fetch('/api/users/me', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name || null, date_of_birth }),
+    });
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'Помилка');
+    const updated = await r.json();
+    currentUser = { ...currentUser, ...updated };
+    renderUserChip();
+    closeProfileModal();
+    showToast('✅ Профіль збережено');
+  } catch (err) {
+    showToast('⚠️ ' + err.message, 'var(--warn)');
+  }
 }
 
 // Close menu when clicking outside
@@ -1599,8 +1671,8 @@ async function saveEntry() {
   const dateChanged = prevDate !== null && prevDate !== date;
 
   try {
-    if (dateChanged) await deleteEntryFromServer(prevDate);
     const saved = await saveEntryToServer(entry);
+    if (dateChanged) await deleteEntryFromServer(prevDate);
     if (dateChanged) entries = entries.filter(e => String(e.date).slice(0,10) !== prevDate);
     entries = entries.filter(e => String(e.date).slice(0,10) !== date);
     entries.push(saved || entry);
@@ -1735,6 +1807,12 @@ function setEditMode(on) {
 }
 
 // ── TODAY SUMMARY ────────────────────────────────────────────────────────────
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 function bpStr(sys, dia) {
   if (sys == null && dia == null) return '—';
   return `${sys ?? '?'}/${dia ?? '?'}`;
@@ -1885,7 +1963,7 @@ function renderHistory() {
         </div>` : ''}
         ${e.notes ? `<div class="history-row" style="grid-column:1/-1;align-items:flex-start">
           <span class="history-row-label">📝 Нотатки</span>
-          <span class="history-row-val" style="color:var(--text);font-size:13px;font-family:var(--font);font-weight:400;white-space:pre-wrap;word-break:break-word">${e.notes.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</span>
+          <span class="history-row-val" style="color:var(--text);font-size:13px;font-family:var(--font);font-weight:400;white-space:pre-wrap;word-break:break-word">${escHtml(e.notes)}</span>
         </div>` : ''}
       </div>
     </div>`;
@@ -2242,6 +2320,10 @@ async function adminDeleteUser(id, email) {
 
 document.getElementById('adminModal').addEventListener('click', function(e) {
   if (e.target === this) closeAdminPanel();
+});
+
+document.getElementById('profileModal').addEventListener('click', function(e) {
+  if (e.target === this) closeProfileModal();
 });
 
 // ── REMINDERS ────────────────────────────────────────────────────────────────

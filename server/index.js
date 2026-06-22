@@ -49,6 +49,14 @@ app.get('*', (req, res) => {
   }
 });
 
+// ── Startup Validation ───────────────────────────────────────────────────────
+const REQUIRED_ENV = ['DATABASE_URL', 'JWT_SECRET', 'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET'];
+const missingEnv = REQUIRED_ENV.filter(k => !process.env[k]);
+if (missingEnv.length) {
+  console.error(`[server] Missing required env vars: ${missingEnv.join(', ')}`);
+  process.exit(1);
+}
+
 // ── Start ────────────────────────────────────────────────────────────────────
 async function start() {
   try {

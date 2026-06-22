@@ -218,6 +218,7 @@ async function generatePdf(user, entries, dateFrom, dateTo) {
 
   const browser = await puppeteer.launch({
     headless: 'new',
+    executablePath: process.env.CHROMIUM_PATH || '/usr/bin/chromium',
     args: ['--no-sandbox', '--disable-setuid-sandbox'],
   });
 

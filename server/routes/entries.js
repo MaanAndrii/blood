@@ -1,6 +1,7 @@
 const express = require('express');
 const { pool } = require('../db');
 const { requireAuth } = require('../middleware/auth');
+const { getEffectiveTier, getTierConfig } = require('../config/tiers');
 
 const router = express.Router();
 
@@ -35,10 +36,24 @@ function rowToEntry(row) {
 // GET /api/entries — all entries for current user, sorted desc
 router.get('/', requireAuth, async (req, res) => {
   try {
-    const result = await pool.query(
-      `SELECT * FROM entries WHERE user_id = $1 ORDER BY date DESC`,
+    const userRow = await pool.query(
+      'SELECT subscription_tier, subscription_expires_at FROM users WHERE id = $1',
       [req.user.id]
     );
+    const cfg = getTierConfig(userRow.rows[0]);
+
+    let query, params;
+    if (cfg.max_history_days) {
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - cfg.max_history_days);
+      query  = `SELECT * FROM entries WHERE user_id = $1 AND date >= $2 ORDER BY date DESC`;
+      params = [req.user.id, cutoff.toISOString().slice(0, 10)];
+    } else {
+      query  = `SELECT * FROM entries WHERE user_id = $1 ORDER BY date DESC`;
+      params = [req.user.id];
+    }
+
+    const result = await pool.query(query, params);
     res.json(result.rows.map(rowToEntry));
   } catch (err) {
     console.error('GET /api/entries error:', err);

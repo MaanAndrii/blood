@@ -35,7 +35,7 @@ const _origError = console.error.bind(console);
 console.error = (...args) => { _origError(...args); fs.appendFile(LOG_FILE, `${new Date().toISOString()} [ERROR] ${args.join(' ')}\n`, () => {}); };
 
 // ── Middleware ──────────────────────────────────────────────────────────────
-app.use(express.json());
+app.use(express.json({ limit: '500kb' }));
 app.use(cookieParser());
 app.use(passport.initialize());
 app.use('/api/', generalLimit);

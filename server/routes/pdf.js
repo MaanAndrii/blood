@@ -2,6 +2,7 @@ const express = require('express');
 const { pool } = require('../db');
 const { requireAuth } = require('../middleware/auth');
 const { generatePdf } = require('../services/pdf');
+const { getEffectiveTier } = require('../config/tiers');
 
 const router = express.Router();
 
@@ -23,15 +24,20 @@ router.post('/', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'dateFrom and dateTo are required' });
     }
 
-    // Get user info
+    // Get user info + tier
     const userResult = await pool.query(
-      'SELECT id, name, date_of_birth FROM users WHERE id = $1',
+      'SELECT id, name, date_of_birth, subscription_tier, subscription_expires_at FROM users WHERE id = $1',
       [userId]
     );
     if (!userResult.rows.length) {
       return res.status(404).json({ error: 'User not found' });
     }
     const user = userResult.rows[0];
+
+    // Block PDF for demo tier (unless admin generating for another user)
+    if (userId === req.user.id && getEffectiveTier(user) === 'demo') {
+      return res.status(403).json({ error: 'PDF export not available on Demo plan' });
+    }
 
     // Get entries for the date range
     const entriesResult = await pool.query(

@@ -1959,11 +1959,23 @@ function renderUserChip() {
   const initials = name.split(' ').slice(0,2).map(w => w[0] || '').join('').toUpperCase() || '?';
   document.getElementById('userChipName').textContent = name.split(' ')[0] || name;
 
-  const tier = currentUser.subscription_tier || 'premium';
+  const tier = currentUser.effective_tier || currentUser.subscription_tier || 'premium';
   const tierEl = document.getElementById('userTierBadge');
   if (tierEl) {
-    tierEl.textContent = tier === 'demo' ? 'Demo' : 'Premium';
-    tierEl.className = 'user-tier-badge ' + (tier === 'demo' ? 'demo' : 'premium');
+    if (tier === 'demo') {
+      tierEl.textContent = 'Demo';
+      tierEl.className = 'user-tier-badge demo';
+      tierEl.title = '';
+    } else if (currentUser.subscription_expires_at) {
+      const daysLeft = Math.ceil((new Date(currentUser.subscription_expires_at) - new Date()) / 86400000);
+      tierEl.textContent = daysLeft > 0 ? `Trial: ${daysLeft}д` : 'Premium';
+      tierEl.className = 'user-tier-badge premium';
+      tierEl.title = daysLeft > 0 ? `Пробний доступ ще ${daysLeft} дн.` : '';
+    } else {
+      tierEl.textContent = 'Premium';
+      tierEl.className = 'user-tier-badge premium';
+      tierEl.title = '';
+    }
   }
 
   const avatarEl = document.getElementById('userChipAvatar');
@@ -2179,7 +2191,7 @@ function renderAdminUsers() {
 }
 
 function applyDemoRestrictions() {
-  if (!currentUser || currentUser.subscription_tier !== 'demo') return;
+  if (!currentUser || currentUser.effective_tier !== 'demo') return;
   const DEMO_MSG = 'Експорт недоступний у демо-версії';
   document.querySelectorAll('#page-export .export-card[onclick]').forEach(card => {
     card.removeAttribute('onclick');

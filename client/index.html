@@ -1159,6 +1159,11 @@
         <div class="export-name">PDF Довідка</div>
         <div class="export-desc">Для лікаря</div>
       </div>
+      <div class="export-card" style="opacity:0.45;cursor:not-allowed;filter:grayscale(0.4)" title="Незабаром">
+        <span class="export-icon">☁️</span>
+        <div class="export-name">Google Drive</div>
+        <div class="export-desc">Незабаром</div>
+      </div>
     </div>
 
     <div class="section-label" style="margin-top:20px">Відновлення з файлу</div>
@@ -1281,7 +1286,7 @@
         <button class="btn-cancel" onclick="cancelEdit()">Скасувати</button>
       </div>
       <!-- Date -->
-      <div class="card" style="padding:12px;display:flex;gap:8px;align-items:center;margin-bottom:12px">
+      <div class="card" id="entryDateRow" style="padding:12px;display:flex;gap:8px;align-items:center;margin-bottom:12px">
         <input type="date" id="entryDate" onchange="onDateChange(this.value)" style="flex:1" />
         <button class="btn-outline" onclick="goToday()" style="white-space:nowrap;padding:9px 12px;font-size:12px">📅 Сьогодні</button>
       </div>
@@ -1476,6 +1481,17 @@ async function initApp() {
     renderWeekStrip();
     renderHomeChart();
     updateFabLabel();
+
+    // Sync reminder settings from server if localStorage is missing/empty
+    const stored = loadReminderSettings();
+    if (!stored.morning && currentUser.reminder_morning) {
+      const synced = {
+        enabled: currentUser.reminders_enabled ?? false,
+        morning: currentUser.reminder_morning || '08:00',
+        evening: currentUser.reminder_evening || '20:00',
+      };
+      localStorage.setItem(REMINDER_KEY, JSON.stringify(synced));
+    }
 
     // Restore push settings from local
     const s = loadReminderSettings();
@@ -1675,6 +1691,7 @@ let rollerPeriod = 'morning';
 let rollerHand   = 'l';
 let rollerTouched = new Set();
 let _rollerTimers = {};
+let _loadPending  = 0;
 
 let rollerFormData = {
   morning: { sys_l: null, dia_l: null, pulse_l: null, sys_r: null, dia_r: null, pulse_r: null },
@@ -1753,9 +1770,11 @@ function _setRollerValue(id, value) {
     }
   });
   if (idx === -1) return;
+  _loadPending++;
   requestAnimationFrame(() => {
     track.scrollTop = idx * ITEM_H;
     _updateRollerVisuals(id);
+    _loadPending--;
   });
 }
 
@@ -1771,6 +1790,7 @@ function _getRollerValue(id) {
 }
 
 function _saveRollerToFormData() {
+  if (_loadPending > 0) return;
   const key = rollerPeriod + '-' + rollerHand;
   if (!rollerTouched.has(key)) return;
   const h = rollerHand, p = rollerPeriod;
@@ -1832,6 +1852,7 @@ function resetRollerState() {
   rollerPeriod = 'morning';
   rollerHand = 'l';
   rollerTouched = new Set();
+  _loadPending = 0;
   rollerFormData = {
     morning: { sys_l: null, dia_l: null, pulse_l: null, sys_r: null, dia_r: null, pulse_r: null },
     evening: { sys_l: null, dia_l: null, pulse_l: null, sys_r: null, dia_r: null, pulse_r: null },
@@ -2037,16 +2058,21 @@ function openEntryModal(date, allowEdit = false) {
   editingDate = null;
   setEditMode(false);
   document.getElementById('entryDate').value = d;
-  document.getElementById('entryModalTitle').textContent = 'Новий запис';
 
   if (e && allowEdit) {
     editingDate = d;
-    fillFormFromEntry(e);
     setEditMode(true);
-    document.getElementById('entryModalTitle').textContent = 'Редагування';
+    document.getElementById('entryModalTitle').textContent = 'Редагування — ' + fmtDate(d);
+    document.getElementById('entryDateRow').style.display = 'none';
+    document.getElementById('entryModal').classList.add('open');
+    requestAnimationFrame(() => {
+      fillFormFromEntry(e);
+    });
+  } else {
+    document.getElementById('entryModalTitle').textContent = 'Новий запис';
+    document.getElementById('entryDateRow').style.display = '';
+    document.getElementById('entryModal').classList.add('open');
   }
-
-  document.getElementById('entryModal').classList.add('open');
 }
 
 function closeEntryModal() {
@@ -2055,6 +2081,7 @@ function closeEntryModal() {
   resetRollerState();
   document.getElementById('weight').value = '';
   document.getElementById('notes').value = '';
+  document.getElementById('entryDateRow').style.display = '';
   document.getElementById('entryModal').classList.remove('open');
 }
 
@@ -2307,13 +2334,12 @@ function openSmartEntryModal() {
   editingDate = null;
   setEditMode(false);
   document.getElementById('entryDate').value = today;
+  document.getElementById('entryDateRow').style.display = 'none';
 
-  // Determine suggested period and modal title
   let suggestPeriod = 'morning';
   let title = '🌅 Ранкові показники';
   if (entry) {
     editingDate = today;
-    fillFormFromEntry(entry);
     setEditMode(true);
     if (hasMorning && !hasEvening) {
       suggestPeriod = 'evening';
@@ -2324,9 +2350,16 @@ function openSmartEntryModal() {
   }
 
   document.getElementById('entryModalTitle').textContent = title;
-  if (suggestPeriod !== 'morning') setRollerPeriod(suggestPeriod);
-
   document.getElementById('entryModal').classList.add('open');
+
+  // Open modal first so rollers can scroll; fill data in next frame
+  requestAnimationFrame(() => {
+    if (entry) fillFormFromEntry(entry);
+    // Set suggested period after fillFormFromEntry's rAFs are queued (they run before this rAF)
+    requestAnimationFrame(() => {
+      if (suggestPeriod !== 'morning') setRollerPeriod(suggestPeriod);
+    });
+  });
 }
 
 // ── HISTORY ─────────────────────────────────────────────────────────────────

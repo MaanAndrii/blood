@@ -141,7 +141,8 @@ router.get('/me', async (req, res) => {
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
     const result = await pool.query(
-      `SELECT id, email, name, avatar_url, is_admin, date_of_birth, created_at
+      `SELECT id, email, name, avatar_url, is_admin, date_of_birth, created_at,
+              reminders_enabled, reminder_morning, reminder_evening
        FROM users WHERE id = $1`,
       [payload.id]
     );

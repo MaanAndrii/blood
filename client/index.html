@@ -1456,6 +1456,11 @@
     <span>⚙️ Користувачі</span>
     <span id="adminUserCount" style="font-size:12px;color:var(--muted)"></span>
   </div>
+  <div style="margin-bottom:12px">
+    <input id="adminSearchInput" type="search" placeholder="🔍 Пошук за email або ім'ям…"
+      oninput="renderAdminUsers()"
+      style="width:100%;box-sizing:border-box;background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;font-size:14px;outline:none"/>
+  </div>
   <div id="adminUsersList">
     <div style="text-align:center;padding:40px;color:var(--muted)">Завантаження…</div>
   </div>
@@ -1872,6 +1877,7 @@ async function initApp() {
     }
     currentUser = await r.json();
     renderUserChip();
+    applyDemoRestrictions();
     if (currentUser.is_admin) document.getElementById('tabAdmin').style.display = '';
 
     await fetchEntries();
@@ -2068,14 +2074,24 @@ async function loadAdminUsers() {
 
 function renderAdminUsers() {
   const list = document.getElementById('adminUsersList');
-  document.getElementById('adminUserCount').textContent = `${_adminUsers.length} користувачів`;
+  const q = (document.getElementById('adminSearchInput')?.value || '').trim().toLowerCase();
+  const filtered = q
+    ? _adminUsers.filter(u =>
+        (u.email || '').toLowerCase().includes(q) ||
+        (u.name  || '').toLowerCase().includes(q))
+    : _adminUsers;
 
-  if (!_adminUsers.length) {
-    list.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">Немає користувачів</div>';
+  document.getElementById('adminUserCount').textContent =
+    q ? `${filtered.length} з ${_adminUsers.length} користувачів` : `${_adminUsers.length} користувачів`;
+
+  if (!filtered.length) {
+    list.innerHTML = q
+      ? '<div style="text-align:center;padding:40px;color:var(--muted)">Нічого не знайдено</div>'
+      : '<div style="text-align:center;padding:40px;color:var(--muted)">Немає користувачів</div>';
     return;
   }
 
-  list.innerHTML = _adminUsers.map(u => {
+  list.innerHTML = filtered.map(u => {
     const isMe = u.id === currentUser?.id;
     const initials = (u.name || u.email || '?')
       .split(' ').slice(0,2).map(w=>w[0]||'').join('').toUpperCase() || '?';
@@ -2117,6 +2133,30 @@ function renderAdminUsers() {
               onclick="openAdminTierModal(${u.id})">Доступ</button>
     </div>`;
   }).join('');
+}
+
+function applyDemoRestrictions() {
+  if (!currentUser || currentUser.subscription_tier !== 'demo') return;
+  const DEMO_MSG = 'Експорт недоступний у демо-версії';
+  document.querySelectorAll('#page-export .export-card[onclick]').forEach(card => {
+    card.removeAttribute('onclick');
+    card.style.opacity = '0.4';
+    card.style.cursor = 'not-allowed';
+    card.style.filter = 'grayscale(0.6)';
+    card.addEventListener('click', () => showToast('🔒 ' + DEMO_MSG, 'var(--muted)'));
+  });
+  const importLabel = document.querySelector('#page-export label.btn-outline');
+  if (importLabel) {
+    importLabel.style.opacity = '0.4';
+    importLabel.style.cursor = 'not-allowed';
+    importLabel.style.pointerEvents = 'none';
+    const inp = importLabel.querySelector('input');
+    if (inp) inp.disabled = true;
+    importLabel.addEventListener('click', e => {
+      e.preventDefault();
+      showToast('🔒 ' + DEMO_MSG, 'var(--muted)');
+    });
+  }
 }
 
 function openAdminTierModal(userId) {
@@ -2232,6 +2272,7 @@ function showPage(name) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.getElementById('page-' + name)?.classList.add('active');
   document.querySelector(`.tab[data-page="${name}"]`)?.classList.add('active');
+  window.scrollTo(0, 0);
   if (name === 'home')    { showDayOnHome(selectedWeekDate || todayStr()); renderWeekStrip(); renderHomeChart(); updateFabLabel(); }
   if (name === 'history') renderHistory();
   if (name === 'stats')   renderCharts();

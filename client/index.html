@@ -963,7 +963,8 @@
       user-select: none;
     }
     .week-day:active { border-color: var(--accent); }
-    .week-day.today { border-color: var(--accent); background: rgba(79,142,247,.12); }
+    .week-day.today    { border-color: var(--accent);  background: rgba(79,142,247,.12); }
+    .week-day.selected { border-color: var(--accent2); background: rgba(52,211,153,.12); }
     .week-day-name { font-size: 10px; color: var(--muted); font-weight: 500; }
     .week-day-num  { font-size: 17px; font-weight: 700; line-height: 1; }
     .week-day-dot  { width: 7px; height: 7px; border-radius: 50%; background: var(--border); }
@@ -1066,19 +1067,19 @@
 <main>
 
   <!-- Stale data banner -->
-  <div id="staleBanner">⚠️ Немає з'єднання з сервером — показано кешовані дані. <a href="#" onclick="fetchEntries().then(()=>{renderTodaySummary();renderHistory();});return false" style="color:var(--warn);text-decoration:underline">Оновити</a></div>
+  <div id="staleBanner">⚠️ Немає з'єднання з сервером — показано кешовані дані. <a href="#" onclick="fetchEntries().then(()=>{showDayOnHome(selectedWeekDate||todayStr());renderWeekStrip();renderHistory();});return false" style="color:var(--warn);text-decoration:underline">Оновити</a></div>
 
   <!-- ══ HOME PAGE ══ -->
   <div class="page active" id="page-home">
 
     <!-- Today summary -->
-    <div class="section-label">Сьогодні</div>
+    <div class="section-label" id="sectionLabelDay1">Сьогодні</div>
     <div id="todaySummary">
       <div class="summary-grid" id="summaryGrid"></div>
     </div>
 
     <!-- Yesterday summary -->
-    <div class="section-label" style="margin-top:16px">Вчора</div>
+    <div class="section-label" id="sectionLabelDay2" style="margin-top:16px">Вчора</div>
     <div id="yesterdaySummary">
       <div class="summary-grid" id="yesterdaySummaryGrid"></div>
     </div>
@@ -1366,6 +1367,7 @@ let statsFilter = '7';
 let charts = {};
 let editingDate = null;
 let reminderTimers = [];
+let selectedWeekDate = null; // null = show today
 
 function loadLocalData() {
   try { return JSON.parse(localStorage.getItem(DB_KEY)) || []; }
@@ -1470,8 +1472,7 @@ async function initApp() {
     const now = new Date();
     document.getElementById('headerDate').textContent =
       `${days[now.getDay()]}, ${now.getDate()}.${String(now.getMonth()+1).padStart(2,'0')}`;
-    renderTodaySummary();
-    renderYesterdaySummary();
+    showDayOnHome(todayStr());
     renderWeekStrip();
 
     // Restore push settings from local
@@ -1653,7 +1654,7 @@ function showPage(name) {
   document.getElementById('page-' + name).classList.add('active');
   const idx = ['home','history','stats','export'].indexOf(name);
   document.querySelectorAll('.tab')[idx].classList.add('active');
-  if (name === 'home') { renderTodaySummary(); renderYesterdaySummary(); renderWeekStrip(); }
+  if (name === 'home') { showDayOnHome(selectedWeekDate || todayStr()); renderWeekStrip(); }
   if (name === 'history') renderHistory();
   if (name === 'stats') renderCharts();
   if (name === 'export') { renderExportStats(); renderRemindersUI(); }
@@ -1930,8 +1931,7 @@ async function saveEntry() {
   } else {
     showToast('✅ ' + summary);
   }
-  renderTodaySummary();
-  renderYesterdaySummary();
+  showDayOnHome(todayStr());
   renderWeekStrip();
 }
 
@@ -2002,40 +2002,40 @@ function onDateChange(date) {
   if (editingDate) return;
   const e = entries.find(x => String(x.date).slice(0,10) === date);
   if (e) {
-    editingDate = date;
-    fillFormFromEntry(e);
-    setEditMode(true);
-    document.getElementById('entryModalTitle').textContent = 'Редагування';
-    showToast('📋 Дані за цей день підтягнуто', 'var(--accent)');
-  } else {
-    resetRollerState();
-    document.getElementById('weight').value = '';
-    document.getElementById('notes').value  = '';
+    showToast('📋 Цей день вже має дані. Редагуйте через Журнал.', 'var(--warn)');
   }
+  resetRollerState();
+  document.getElementById('weight').value = '';
+  document.getElementById('notes').value  = '';
 }
 
 async function editEntry(date) {
   await fetchEntries();
-  openEntryModal(date);
+  openEntryModal(date, true);
 }
 
 function cancelEdit() {
   closeEntryModal();
 }
 
-function openEntryModal(date) {
+function openEntryModal(date, allowEdit = false) {
+  const d = date || todayStr();
+  const e = entries.find(x => String(x.date).slice(0,10) === d);
+
+  if (e && !allowEdit) {
+    showToast('📋 Дані вже внесені. Редагуйте через Журнал.', 'var(--warn)');
+    return;
+  }
+
   resetRollerState();
   document.getElementById('weight').value = '';
   document.getElementById('notes').value = '';
   editingDate = null;
   setEditMode(false);
-
-  const d = date || todayStr();
   document.getElementById('entryDate').value = d;
   document.getElementById('entryModalTitle').textContent = 'Новий запис';
 
-  const e = entries.find(x => String(x.date).slice(0,10) === d);
-  if (e) {
+  if (e && allowEdit) {
     editingDate = d;
     fillFormFromEntry(e);
     setEditMode(true);
@@ -2098,20 +2098,17 @@ function armDiffWarning(sys_l, sys_r) {
   </div>`;
 }
 
-function renderTodaySummary() {
-  const today = todayStr();
-  const e = entries.find(x => String(x.date).slice(0,10) === today);
-  const box = document.getElementById('todaySummary');
-  const grid = document.getElementById('summaryGrid');
-  box.style.display = 'block';
+function _renderSummaryInGrid(dateStr, gridId) {
+  const e = entries.find(x => String(x.date).slice(0,10) === dateStr);
+  const grid = document.getElementById(gridId);
+  if (!grid) return;
 
   if (!e) {
-    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:16px;color:var(--text-secondary);font-size:14px">Сьогодні ще немає записів</div>`;
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:16px;color:var(--text-secondary);font-size:14px">Даних немає</div>`;
     return;
   }
 
   const m = e.morning, ev = e.evening;
-
   grid.innerHTML = `
     <div class="summary-col">
       <div class="summary-col-header" style="color:var(--morning)">🌅 Ранок</div>
@@ -2150,56 +2147,40 @@ function renderTodaySummary() {
   `;
 }
 
+function renderTodaySummary() {
+  _renderSummaryInGrid(selectedWeekDate || todayStr(), 'summaryGrid');
+}
+
 function renderYesterdaySummary() {
-  const d = new Date();
-  d.setDate(d.getDate() - 1);
-  const yesterdayStr = d.toISOString().slice(0, 10);
-  const e = entries.find(x => String(x.date).slice(0,10) === yesterdayStr);
-  const grid = document.getElementById('yesterdaySummaryGrid');
-  if (!grid) return;
+  const base = new Date((selectedWeekDate || todayStr()) + 'T00:00:00');
+  base.setDate(base.getDate() - 1);
+  _renderSummaryInGrid(base.toISOString().slice(0, 10), 'yesterdaySummaryGrid');
+}
 
-  if (!e) {
-    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:16px;color:var(--text-secondary);font-size:14px">Вчора даних немає</div>`;
-    return;
-  }
+function showDayOnHome(dateStr) {
+  const today = todayStr();
+  selectedWeekDate = dateStr === today ? null : dateStr;
+  const effective = selectedWeekDate || today;
 
-  const m = e.morning, ev = e.evening;
-  grid.innerHTML = `
-    <div class="summary-col">
-      <div class="summary-col-header" style="color:var(--morning)">🌅 Ранок</div>
-      <div class="summary-item">
-        <div class="summary-value val-sys" style="font-size:16px">${bpStr(m.sys_l, m.dia_l)}${bpBadge(m.sys_l, m.dia_l)}</div>
-        <div class="summary-label">ліва рука</div>
-      </div>
-      <div class="summary-item">
-        <div class="summary-value val-sys" style="font-size:16px">${bpStr(m.sys_r, m.dia_r)}${bpBadge(m.sys_r, m.dia_r)}</div>
-        <div class="summary-label">права рука</div>
-      </div>
-      <div class="summary-item">
-        <div class="summary-value val-pulse">${m.pulse ?? '—'}</div>
-        <div class="summary-label">💚 Пульс</div>
-      </div>
-    </div>
-    <div class="summary-col">
-      <div class="summary-col-header" style="color:var(--evening)">🌙 Вечір</div>
-      <div class="summary-item">
-        <div class="summary-value" style="font-size:16px;color:var(--evening)">${bpStr(ev.sys_l, ev.dia_l)}${bpBadge(ev.sys_l, ev.dia_l)}</div>
-        <div class="summary-label">ліва рука</div>
-      </div>
-      <div class="summary-item">
-        <div class="summary-value" style="font-size:16px;color:var(--evening)">${bpStr(ev.sys_r, ev.dia_r)}${bpBadge(ev.sys_r, ev.dia_r)}</div>
-        <div class="summary-label">права рука</div>
-      </div>
-      <div class="summary-item">
-        <div class="summary-value val-pulse">${ev.pulse ?? '—'}</div>
-        <div class="summary-label">💚 Пульс</div>
-      </div>
-    </div>
-    ${e.weight ? `<div class="summary-item" style="grid-column:1/-1">
-      <div class="summary-value val-weight">${e.weight} кг</div>
-      <div class="summary-label">⚖️ Вага</div>
-    </div>` : ''}
-  `;
+  const prevD = new Date(effective + 'T00:00:00');
+  prevD.setDate(prevD.getDate() - 1);
+  const prevStr = prevD.toISOString().slice(0, 10);
+  const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = yesterday.toISOString().slice(0, 10);
+
+  document.getElementById('sectionLabelDay1').textContent =
+    effective === today ? 'Сьогодні' : fmtDate(effective);
+  document.getElementById('sectionLabelDay2').textContent =
+    prevStr === yesterdayStr ? 'Вчора' : fmtDate(prevStr);
+
+  document.querySelectorAll('#weekStrip .week-day').forEach(el => {
+    const d = el.dataset.date;
+    el.classList.toggle('today',    d === today);
+    el.classList.toggle('selected', d === effective && effective !== today);
+  });
+
+  renderTodaySummary();
+  renderYesterdaySummary();
 }
 
 function renderWeekStrip() {
@@ -2207,6 +2188,7 @@ function renderWeekStrip() {
   if (!strip) return;
   const dayNames = ['Нд','Пн','Вт','Ср','Чт','Пт','Сб'];
   const today = todayStr();
+  const effective = selectedWeekDate || today;
   let html = '';
   for (let i = 6; i >= 0; i--) {
     const d = new Date();
@@ -2219,8 +2201,10 @@ function renderWeekStrip() {
       const hasEvening = entry.evening.sys_l != null || entry.evening.sys_r != null;
       dotClass = (hasMorning && hasEvening) ? 'full' : 'partial';
     }
-    const todayCls = dateStr === today ? ' today' : '';
-    html += `<div class="week-day${todayCls}" onclick="openEntryModal('${dateStr}')">
+    let cls = 'week-day';
+    if (dateStr === today) cls += ' today';
+    if (dateStr === effective && effective !== today) cls += ' selected';
+    html += `<div class="${cls}" data-date="${dateStr}" onclick="showDayOnHome('${dateStr}')">
       <span class="week-day-name">${dayNames[d.getDay()]}</span>
       <span class="week-day-num">${d.getDate()}</span>
       <span class="week-day-dot ${dotClass}"></span>
@@ -2786,8 +2770,7 @@ document.addEventListener('DOMContentLoaded', initApp);
 document.addEventListener('visibilitychange', async () => {
   if (document.visibilityState === 'visible' && currentUser) {
     await fetchEntries();
-    renderTodaySummary();
-    renderYesterdaySummary();
+    showDayOnHome(selectedWeekDate || todayStr());
     renderWeekStrip();
     const activePage = document.querySelector('.page.active')?.id?.replace('page-', '');
     if (activePage === 'history') renderHistory();

@@ -1072,24 +1072,24 @@
   <!-- ══ HOME PAGE ══ -->
   <div class="page active" id="page-home">
 
-    <!-- Today summary -->
-    <div class="section-label" id="sectionLabelDay1">Сьогодні</div>
+    <!-- Week strip at top -->
+    <div class="section-label">Останні 7 днів</div>
+    <div class="week-strip" id="weekStrip"></div>
+
+    <!-- Selected / today summary -->
+    <div class="section-label" id="sectionLabelDay1" style="margin-top:16px">Сьогодні</div>
     <div id="todaySummary">
       <div class="summary-grid" id="summaryGrid"></div>
     </div>
 
-    <!-- Yesterday summary -->
-    <div class="section-label" id="sectionLabelDay2" style="margin-top:16px">Вчора</div>
-    <div id="yesterdaySummary">
-      <div class="summary-grid" id="yesterdaySummaryGrid"></div>
+    <!-- 7-day systolic trend -->
+    <div class="section-label" style="margin-top:16px">Систолічний тиск за 7 днів</div>
+    <div class="card" style="padding:12px;margin-bottom:12px">
+      <div style="position:relative;height:140px"><canvas id="chartHome"></canvas></div>
     </div>
 
-    <!-- Week strip -->
-    <div class="section-label" style="margin-top:16px">Останні 7 днів</div>
-    <div class="week-strip" id="weekStrip"></div>
-
-    <!-- Add entry button -->
-    <button class="fab" onclick="openEntryModal(null)">
+    <!-- FAB -->
+    <button class="fab" id="fabEntry" onclick="openSmartEntryModal()">
       ➕ Внести показники
     </button>
   </div>
@@ -1474,6 +1474,8 @@ async function initApp() {
       `${days[now.getDay()]}, ${now.getDate()}.${String(now.getMonth()+1).padStart(2,'0')}`;
     showDayOnHome(todayStr());
     renderWeekStrip();
+    renderHomeChart();
+    updateFabLabel();
 
     // Restore push settings from local
     const s = loadReminderSettings();
@@ -1654,7 +1656,7 @@ function showPage(name) {
   document.getElementById('page-' + name).classList.add('active');
   const idx = ['home','history','stats','export'].indexOf(name);
   document.querySelectorAll('.tab')[idx].classList.add('active');
-  if (name === 'home') { showDayOnHome(selectedWeekDate || todayStr()); renderWeekStrip(); }
+  if (name === 'home') { showDayOnHome(selectedWeekDate || todayStr()); renderWeekStrip(); renderHomeChart(); updateFabLabel(); }
   if (name === 'history') renderHistory();
   if (name === 'stats') renderCharts();
   if (name === 'export') { renderExportStats(); renderRemindersUI(); }
@@ -1933,6 +1935,8 @@ async function saveEntry() {
   }
   showDayOnHome(todayStr());
   renderWeekStrip();
+  renderHomeChart();
+  updateFabLabel();
 }
 
 function _buildSaveSummary(entry) {
@@ -2162,16 +2166,8 @@ function showDayOnHome(dateStr) {
   selectedWeekDate = dateStr === today ? null : dateStr;
   const effective = selectedWeekDate || today;
 
-  const prevD = new Date(effective + 'T00:00:00');
-  prevD.setDate(prevD.getDate() - 1);
-  const prevStr = prevD.toISOString().slice(0, 10);
-  const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayStr = yesterday.toISOString().slice(0, 10);
-
   document.getElementById('sectionLabelDay1').textContent =
     effective === today ? 'Сьогодні' : fmtDate(effective);
-  document.getElementById('sectionLabelDay2').textContent =
-    prevStr === yesterdayStr ? 'Вчора' : fmtDate(prevStr);
 
   document.querySelectorAll('#weekStrip .week-day').forEach(el => {
     const d = el.dataset.date;
@@ -2180,7 +2176,7 @@ function showDayOnHome(dateStr) {
   });
 
   renderTodaySummary();
-  renderYesterdaySummary();
+  updateFabLabel();
 }
 
 function renderWeekStrip() {
@@ -2211,6 +2207,126 @@ function renderWeekStrip() {
     </div>`;
   }
   strip.innerHTML = html;
+}
+
+// ── HOME CHART ───────────────────────────────────────────────────────────────
+function renderHomeChart() {
+  const today = todayStr();
+  const labels = [];
+  const morningData = [], eveningData = [];
+  const dayNames = ['Нд','Пн','Вт','Ср','Чт','Пт','Сб'];
+
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const dateStr = d.toISOString().slice(0, 10);
+    const e = entries.find(x => String(x.date).slice(0,10) === dateStr);
+    labels.push(dayNames[d.getDay()]);
+    const mSys = e ? (e.morning.sys_l ?? e.morning.sys_r ?? null) : null;
+    const eSys = e ? (e.evening.sys_l ?? e.evening.sys_r ?? null) : null;
+    morningData.push(mSys);
+    eveningData.push(eSys);
+  }
+
+  if (charts['chartHome']) { charts['chartHome'].destroy(); charts['chartHome'] = null; }
+  const canvas = document.getElementById('chartHome');
+  if (!canvas) return;
+  charts['chartHome'] = new Chart(canvas.getContext('2d'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Ранок', data: morningData, spanGaps: true,
+          borderColor: '#fbbf24', backgroundColor: 'rgba(251,191,36,.08)',
+          borderWidth: 2, tension: .35, pointRadius: 4,
+          pointBackgroundColor: morningData.map((v, i) => {
+            const d = new Date(); d.setDate(d.getDate() - (6 - i));
+            return d.toISOString().slice(0,10) === today ? '#fbbf24' : '#fbbf2488';
+          }),
+          fill: false,
+        },
+        {
+          label: 'Вечір', data: eveningData, spanGaps: true,
+          borderColor: '#818cf8', backgroundColor: 'rgba(129,140,248,.08)',
+          borderWidth: 2, tension: .35, pointRadius: 4,
+          pointBackgroundColor: eveningData.map((v, i) => {
+            const d = new Date(); d.setDate(d.getDate() - (6 - i));
+            return d.toISOString().slice(0,10) === today ? '#818cf8' : '#818cf888';
+          }),
+          fill: false,
+        },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: true, labels: { color: '#e8edf8', font: { size: 10 }, boxWidth: 14, padding: 10 } },
+        tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': ' + (ctx.parsed.y ?? '—') + ' мм' } },
+      },
+      scales: {
+        x: { ticks: { color: '#7a8fb5', font: { size: 10 } }, grid: { color: '#2a3f6f44' } },
+        y: { ticks: { color: '#7a8fb5', font: { size: 10 } }, grid: { color: '#2a3f6f44' } },
+      },
+    },
+  });
+}
+
+// ── SMART FAB ────────────────────────────────────────────────────────────────
+function _todayMeasurementState() {
+  const today = todayStr();
+  const e = entries.find(x => String(x.date).slice(0,10) === today);
+  if (!e) return { entry: null, hasMorning: false, hasEvening: false };
+  return {
+    entry: e,
+    hasMorning: e.morning.sys_l != null || e.morning.sys_r != null,
+    hasEvening: e.evening.sys_l != null || e.evening.sys_r != null,
+  };
+}
+
+function updateFabLabel() {
+  const fab = document.getElementById('fabEntry');
+  if (!fab) return;
+  const { hasMorning, hasEvening } = _todayMeasurementState();
+  if (!hasMorning && !hasEvening) {
+    fab.textContent = '🌅 Внести ранкові показники';
+  } else if (hasMorning && !hasEvening) {
+    fab.textContent = '🌙 Внести вечірні показники';
+  } else {
+    fab.textContent = '📋 Оновити показники';
+  }
+}
+
+function openSmartEntryModal() {
+  const today = todayStr();
+  const { entry, hasMorning, hasEvening } = _todayMeasurementState();
+
+  resetRollerState();
+  document.getElementById('weight').value = '';
+  document.getElementById('notes').value  = '';
+  editingDate = null;
+  setEditMode(false);
+  document.getElementById('entryDate').value = today;
+
+  // Determine suggested period and modal title
+  let suggestPeriod = 'morning';
+  let title = '🌅 Ранкові показники';
+  if (entry) {
+    editingDate = today;
+    fillFormFromEntry(entry);
+    setEditMode(true);
+    if (hasMorning && !hasEvening) {
+      suggestPeriod = 'evening';
+      title = '🌙 Вечірні показники';
+    } else {
+      title = '📋 Оновити показники';
+    }
+  }
+
+  document.getElementById('entryModalTitle').textContent = title;
+  if (suggestPeriod !== 'morning') setRollerPeriod(suggestPeriod);
+
+  document.getElementById('entryModal').classList.add('open');
 }
 
 // ── HISTORY ─────────────────────────────────────────────────────────────────
@@ -2772,6 +2888,8 @@ document.addEventListener('visibilitychange', async () => {
     await fetchEntries();
     showDayOnHome(selectedWeekDate || todayStr());
     renderWeekStrip();
+    renderHomeChart();
+    updateFabLabel();
     const activePage = document.querySelector('.page.active')?.id?.replace('page-', '');
     if (activePage === 'history') renderHistory();
     if (activePage === 'stats') renderCharts();

@@ -7,7 +7,7 @@ const path = require('path');
 const fs = require('fs');
 const rateLimit = require('express-rate-limit');
 
-const { initDb } = require('./db');
+const { initDb, pool } = require('./db');
 const authRouter = require('./routes/auth');
 const entriesRouter = require('./routes/entries');
 const usersRouter = require('./routes/users');
@@ -50,7 +50,14 @@ app.use((req, res, next) => {
 });
 
 // ── Health check (no auth required — used by monitoring/Cloudflare) ─────────
-app.get('/api/health', (req, res) => res.json({ ok: true, ts: new Date().toISOString() }));
+app.get('/api/health', async (req, res) => {
+  try {
+    await pool.query('SELECT 1');
+    res.json({ ok: true, ts: new Date().toISOString(), tz: Intl.DateTimeFormat().resolvedOptions().timeZone });
+  } catch (err) {
+    res.status(503).json({ ok: false, ts: new Date().toISOString(), error: 'DB unavailable' });
+  }
+});
 
 // ── API Routes ──────────────────────────────────────────────────────────────
 app.use('/api/auth', authRouter);

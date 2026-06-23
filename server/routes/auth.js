@@ -31,11 +31,10 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
         `UPDATE users SET
            google_id = $1,
            name = $2,
-           avatar_url = $3,
-           refresh_token = $4
-         WHERE id = $5
+           avatar_url = $3
+         WHERE id = $4
          RETURNING *`,
-        [profile.id, profile.displayName, profile.photos?.[0]?.value, refreshToken, existing.rows[0].id]
+        [profile.id, profile.displayName, profile.photos?.[0]?.value, existing.rows[0].id]
       );
 
       return done(null, result.rows[0]);

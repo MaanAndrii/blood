@@ -1417,7 +1417,8 @@
         🔔 Дозволити сповіщення
       </button>
       <p style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.5">
-        Сповіщення надсилаються через сервер. Встановіть застосунок на головний екран для роботи у фоні.
+        Сповіщення надсилаються через сервер. Встановіть застосунок на головний екран для роботи у фоні.<br>
+        <span id="serverTzHint"></span>
       </p>
     </div>
 
@@ -3229,19 +3230,27 @@ function renderCharts() {
 }
 
 // ── EXPORT ───────────────────────────────────────────────────────────────────
+function csvCell(v) {
+  if (v == null) return '';
+  const s = String(v);
+  return (s.includes(',') || s.includes('"') || s.includes('\n') || s.includes('\r'))
+    ? '"' + s.replace(/"/g, '""') + '"'
+    : s;
+}
+
 function exportCSV() {
   if (!entries.length) { showToast('⚠️ Немає даних для експорту', 'var(--warn)'); return; }
   const cols = [
     'Дата',
     'Ранок Сист. Л','Ранок Діаст. Л','Ранок Сист. П','Ранок Діаст. П','Ранок Пульс',
     'Вечір Сист. Л','Вечір Діаст. Л','Вечір Сист. П','Вечір Діаст. П','Вечір Пульс',
-    'Вага'
+    'Вага','Нотатки'
   ];
   const rows = entries.map(e => [
     String(e.date).slice(0,10),
     e.morning.sys_l ?? '', e.morning.dia_l ?? '', e.morning.sys_r ?? '', e.morning.dia_r ?? '', e.morning.pulse ?? '',
     e.evening.sys_l ?? '', e.evening.dia_l ?? '', e.evening.sys_r ?? '', e.evening.dia_r ?? '', e.evening.pulse ?? '',
-    e.weight ?? ''
+    e.weight ?? '', csvCell(e.notes)
   ].join(','));
   download('﻿' + [cols.join(','), ...rows].join('\n'), 'health_data.csv', 'text/csv');
   showToast('📄 CSV завантажено!');
@@ -3257,6 +3266,11 @@ function exportJSON() {
 function importJSON(event) {
   const file = event.target.files[0];
   if (!file) return;
+  if (file.size > 5 * 1024 * 1024) {
+    showToast('❌ Файл завеликий (макс. 5 МБ)', 'var(--warn)');
+    event.target.value = '';
+    return;
+  }
   const reader = new FileReader();
   reader.onload = async e => {
     try {
@@ -3467,13 +3481,21 @@ async function renderRemindersUI() {
   document.getElementById('reminderMorning').value     = s.morning  || '08:00';
   document.getElementById('reminderEvening').value     = s.evening  || '20:00';
 
-  // Check if VAPID is configured on server
+  // Check if VAPID is configured on server; also read server timezone
   try {
     const r = await fetch('/api/push/vapid-public-key');
     document.getElementById('vapidStatus').style.display = r.ok ? 'none' : '';
   } catch {
     document.getElementById('vapidStatus').style.display = '';
   }
+  try {
+    const h = await fetch('/api/health');
+    if (h.ok) {
+      const { tz } = await h.json();
+      const tzEl = document.getElementById('serverTzHint');
+      if (tzEl && tz) tzEl.textContent = `⏰ Часовий пояс сервера: ${tz}`;
+    }
+  } catch {}
 
   const perm = 'Notification' in window ? Notification.permission : 'unsupported';
   const statusEl = document.getElementById('notifStatus');

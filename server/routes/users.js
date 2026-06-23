@@ -7,15 +7,23 @@ const router = express.Router();
 // PUT /api/users/me — update own profile (name, date_of_birth)
 router.put('/me', requireAuth, async (req, res) => {
   try {
-    const { name, date_of_birth } = req.body;
+    const { name, date_of_birth, height_cm } = req.body;
     const sets = [], vals = [];
     let idx = 1;
     if (name !== undefined)          { sets.push(`name = $${idx++}`);          vals.push(name?.trim() || null); }
     if (date_of_birth !== undefined) { sets.push(`date_of_birth = $${idx++}`); vals.push(date_of_birth || null); }
+    if (height_cm !== undefined) {
+      const h = height_cm == null ? null : parseInt(height_cm, 10);
+      if (h !== null && (isNaN(h) || h < 50 || h > 250)) {
+        return res.status(400).json({ error: 'height_cm must be between 50 and 250' });
+      }
+      sets.push(`height_cm = $${idx++}`);
+      vals.push(h);
+    }
     if (!sets.length) return res.status(400).json({ error: 'Nothing to update' });
     vals.push(req.user.id);
     const result = await pool.query(
-      `UPDATE users SET ${sets.join(', ')} WHERE id = $${idx} RETURNING id, name, date_of_birth, email, avatar_url, is_admin`,
+      `UPDATE users SET ${sets.join(', ')} WHERE id = $${idx} RETURNING id, name, date_of_birth, email, avatar_url, is_admin, height_cm`,
       vals
     );
     res.json(result.rows[0]);

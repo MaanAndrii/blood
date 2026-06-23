@@ -44,8 +44,9 @@
 - [x] PDF report (Puppeteer)
 - [x] CSV + JSON export / import
 - [x] Web Push reminders (VAPID, node-cron)
-- [x] User profile (name, date of birth)
-- [x] WHO/AHA BP classification (`bpCategory`)
+- [x] User profile (name, date of birth, height)
+- [x] **WHO/ESH 2018 BP classification** (8 categories: Optimal→Grade 3 + Isolated Systolic/Diastolic)
+- [x] **BMI calculation** (`calcBmi`/`bmiCategory`): shown in summary card + profile modal preview; stored as `height_cm` in users table
 - [x] XSS-safe rendering (`escHtml`)
 - [x] File-based error logging (`logs/app.log`)
 

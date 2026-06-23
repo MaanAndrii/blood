@@ -1122,6 +1122,47 @@
     }
     .entry-modal-close:active { background: var(--border); }
     .entry-modal-body { padding: 14px 16px 20px; }
+
+    /* ── ADMIN PANEL ── */
+    .admin-user-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+      margin-bottom: 10px;
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
+    .admin-avatar {
+      width: 40px; height: 40px; border-radius: 50%;
+      background: var(--accent); color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 14px; flex-shrink: 0;
+    }
+    .admin-user-info { flex: 1; min-width: 0; }
+    .admin-user-name { font-weight: 600; font-size: 15px; margin-bottom: 2px; }
+    .admin-user-email { font-size: 12px; color: var(--muted); margin-bottom: 6px;
+                        overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .admin-stats { font-size: 11px; color: var(--muted); line-height: 1.7; margin-top: 6px; }
+    .tier-pick-btn, .period-btn {
+      flex: 1; padding: 10px 8px;
+      border: 1.5px solid var(--border);
+      background: transparent; color: var(--text);
+      border-radius: var(--radius-sm);
+      cursor: pointer; font-size: 13px; font-weight: 500;
+      transition: border-color .15s, background .15s, color .15s;
+    }
+    .tier-pick-btn.sel, .period-btn.sel {
+      border-color: var(--accent);
+      background: rgba(232,82,73,.12);
+      color: var(--accent);
+    }
+    .tier-pick-btn:active, .period-btn:active { opacity: .75; }
+    .admin-expiry-hint {
+      font-size: 12px; color: var(--muted);
+      min-height: 18px; margin: 10px 0 4px;
+    }
   </style>
 </head>
 <body>
@@ -1229,18 +1270,11 @@
 </header>
 
 <nav>
-  <div class="tab active" onclick="showPage('home')">
-    <span class="tab-icon">🏠</span>Головна
-  </div>
-  <div class="tab" onclick="showPage('history')">
-    <span class="tab-icon">📋</span>Журнал
-  </div>
-  <div class="tab" onclick="showPage('stats')">
-    <span class="tab-icon">📊</span>Графіки
-  </div>
-  <div class="tab" onclick="showPage('export')">
-    <span class="tab-icon">📤</span>Експорт
-  </div>
+  <div class="tab active" data-page="home"    onclick="showPage('home')"><span class="tab-icon">🏠</span>Головна</div>
+  <div class="tab"        data-page="history" onclick="showPage('history')"><span class="tab-icon">📋</span>Журнал</div>
+  <div class="tab"        data-page="stats"   onclick="showPage('stats')"><span class="tab-icon">📊</span>Графіки</div>
+  <div class="tab"        data-page="export"  onclick="showPage('export')"><span class="tab-icon">📤</span>Експорт</div>
+  <div class="tab"        data-page="admin"   onclick="showPage('admin')" id="tabAdmin" style="display:none"><span class="tab-icon">⚙️</span>Адмін</div>
 </nav>
 
 <main>
@@ -1412,6 +1446,51 @@
     <div class="modal-actions">
       <button class="btn-outline" style="flex:1" onclick="closePdfModal()">Скасувати</button>
       <button class="btn-save" style="flex:2;margin-top:0" onclick="exportPDF()">Сформувати PDF</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ ADMIN PAGE ══ -->
+<div class="page" id="page-admin">
+  <div class="section-label" style="display:flex;justify-content:space-between;align-items:center">
+    <span>⚙️ Користувачі</span>
+    <span id="adminUserCount" style="font-size:12px;color:var(--muted)"></span>
+  </div>
+  <div id="adminUsersList">
+    <div style="text-align:center;padding:40px;color:var(--muted)">Завантаження…</div>
+  </div>
+</div>
+
+<!-- ══ ADMIN TIER MODAL ══ -->
+<div class="modal-overlay" id="adminTierModal">
+  <div class="modal-box" style="max-width:360px;width:92%">
+    <div class="modal-title" id="adminTierTitle">Доступ</div>
+
+    <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Тип доступу</div>
+    <div style="display:flex;gap:8px;margin-bottom:16px">
+      <button class="tier-pick-btn" id="tierPickDemo"    onclick="selectTierPick('demo')">Demo</button>
+      <button class="tier-pick-btn" id="tierPickPremium" onclick="selectTierPick('premium')">Premium</button>
+    </div>
+
+    <div id="adminPeriodBlock" style="display:none">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Термін дії</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:4px">
+        <button class="period-btn" data-m="1"  onclick="selectPeriod(1)">1 місяць</button>
+        <button class="period-btn" data-m="3"  onclick="selectPeriod(3)">3 місяці</button>
+        <button class="period-btn" data-m="6"  onclick="selectPeriod(6)">6 місяців</button>
+        <button class="period-btn" data-m="12" onclick="selectPeriod(12)">1 рік</button>
+      </div>
+    </div>
+
+    <div class="admin-expiry-hint" id="adminExpiryHint"></div>
+
+    <div style="font-size:11px;color:var(--muted);margin-bottom:14px" id="adminDemoNote" style="display:none">
+      ⚠️ Demo-обмеження: визначаються окремо
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-outline" style="flex:1" onclick="closeAdminTierModal()">Скасувати</button>
+      <button class="btn-save" style="flex:2;margin-top:0" id="btnSaveTier" onclick="saveTier()">Зберегти</button>
     </div>
   </div>
 </div>
@@ -1793,6 +1872,7 @@ async function initApp() {
     }
     currentUser = await r.json();
     renderUserChip();
+    if (currentUser.is_admin) document.getElementById('tabAdmin').style.display = '';
 
     await fetchEntries();
     showApp();
@@ -1967,6 +2047,146 @@ document.addEventListener('click', (e) => {
   }
 });
 
+// ── ADMIN PANEL ─────────────────────────────────────────────────────────────
+let _adminUsers = [];
+let _adminTierUserId = null;
+let _adminSelTier = null;
+let _adminSelMonths = null;
+
+async function loadAdminUsers() {
+  const list = document.getElementById('adminUsersList');
+  list.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">Завантаження…</div>';
+  try {
+    const r = await fetch('/api/users');
+    if (!r.ok) throw new Error('Помилка сервера');
+    _adminUsers = await r.json();
+    renderAdminUsers();
+  } catch (err) {
+    list.innerHTML = `<div style="text-align:center;padding:32px;color:var(--warn)">${escHtml(err.message)}</div>`;
+  }
+}
+
+function renderAdminUsers() {
+  const list = document.getElementById('adminUsersList');
+  document.getElementById('adminUserCount').textContent = `${_adminUsers.length} користувачів`;
+
+  if (!_adminUsers.length) {
+    list.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">Немає користувачів</div>';
+    return;
+  }
+
+  list.innerHTML = _adminUsers.map(u => {
+    const isMe = u.id === currentUser?.id;
+    const initials = (u.name || u.email || '?')
+      .split(' ').slice(0,2).map(w=>w[0]||'').join('').toUpperCase() || '?';
+    const tier = u.subscription_tier || 'premium';
+    const tierLabel = tier === 'demo' ? 'Demo' : 'Premium';
+    const tierClass = tier === 'demo' ? 'demo' : 'premium';
+
+    let expiryBadge = '';
+    if (tier === 'premium' && u.subscription_expires_at) {
+      const exp = new Date(u.subscription_expires_at);
+      const now = new Date();
+      const diff = Math.ceil((exp - now) / 86400000);
+      if (diff < 0) {
+        expiryBadge = `<span style="color:var(--warn);font-size:11px"> · Прострочено ${fmtDate(u.subscription_expires_at.slice(0,10))}</span>`;
+      } else if (diff <= 14) {
+        expiryBadge = `<span style="color:var(--warn);font-size:11px"> · Закінчується через ${diff} дн.</span>`;
+      } else {
+        expiryBadge = `<span style="font-size:11px;color:var(--muted)"> · до ${fmtDate(u.subscription_expires_at.slice(0,10))}</span>`;
+      }
+    }
+
+    const lastEntry = u.last_entry_date ? fmtDate(u.last_entry_date) : '—';
+    const joined = u.created_at
+      ? new Date(u.created_at).toLocaleDateString('uk-UA',{day:'2-digit',month:'short',year:'numeric'})
+      : '—';
+
+    return `<div class="admin-user-card">
+      <div class="admin-avatar" style="${isMe?'background:var(--accent2)':''}">${escHtml(initials)}</div>
+      <div class="admin-user-info">
+        <div class="admin-user-name">${escHtml(u.name||'—')}${isMe?' <span style="font-size:10px;font-weight:400;color:var(--muted)">(я)</span>':''}${u.is_admin?' <span style="font-size:10px;color:var(--accent)">🔑</span>':''}</div>
+        <div class="admin-user-email">${escHtml(u.email||'')}</div>
+        <div><span class="user-tier-badge ${tierClass}">${tierLabel}</span>${expiryBadge}</div>
+        <div class="admin-stats">
+          Записів: ${u.entry_count||0} · Останній: ${lastEntry}<br>
+          В системі з: ${joined}
+        </div>
+      </div>
+      <button class="btn-outline" style="padding:6px 12px;font-size:12px;white-space:nowrap;flex-shrink:0;margin-top:2px"
+              onclick="openAdminTierModal(${u.id})">Доступ</button>
+    </div>`;
+  }).join('');
+}
+
+function openAdminTierModal(userId) {
+  const user = _adminUsers.find(u => u.id === userId);
+  if (!user) return;
+  _adminTierUserId = userId;
+  _adminSelMonths = null;
+  document.getElementById('adminTierTitle').textContent =
+    `Доступ: ${user.name || user.email}`;
+  selectTierPick(user.subscription_tier || 'premium');
+  document.getElementById('adminTierModal').classList.add('open');
+}
+
+function closeAdminTierModal() {
+  document.getElementById('adminTierModal').classList.remove('open');
+  _adminTierUserId = null;
+}
+
+function selectTierPick(tier) {
+  _adminSelTier = tier;
+  _adminSelMonths = null;
+  document.getElementById('tierPickDemo').classList.toggle('sel', tier === 'demo');
+  document.getElementById('tierPickPremium').classList.toggle('sel', tier === 'premium');
+  document.getElementById('adminPeriodBlock').style.display = tier === 'premium' ? '' : 'none';
+  document.getElementById('adminDemoNote').style.display   = tier === 'demo'    ? '' : 'none';
+  document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('sel'));
+  _updateExpiryHint();
+}
+
+function selectPeriod(months) {
+  _adminSelMonths = months;
+  document.querySelectorAll('.period-btn').forEach(b =>
+    b.classList.toggle('sel', parseInt(b.dataset.m) === months));
+  _updateExpiryHint();
+}
+
+function _updateExpiryHint() {
+  const el = document.getElementById('adminExpiryHint');
+  if (_adminSelTier === 'demo') { el.textContent = 'Без терміну дії'; return; }
+  if (!_adminSelMonths)         { el.textContent = ''; return; }
+  const exp = new Date();
+  exp.setMonth(exp.getMonth() + _adminSelMonths);
+  el.textContent = `Діє до: ${exp.toLocaleDateString('uk-UA',{day:'2-digit',month:'long',year:'numeric'})}`;
+}
+
+async function saveTier() {
+  if (!_adminTierUserId) return;
+  if (_adminSelTier === 'premium' && !_adminSelMonths) {
+    showToast('⚠️ Оберіть термін дії', 'var(--warn)');
+    return;
+  }
+  const btn = document.getElementById('btnSaveTier');
+  btn.disabled = true;
+  try {
+    const r = await fetch(`/api/users/${_adminTierUserId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subscription_tier: _adminSelTier, months: _adminSelMonths }),
+    });
+    if (!r.ok) throw new Error((await r.json().catch(()=>({}))).error || 'Помилка');
+    closeAdminTierModal();
+    await loadAdminUsers();
+    showToast('✅ Доступ оновлено');
+  } catch (err) {
+    showToast('⚠️ ' + err.message, 'var(--warn)');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 // ── HELPERS ─────────────────────────────────────────────────────────────────
 function todayStr() {
   const d = new Date();
@@ -2010,13 +2230,13 @@ function showToast(msg, color) {
 function showPage(name) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  document.getElementById('page-' + name).classList.add('active');
-  const idx = ['home','history','stats','export'].indexOf(name);
-  document.querySelectorAll('.tab')[idx].classList.add('active');
-  if (name === 'home') { showDayOnHome(selectedWeekDate || todayStr()); renderWeekStrip(); renderHomeChart(); updateFabLabel(); }
+  document.getElementById('page-' + name)?.classList.add('active');
+  document.querySelector(`.tab[data-page="${name}"]`)?.classList.add('active');
+  if (name === 'home')    { showDayOnHome(selectedWeekDate || todayStr()); renderWeekStrip(); renderHomeChart(); updateFabLabel(); }
   if (name === 'history') renderHistory();
-  if (name === 'stats') renderCharts();
-  if (name === 'export') { renderExportStats(); renderRemindersUI(); }
+  if (name === 'stats')   renderCharts();
+  if (name === 'export')  { renderExportStats(); renderRemindersUI(); }
+  if (name === 'admin')   loadAdminUsers();
 }
 
 // ── DRUM ROLLERS ────────────────────────────────────────────────────────────

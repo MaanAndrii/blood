@@ -33,14 +33,19 @@ router.put('/me', requireAuth, async (req, res) => {
   }
 });
 
-// GET /api/users — admin only: list all users
+// GET /api/users — admin only: list all users with activity stats
 router.get('/', requireAuth, requireAdmin, async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT id, email, name, avatar_url, is_admin, subscription_tier,
-              date_of_birth, reminders_enabled, reminder_morning, reminder_evening,
-              created_at
-       FROM users ORDER BY created_at ASC`
+      `SELECT u.id, u.email, u.name, u.avatar_url, u.is_admin,
+              u.subscription_tier, u.subscription_expires_at,
+              u.date_of_birth, u.created_at,
+              COUNT(e.id)::INT AS entry_count,
+              MAX(e.date)::TEXT  AS last_entry_date
+       FROM users u
+       LEFT JOIN entries e ON e.user_id = u.id
+       GROUP BY u.id
+       ORDER BY u.created_at ASC`
     );
     res.json(result.rows);
   } catch (err) {
@@ -93,16 +98,29 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
     const userId = parseInt(id, 10);
     if (isNaN(userId)) return res.status(400).json({ error: 'Invalid user id' });
 
-    const { date_of_birth, is_admin, email } = req.body;
+    const { date_of_birth, is_admin, email, subscription_tier, months } = req.body;
 
     // Build dynamic update
     const sets = [];
     const vals = [];
     let idx = 1;
 
-    if (date_of_birth !== undefined) { sets.push(`date_of_birth = $${idx++}`); vals.push(date_of_birth || null); }
-    if (is_admin !== undefined)      { sets.push(`is_admin = $${idx++}`);      vals.push(Boolean(is_admin)); }
-    if (email !== undefined)         { sets.push(`email = $${idx++}`);         vals.push(email.toLowerCase().trim()); }
+    if (date_of_birth !== undefined)    { sets.push(`date_of_birth = $${idx++}`);    vals.push(date_of_birth || null); }
+    if (is_admin !== undefined)          { sets.push(`is_admin = $${idx++}`);          vals.push(Boolean(is_admin)); }
+    if (email !== undefined)             { sets.push(`email = $${idx++}`);             vals.push(email.toLowerCase().trim()); }
+    if (subscription_tier !== undefined) {
+      sets.push(`subscription_tier = $${idx++}`);
+      vals.push(subscription_tier);
+      if (subscription_tier === 'premium' && months) {
+        const exp = new Date();
+        exp.setMonth(exp.getMonth() + parseInt(months, 10));
+        sets.push(`subscription_expires_at = $${idx++}`);
+        vals.push(exp.toISOString());
+      } else if (subscription_tier === 'demo') {
+        sets.push(`subscription_expires_at = $${idx++}`);
+        vals.push(null);
+      }
+    }
 
     if (!sets.length) return res.status(400).json({ error: 'Nothing to update' });
 

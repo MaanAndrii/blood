@@ -1908,18 +1908,22 @@ async function saveEntry() {
   const entry = {
     date,
     morning: {
-      sys_l:  fd.morning.sys_l,
-      dia_l:  fd.morning.dia_l,
-      sys_r:  fd.morning.sys_r,
-      dia_r:  fd.morning.dia_r,
-      pulse:  avgPulse('morning'),
+      sys_l:   fd.morning.sys_l,
+      dia_l:   fd.morning.dia_l,
+      sys_r:   fd.morning.sys_r,
+      dia_r:   fd.morning.dia_r,
+      pulse:   avgPulse('morning'),
+      pulse_l: fd.morning.pulse_l,
+      pulse_r: fd.morning.pulse_r,
     },
     evening: {
-      sys_l:  fd.evening.sys_l,
-      dia_l:  fd.evening.dia_l,
-      sys_r:  fd.evening.sys_r,
-      dia_r:  fd.evening.dia_r,
-      pulse:  avgPulse('evening'),
+      sys_l:   fd.evening.sys_l,
+      dia_l:   fd.evening.dia_l,
+      sys_r:   fd.evening.sys_r,
+      dia_r:   fd.evening.dia_r,
+      pulse:   avgPulse('evening'),
+      pulse_l: fd.evening.pulse_l,
+      pulse_r: fd.evening.pulse_r,
     },
     weight: wt,
     notes:  notesVal || null,
@@ -1974,25 +1978,22 @@ function _buildSaveSummary(entry) {
 }
 
 function fillFormFromEntry(e) {
-  // pulse is stored as a single averaged value per period.
-  // Load it only into pulse_l (left hand); pulse_r stays null so the
-  // average formula doesn't double-count if the user only edits one side.
   rollerFormData = {
     morning: {
-      sys_l:   e.morning.sys_l  ?? null,
-      dia_l:   e.morning.dia_l  ?? null,
-      pulse_l: e.morning.pulse  ?? null,
-      sys_r:   e.morning.sys_r  ?? null,
-      dia_r:   e.morning.dia_r  ?? null,
-      pulse_r: null,
+      sys_l:   e.morning.sys_l   ?? null,
+      dia_l:   e.morning.dia_l   ?? null,
+      pulse_l: e.morning.pulse_l ?? null,
+      sys_r:   e.morning.sys_r   ?? null,
+      dia_r:   e.morning.dia_r   ?? null,
+      pulse_r: e.morning.pulse_r ?? null,
     },
     evening: {
-      sys_l:   e.evening.sys_l  ?? null,
-      dia_l:   e.evening.dia_l  ?? null,
-      pulse_l: e.evening.pulse  ?? null,
-      sys_r:   e.evening.sys_r  ?? null,
-      dia_r:   e.evening.dia_r  ?? null,
-      pulse_r: null,
+      sys_l:   e.evening.sys_l   ?? null,
+      dia_l:   e.evening.dia_l   ?? null,
+      pulse_l: e.evening.pulse_l ?? null,
+      sys_r:   e.evening.sys_r   ?? null,
+      dia_r:   e.evening.dia_r   ?? null,
+      pulse_r: e.evening.pulse_r ?? null,
     },
   };
   // Mark all non-null combinations as touched

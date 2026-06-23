@@ -49,6 +49,12 @@ async function initDb() {
     )
   `);
 
+  // Add per-hand pulse columns if they don't exist yet (migration for existing DBs)
+  await pool.query(`ALTER TABLE entries ADD COLUMN IF NOT EXISTS m_pulse_l SMALLINT`);
+  await pool.query(`ALTER TABLE entries ADD COLUMN IF NOT EXISTS m_pulse_r SMALLINT`);
+  await pool.query(`ALTER TABLE entries ADD COLUMN IF NOT EXISTS e_pulse_l SMALLINT`);
+  await pool.query(`ALTER TABLE entries ADD COLUMN IF NOT EXISTS e_pulse_r SMALLINT`);
+
   await pool.query(`
     CREATE INDEX IF NOT EXISTS idx_entries_user_date
     ON entries(user_id, date DESC)

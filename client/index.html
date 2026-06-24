@@ -667,6 +667,8 @@
     }
     .history-row-label { color: var(--muted); }
     .history-row-val { font-family: var(--mono); font-weight: 500; }
+    .history-item { cursor: pointer; transition: border-color .15s, transform .1s; }
+    .history-item:active { border-color: var(--accent); transform: scale(.99); }
     .history-actions { display: flex; gap: 4px; }
     .delete-btn {
       background: none;
@@ -690,6 +692,55 @@
       transition: color .15s, background .15s;
     }
     .edit-btn:active { color: var(--accent); background: rgba(79,142,247,.1); }
+
+    /* ── DAY DETAIL MODAL ── */
+    .day-modal-body { padding: 14px 16px 24px; }
+    .day-modal-section {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      margin-bottom: 10px;
+    }
+    .day-modal-section-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      margin-bottom: 8px;
+    }
+    .day-modal-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 16px;
+    }
+    .btn-edit-day {
+      flex: 1;
+      background: rgba(79,142,247,.12);
+      border: 1.5px solid var(--accent);
+      color: var(--accent);
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      font-weight: 600;
+      padding: 12px;
+      cursor: pointer;
+      transition: background .15s;
+    }
+    .btn-edit-day:active { background: rgba(79,142,247,.25); }
+    .btn-delete-day {
+      flex: 1;
+      background: rgba(239,68,68,.1);
+      border: 1.5px solid #ef4444;
+      color: #ef4444;
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      font-weight: 600;
+      padding: 12px;
+      cursor: pointer;
+      transition: background .15s;
+    }
+    .btn-delete-day:active { background: rgba(239,68,68,.22); }
 
     /* ── EDIT MODE BANNER ── */
     .edit-banner {
@@ -1686,6 +1737,17 @@
   </div>
 </div>
 
+<!-- ══ DAY DETAIL MODAL ══ -->
+<div class="modal-overlay" id="dayModal">
+  <div class="entry-modal-box">
+    <div class="entry-modal-header">
+      <div class="entry-modal-title" id="dayModalTitle"></div>
+      <button class="entry-modal-close" onclick="closeDayModal()">✕</button>
+    </div>
+    <div class="day-modal-body" id="dayModalBody"></div>
+  </div>
+</div>
+
 <!-- Loading overlay -->
 <div id="loadingOverlay">
   <div class="spinner"></div>
@@ -1940,6 +2002,11 @@ async function initApp() {
     // Init push subscription if reminders enabled
     if (s.enabled && 'serviceWorker' in navigator && 'PushManager' in window) {
       initPushSubscription(s);
+    }
+
+    // First login: open profile if personal data not yet filled
+    if (!currentUser.date_of_birth && !currentUser.height_cm) {
+      setTimeout(() => openProfileModal(), 400);
     }
   } catch (err) {
     console.error('initApp error:', err);
@@ -3158,13 +3225,10 @@ function renderHistory() {
     const m = e.morning, ev = e.evening;
     const dateStr = String(e.date).slice(0,10);
     function bp(sys, dia) { return (sys ?? '—') + '/' + (dia ?? '—'); }
-    return `<div class="history-item">
+    return `<div class="history-item" onclick="openDayModal('${dateStr}')">
       <div class="history-header">
         <span class="history-date">${fmtDate(dateStr)}</span>
-        <div class="history-actions">
-          <button class="edit-btn" onclick="editEntry('${dateStr}')">✏️</button>
-          <button class="delete-btn" onclick="deleteEntry('${dateStr}')">🗑</button>
-        </div>
+        <span style="font-size:11px;color:var(--muted)">▶</span>
       </div>
       <div class="history-body">
         <div class="history-row">
@@ -3222,6 +3286,73 @@ async function deleteEntry(date) {
   renderHistory();
   renderTodaySummary();
   showToast('🗑 Запис видалено', 'var(--warn)');
+}
+
+// ── DAY DETAIL MODAL ────────────────────────────────────────────────────────
+function openDayModal(dateStr) {
+  const e = entries.find(x => String(x.date).slice(0,10) === dateStr);
+  if (!e) return;
+  const m = e.morning || {}, ev = e.evening || {};
+  function bp(sys, dia) { return (sys ?? '—') + '/' + (dia ?? '—'); }
+  document.getElementById('dayModalTitle').textContent = fmtDate(dateStr);
+  document.getElementById('dayModalBody').innerHTML = `
+    <div class="day-modal-section">
+      <div class="day-modal-section-title">🌅 Ранок</div>
+      <div class="history-body">
+        <div class="history-row">
+          <span class="history-row-label">Ліва рука</span>
+          <span class="history-row-val" style="color:var(--morning)">${bp(m.sys_l, m.dia_l)}${bpBadge(m.sys_l, m.dia_l)}</span>
+        </div>
+        <div class="history-row">
+          <span class="history-row-label">Права рука</span>
+          <span class="history-row-val" style="color:var(--morning)">${bp(m.sys_r, m.dia_r)}${bpBadge(m.sys_r, m.dia_r)}</span>
+        </div>
+        ${armDiffWarning(m.sys_l, m.sys_r)}
+        <div class="history-row">
+          <span class="history-row-label">Пульс</span>
+          <span class="history-row-val" style="color:var(--accent2)">${m.pulse ?? '—'} уд/хв</span>
+        </div>
+      </div>
+    </div>
+    <div class="day-modal-section">
+      <div class="day-modal-section-title">🌙 Вечір</div>
+      <div class="history-body">
+        <div class="history-row">
+          <span class="history-row-label">Ліва рука</span>
+          <span class="history-row-val" style="color:var(--evening)">${bp(ev.sys_l, ev.dia_l)}${bpBadge(ev.sys_l, ev.dia_l)}</span>
+        </div>
+        <div class="history-row">
+          <span class="history-row-label">Права рука</span>
+          <span class="history-row-val" style="color:var(--evening)">${bp(ev.sys_r, ev.dia_r)}${bpBadge(ev.sys_r, ev.dia_r)}</span>
+        </div>
+        ${armDiffWarning(ev.sys_l, ev.sys_r)}
+        <div class="history-row">
+          <span class="history-row-label">Пульс</span>
+          <span class="history-row-val" style="color:var(--accent2)">${ev.pulse ?? '—'} уд/хв</span>
+        </div>
+      </div>
+    </div>
+    ${e.weight ? `<div class="day-modal-section">
+      <div class="history-body">
+        <div class="history-row" style="grid-column:1/-1">
+          <span class="history-row-label">⚖️ Вага</span>
+          <span class="history-row-val" style="color:var(--accent3)">${e.weight} кг</span>
+        </div>
+      </div>
+    </div>` : ''}
+    ${e.notes ? `<div class="day-modal-section">
+      <div class="day-modal-section-title">📝 Нотатки</div>
+      <div style="font-size:13px;color:var(--text);white-space:pre-wrap;word-break:break-word">${escHtml(e.notes)}</div>
+    </div>` : ''}
+    <div class="day-modal-actions">
+      <button class="btn-edit-day" onclick="closeDayModal();editEntry('${dateStr}')">✏️ Редагувати</button>
+      <button class="btn-delete-day" onclick="closeDayModal();deleteEntry('${dateStr}')">🗑 Видалити</button>
+    </div>`;
+  document.getElementById('dayModal').classList.add('open');
+}
+
+function closeDayModal() {
+  document.getElementById('dayModal').classList.remove('open');
 }
 
 // ── CHARTS ──────────────────────────────────────────────────────────────────
@@ -3578,6 +3709,10 @@ document.getElementById('profileModal').addEventListener('click', function(e) {
 
 document.getElementById('entryModal').addEventListener('click', function(e) {
   if (e.target === this) closeEntryModal();
+});
+
+document.getElementById('dayModal').addEventListener('click', function(e) {
+  if (e.target === this) closeDayModal();
 });
 
 // ── REMINDERS ────────────────────────────────────────────────────────────────

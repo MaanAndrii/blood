@@ -2447,7 +2447,9 @@ async function saveTier() {
 
 // ── HELPERS ─────────────────────────────────────────────────────────────────
 function todayStr() {
-  const d = new Date();
+  return _localDateStr(new Date());
+}
+function _localDateStr(d) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 function fmtDate(str) {
@@ -3107,7 +3109,7 @@ function renderTodaySummary() {
 function renderYesterdaySummary() {
   const base = new Date((selectedWeekDate || todayStr()) + 'T00:00:00');
   base.setDate(base.getDate() - 1);
-  _renderSummaryInGrid(base.toISOString().slice(0, 10), 'yesterdaySummaryGrid');
+  _renderSummaryInGrid(_localDateStr(base), 'yesterdaySummaryGrid');
 }
 
 function showDayOnHome(dateStr) {
@@ -3138,7 +3140,7 @@ function renderWeekStrip() {
   for (let i = 6; i >= 0; i--) {
     const d = new Date();
     d.setDate(d.getDate() - i);
-    const dateStr = d.toISOString().slice(0, 10);
+    const dateStr = _localDateStr(d);
     const entry = entries.find(x => String(x.date).slice(0,10) === dateStr);
     let dotClass = '';
     if (entry) {
@@ -3168,7 +3170,7 @@ function renderHomeChart() {
   for (let i = 6; i >= 0; i--) {
     const d = new Date();
     d.setDate(d.getDate() - i);
-    const dateStr = d.toISOString().slice(0, 10);
+    const dateStr = _localDateStr(d);
     const e = entries.find(x => String(x.date).slice(0,10) === dateStr);
     labels.push(dayNames[d.getDay()]);
     const mSys = e ? (e.morning.sys_l ?? e.morning.sys_r ?? null) : null;

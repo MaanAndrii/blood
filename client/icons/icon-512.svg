@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background -->
+  <rect width="512" height="512" rx="102" fill="#e85249"/>
+
+  <!-- Stethoscope arc -->
+  <path d="M424,131 A195,195 0 1,1 88,131"
+    stroke="white" stroke-width="16" fill="none" stroke-linecap="round" opacity="0.9"/>
+  <line x1="424" y1="325" x2="408" y2="315" stroke="white" stroke-width="13" stroke-linecap="round" opacity="0.9"/>
+  <line x1="256" y1="421" x2="256" y2="394" stroke="white" stroke-width="13" stroke-linecap="round" opacity="0.9"/>
+  <line x1="88"  y1="325" x2="104" y2="315" stroke="white" stroke-width="13" stroke-linecap="round" opacity="0.9"/>
+
+  <!-- Heart -->
+  <path d="M256,384 C149,315 64,261 64,187 C64,112 128,85 179,101 C213,114 243,149 256,187 C269,149 299,114 333,101 C384,85 448,112 448,187 C448,261 363,315 256,384Z"
+    fill="white"/>
+
+  <!-- ECG pulse line -->
+  <polyline points="107,248 136,248 155,222 171,248 184,262 200,171 219,283 230,248 256,214 278,248 307,248 397,248"
+    stroke="#e85249" stroke-width="15" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

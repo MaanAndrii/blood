@@ -92,10 +92,14 @@ function bpCategoryLabel(sys, dia) {
   return 'Оптимальний';
 }
 
-const LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44">
-  <rect width="44" height="44" rx="10" fill="#1a2744"/>
-  <path d="M22 36 C22 36 7 23 7 14 A9 9 0 0 1 22 11 A9 9 0 0 1 37 14 C37 23 22 36 22 36Z" fill="#e85249"/>
-  <text x="22" y="19" text-anchor="middle" font-family="Arial" font-size="6.5" font-weight="bold" fill="white">BP</text>
+const LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" viewBox="0 0 192 192">
+  <rect width="192" height="192" rx="38" fill="#e85249"/>
+  <path d="M159,49 A73,73 0 1,1 33,49" stroke="white" stroke-width="6" fill="none" stroke-linecap="round" opacity="0.9"/>
+  <line x1="159" y1="122" x2="153" y2="118" stroke="white" stroke-width="5" stroke-linecap="round" opacity="0.9"/>
+  <line x1="96"  y1="158" x2="96"  y2="148" stroke="white" stroke-width="5" stroke-linecap="round" opacity="0.9"/>
+  <line x1="33"  y1="122" x2="39"  y2="118" stroke="white" stroke-width="5" stroke-linecap="round" opacity="0.9"/>
+  <path d="M96,144 C56,118 24,98 24,70 C24,42 48,32 67,38 C80,43 91,56 96,70 C101,56 112,43 125,38 C144,32 168,42 168,70 C168,98 136,118 96,144Z" fill="white"/>
+  <polyline points="40,93 51,93 58,83 64,93 69,98 75,64 82,106 86,93 96,80 104,93 115,93 149,93" stroke="#e85249" stroke-width="5.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>`;
 
 function buildHtml(user, entries, dateFrom, dateTo) {

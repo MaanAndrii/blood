@@ -1348,6 +1348,16 @@
       <div class="stat-title">📊 Середні значення</div>
       <div id="avgStatsBody"></div>
     </div>
+
+    <div class="stat-card" id="extStats">
+      <div class="stat-title">📐 Розширена статистика</div>
+      <div id="extStatsBody"></div>
+    </div>
+
+    <div class="stat-card" id="corrStats">
+      <div class="stat-title">🔗 Кореляційний аналіз (r Пірсона)</div>
+      <div id="corrStatsBody"></div>
+    </div>
   </div>
 
   <!-- ══ EXPORT PAGE ══ -->
@@ -1414,8 +1424,25 @@
       <button class="btn-save" id="btnNotifPermission" onclick="requestNotifPermission()" style="display:none">
         🔔 Дозволити сповіщення
       </button>
+      <div class="time-row" style="margin-top:12px">
+        <div class="time-field" style="flex:1">
+          <label>🌍 Часовий пояс</label>
+          <select id="reminderTimezone" onchange="saveReminderSettings()"
+            style="width:100%;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 10px;font-size:13px">
+            <option value="Europe/Kyiv">Europe/Kyiv (UTC+2/+3)</option>
+            <option value="Europe/Warsaw">Europe/Warsaw (UTC+1/+2)</option>
+            <option value="Europe/Berlin">Europe/Berlin (UTC+1/+2)</option>
+            <option value="Europe/London">Europe/London (UTC+0/+1)</option>
+            <option value="America/New_York">America/New_York (UTC-5/-4)</option>
+            <option value="America/Chicago">America/Chicago (UTC-6/-5)</option>
+            <option value="America/Los_Angeles">America/Los_Angeles (UTC-8/-7)</option>
+            <option value="Asia/Dubai">Asia/Dubai (UTC+4)</option>
+            <option value="Asia/Almaty">Asia/Almaty (UTC+5/+6)</option>
+          </select>
+        </div>
+      </div>
       <p style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.5">
-        Сповіщення надсилаються через сервер. Встановіть застосунок на головний екран для роботи у фоні.<br>
+        Сповіщення надсилаються через сервер відповідно до обраного часового поясу. Встановіть застосунок на головний екран для роботи у фоні.<br>
         <span id="serverTzHint"></span>
       </p>
     </div>
@@ -1569,7 +1596,7 @@
     </p>
     <ul style="font-size:12px;color:var(--muted);line-height:1.8;padding-left:18px;margin-bottom:16px">
       <li>Ранкові та вечірні виміри по кожній руці</li>
-      <li>Класифікація тиску WHO/ESH 2018</li>
+      <li>Класифікація тиску WHO/ESH 2023</li>
       <li>Розрахунок ІМТ (6 категорій ВООЗ)</li>
       <li>PDF-довідка для лікаря</li>
       <li>Push-нагадування про виміри</li>
@@ -1702,7 +1729,7 @@
 <script>
 // ── DATA LAYER ──────────────────────────────────────────────────────────────
 const DB_KEY        = 'health_entries_v2';
-const APP_VERSION   = '1.01';
+const APP_VERSION   = '1.05';
 const REMINDER_KEY  = 'health_reminders';
 
 // ── Constants (U) ────────────────────────────────────────────────────────────
@@ -1930,9 +1957,10 @@ async function initApp() {
     const stored = loadReminderSettings();
     if (!stored.morning && currentUser.reminder_morning) {
       const synced = {
-        enabled: currentUser.reminders_enabled ?? false,
-        morning: currentUser.reminder_morning || '08:00',
-        evening: currentUser.reminder_evening || '20:00',
+        enabled:  currentUser.reminders_enabled ?? false,
+        morning:  currentUser.reminder_morning || '08:00',
+        evening:  currentUser.reminder_evening || '20:00',
+        timezone: currentUser.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
       };
       localStorage.setItem(REMINDER_KEY, JSON.stringify(synced));
     }
@@ -2775,7 +2803,7 @@ function bpStr(sys, dia) {
   return `${sys ?? '?'}/${dia ?? '?'}`;
 }
 
-// WHO/ESH 2018 BP classification (8 categories)
+// WHO/ESH 2023 BP classification (8 categories)
 function bpCategory(sys, dia) {
   if (sys == null && dia == null) return null;
   const hasBoth = sys != null && dia != null;
@@ -2811,6 +2839,50 @@ function calcBmi(weightKg, heightCm) {
   if (!weightKg || !heightCm) return null;
   const m = heightCm / 100;
   return weightKg / (m * m);
+}
+
+// ── Statistics helpers ────────────────────────────────────────────────────────
+function statMedian(arr) {
+  const nums = arr.filter(v => v != null).map(Number).sort((a, b) => a - b);
+  if (!nums.length) return null;
+  const mid = Math.floor(nums.length / 2);
+  return nums.length % 2 ? nums[mid] : Math.round((nums[mid - 1] + nums[mid]) / 2 * 10) / 10;
+}
+
+function statStdDev(arr) {
+  const nums = arr.filter(v => v != null).map(Number);
+  if (nums.length < 2) return null;
+  const mean = nums.reduce((a, b) => a + b, 0) / nums.length;
+  const variance = nums.reduce((a, b) => a + (b - mean) ** 2, 0) / nums.length;
+  return Math.round(Math.sqrt(variance) * 10) / 10;
+}
+
+function statMinMax(arr) {
+  const nums = arr.filter(v => v != null).map(Number);
+  if (!nums.length) return null;
+  return { min: Math.min(...nums), max: Math.max(...nums) };
+}
+
+function pearsonR(xArr, yArr) {
+  const pairs = xArr.map((x, i) => [x, yArr[i]]).filter(([x, y]) => x != null && y != null);
+  if (pairs.length < 3) return null;
+  const xs = pairs.map(p => p[0]);
+  const ys = pairs.map(p => p[1]);
+  const n = xs.length;
+  const mx = xs.reduce((a, b) => a + b, 0) / n;
+  const my = ys.reduce((a, b) => a + b, 0) / n;
+  const num = xs.reduce((a, x, i) => a + (x - mx) * (ys[i] - my), 0);
+  const dx = Math.sqrt(xs.reduce((a, x) => a + (x - mx) ** 2, 0));
+  const dy = Math.sqrt(ys.reduce((a, y) => a + (y - my) ** 2, 0));
+  if (!dx || !dy) return null;
+  return Math.round(num / (dx * dy) * 100) / 100;
+}
+
+function corrStrength(r) {
+  if (r === null) return '—';
+  const abs = Math.abs(r);
+  const s = abs >= 0.7 ? 'сильна' : abs >= 0.4 ? 'помірна' : abs >= 0.2 ? 'слабка' : 'відсутня';
+  return `${r > 0 ? '↑' : '↓'} ${s} (r = ${r})`;
 }
 
 function _updateProfileBmi() {
@@ -3307,6 +3379,72 @@ function renderCharts() {
       <span class="${cls}">${value != null ? value + ' ' + unit : '—'}</span>
     </div>`
   ).join('');
+
+  // — Extended statistics —
+  if (data.length >= 3) {
+    const mSysL  = data.map(e => e.morning.sys_l);
+    const mDiaL  = data.map(e => e.morning.dia_l);
+    const mSysR  = data.map(e => e.morning.sys_r);
+    const mDiaR  = data.map(e => e.morning.dia_r);
+    const eSysL  = data.map(e => e.evening.sys_l);
+    const eDiaL  = data.map(e => e.evening.dia_l);
+    const eSysR  = data.map(e => e.evening.sys_r);
+    const eDiaR  = data.map(e => e.evening.dia_r);
+    const mPulse = data.map(e => e.morning.pulse);
+    const ePulse = data.map(e => e.evening.pulse);
+    const wts    = data.map(e => e.weight);
+
+    function mmStr(arr) { const m = statMinMax(arr); return m ? `${m.min} / ${m.max}` : '—'; }
+
+    const avgMSys = avgOf(mSysL.map((v,i) => v ?? mSysR[i]));
+    const avgESys = avgOf(eSysL.map((v,i) => v ?? eSysR[i]));
+    const dailyIdx = (avgMSys != null && avgESys != null && avgMSys > 0)
+      ? Math.round((avgMSys - avgESys) / avgMSys * 100 * 10) / 10 : null;
+
+    const avgSys = avgOf(mSysL) ?? avgOf(mSysR);
+    const avgDia = avgOf(mDiaL) ?? avgOf(mDiaR);
+    const cat = bpCategory(avgSys, avgDia);
+
+    const extRows = [
+      ['Медіана Сист. ранок Л / П', `${statMedian(mSysL) ?? '—'} / ${statMedian(mSysR) ?? '—'}`, 'мм'],
+      ['Медіана Сист. вечір Л / П', `${statMedian(eSysL) ?? '—'} / ${statMedian(eSysR) ?? '—'}`, 'мм'],
+      ['Медіана Діаст. ранок Л / П', `${statMedian(mDiaL) ?? '—'} / ${statMedian(mDiaR) ?? '—'}`, 'мм'],
+      ['Медіана Діаст. вечір Л / П', `${statMedian(eDiaL) ?? '—'} / ${statMedian(eDiaR) ?? '—'}`, 'мм'],
+      ['Ст. відхилення Сист. ранок Л', statStdDev(mSysL), 'мм'],
+      ['Ст. відхилення Сист. вечір Л', statStdDev(eSysL), 'мм'],
+      ['Мін/Макс Сист. ранок Л', mmStr(mSysL), ''],
+      ['Мін/Макс Сист. вечір Л', mmStr(eSysL), ''],
+      ['Мін/Макс пульс', mmStr([...mPulse, ...ePulse]), 'уд/хв'],
+      ['Денний індекс (ранок−вечір)/ранок', dailyIdx != null ? dailyIdx + ' %' : '—', ''],
+      ['WHO/ESH 2023 (серед. ранок)', cat ? cat.label : '—', ''],
+    ];
+    document.getElementById('extStatsBody').innerHTML = extRows.map(([label, value, unit]) =>
+      `<div class="stat-row"><span>${label}</span><span>${value != null ? value + (unit ? ' ' + unit : '') : '—'}</span></div>`
+    ).join('');
+
+    // — Correlation analysis —
+    const sysByDay = data.map(e => e.morning.sys_l ?? e.morning.sys_r);
+    const rSysW  = pearsonR(sysByDay, wts);
+    const rPulseS = pearsonR(mPulse, sysByDay);
+    const rMornEve = pearsonR(sysByDay, data.map(e => e.evening.sys_l ?? e.evening.sys_r));
+    const rSysWt = pearsonR(wts, data.map(e => e.morning.dia_l ?? e.morning.dia_r));
+
+    const corrRows = [
+      ['Систолічний тиск ↔ Вага', rSysW],
+      ['Діастолічний тиск ↔ Вага', rSysWt],
+      ['Пульс ↔ Систолічний тиск', rPulseS],
+      ['Ранок ↔ Вечір (Сист.)', rMornEve],
+    ];
+    document.getElementById('corrStatsBody').innerHTML = corrRows.map(([label, r]) =>
+      `<div class="stat-row"><span>${label}</span><span>${corrStrength(r)}</span></div>`
+    ).join('');
+
+    document.getElementById('extStats').style.display = '';
+    document.getElementById('corrStats').style.display = '';
+  } else {
+    document.getElementById('extStats').style.display = 'none';
+    document.getElementById('corrStats').style.display = 'none';
+  }
 }
 
 // ── EXPORT ───────────────────────────────────────────────────────────────────
@@ -3481,10 +3619,12 @@ function loadReminderSettings() {
 }
 
 async function saveReminderSettings() {
+  const tzEl = document.getElementById('reminderTimezone');
   const s = {
     enabled:  document.getElementById('remindersEnabled').checked,
     morning:  document.getElementById('reminderMorning').value,
     evening:  document.getElementById('reminderEvening').value,
+    timezone: tzEl ? tzEl.value : Intl.DateTimeFormat().resolvedOptions().timeZone,
   };
   localStorage.setItem(REMINDER_KEY, JSON.stringify(s));
   scheduleReminders(s);
@@ -3497,9 +3637,10 @@ async function saveReminderSettings() {
     }
     await savePushSettingsToServer({
       subscription,
-      morning: s.morning,
-      evening: s.evening,
-      enabled: s.enabled,
+      morning:  s.morning,
+      evening:  s.evening,
+      enabled:  s.enabled,
+      timezone: s.timezone,
     });
   } catch (err) {
     console.warn('savePushSettings failed:', err);
@@ -3560,6 +3701,18 @@ async function renderRemindersUI() {
   document.getElementById('remindersEnabled').checked  = s.enabled  ?? false;
   document.getElementById('reminderMorning').value     = s.morning  || '08:00';
   document.getElementById('reminderEvening').value     = s.evening  || '20:00';
+  const tzEl = document.getElementById('reminderTimezone');
+  if (tzEl) {
+    const savedTz = s.timezone || currentUser?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+    // try to select matching option, otherwise add dynamically
+    const opt = [...tzEl.options].find(o => o.value === savedTz);
+    if (opt) { tzEl.value = savedTz; }
+    else if (savedTz) {
+      const newOpt = new Option(savedTz, savedTz);
+      tzEl.add(newOpt);
+      tzEl.value = savedTz;
+    }
+  }
 
   // Check if VAPID is configured on server; also read server timezone
   try {

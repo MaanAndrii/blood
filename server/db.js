@@ -65,6 +65,8 @@ async function initDb() {
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_expires_at TIMESTAMPTZ`);
   // Migrate legacy 'free' tier to 'premium'
   await pool.query(`UPDATE users SET subscription_tier = 'premium' WHERE subscription_tier = 'free' OR subscription_tier IS NULL`);
+  // User timezone for reminder scheduling
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS timezone TEXT DEFAULT 'Europe/Kyiv'`);
 
   await pool.query(`
     CREATE INDEX IF NOT EXISTS idx_entries_user_date

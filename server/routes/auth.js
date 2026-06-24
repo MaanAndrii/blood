@@ -185,7 +185,7 @@ router.get('/me', async (req, res) => {
       `SELECT id, email, name, avatar_url, is_admin, date_of_birth, created_at,
               subscription_tier, subscription_expires_at,
               reminders_enabled, reminder_morning, reminder_evening,
-              height_cm
+              height_cm, timezone
        FROM users WHERE id = $1`,
       [payload.id]
     );

@@ -10,8 +10,19 @@ router.put('/me', requireAuth, async (req, res) => {
     const { name, date_of_birth, height_cm } = req.body;
     const sets = [], vals = [];
     let idx = 1;
-    if (name !== undefined)          { sets.push(`name = $${idx++}`);          vals.push(name?.trim() || null); }
-    if (date_of_birth !== undefined) { sets.push(`date_of_birth = $${idx++}`); vals.push(date_of_birth || null); }
+    if (name !== undefined) {
+      const trimmed = name?.trim() || null;
+      if (trimmed && trimmed.length > 100) return res.status(400).json({ error: 'name must be 100 characters or less' });
+      sets.push(`name = $${idx++}`);
+      vals.push(trimmed);
+    }
+    if (date_of_birth !== undefined) {
+      if (date_of_birth && !/^\d{4}-\d{2}-\d{2}$/.test(date_of_birth)) {
+        return res.status(400).json({ error: 'date_of_birth must be YYYY-MM-DD' });
+      }
+      sets.push(`date_of_birth = $${idx++}`);
+      vals.push(date_of_birth || null);
+    }
     if (height_cm !== undefined) {
       const h = height_cm == null ? null : parseInt(height_cm, 10);
       if (h !== null && (isNaN(h) || h < 50 || h > 250)) {
@@ -59,6 +70,7 @@ router.post('/invite', requireAuth, requireAdmin, async (req, res) => {
   try {
     const { email, name } = req.body;
     if (!email) return res.status(400).json({ error: 'email required' });
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Invalid email format' });
 
     const result = await pool.query(
       `INSERT INTO users (email, name, is_admin)
@@ -84,6 +96,7 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
     if (id === 'new') {
       const { email } = req.body;
       if (!email) return res.status(400).json({ error: 'email required' });
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Invalid email format' });
 
       const result = await pool.query(
         `INSERT INTO users (email, is_admin)
@@ -107,8 +120,15 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
 
     if (date_of_birth !== undefined)    { sets.push(`date_of_birth = $${idx++}`);    vals.push(date_of_birth || null); }
     if (is_admin !== undefined)          { sets.push(`is_admin = $${idx++}`);          vals.push(Boolean(is_admin)); }
-    if (email !== undefined)             { sets.push(`email = $${idx++}`);             vals.push(email.toLowerCase().trim()); }
+    if (email !== undefined) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Invalid email format' });
+      sets.push(`email = $${idx++}`);
+      vals.push(email.toLowerCase().trim());
+    }
     if (subscription_tier !== undefined) {
+      if (!['demo', 'premium'].includes(subscription_tier)) {
+        return res.status(400).json({ error: 'subscription_tier must be demo or premium' });
+      }
       sets.push(`subscription_tier = $${idx++}`);
       vals.push(subscription_tier);
       if (subscription_tier === 'premium' && months) {

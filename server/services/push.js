@@ -46,58 +46,54 @@ function scheduleReminders() {
   cron.schedule('* * * * *', async () => {
     try {
       const now = new Date();
-      const hh = String(now.getHours()).padStart(2, '0');
-      const mm = String(now.getMinutes()).padStart(2, '0');
-      const currentTime = `${hh}:${mm}`;
-      const todayStr = now.toISOString().slice(0, 10);
 
-      // Find users with reminders enabled that match current time
+      // Fetch all users with reminders enabled
       const usersResult = await pool.query(
-        `SELECT u.id, u.name, u.push_subscription,
+        `SELECT u.id, u.name, u.push_subscription, u.timezone,
                 TO_CHAR(u.reminder_morning, 'HH24:MI') AS reminder_morning,
                 TO_CHAR(u.reminder_evening, 'HH24:MI') AS reminder_evening
          FROM users u
          WHERE u.reminders_enabled = TRUE
-           AND u.push_subscription IS NOT NULL
-           AND (
-             TO_CHAR(u.reminder_morning, 'HH24:MI') = $1
-             OR TO_CHAR(u.reminder_evening, 'HH24:MI') = $1
-           )`,
-        [currentTime]
+           AND u.push_subscription IS NOT NULL`
       );
 
       for (const user of usersResult.rows) {
         if (!user.push_subscription) continue;
 
-        // Check if entry exists for today
+        // Get current time and today's date in user's timezone
+        const tz = user.timezone || 'Europe/Kyiv';
+        let currentTime, todayStr;
+        try {
+          currentTime = new Intl.DateTimeFormat('en-GB', {
+            timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false
+          }).format(now).replace(',', '').trim();
+          todayStr = new Intl.DateTimeFormat('en-CA', {
+            timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit'
+          }).format(now);
+        } catch {
+          // Fallback to server time if timezone is invalid
+          currentTime = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+          todayStr = now.toISOString().slice(0, 10);
+        }
+
+        const isMorning = user.reminder_morning === currentTime;
+        const isEvening = user.reminder_evening === currentTime;
+        if (!isMorning && !isEvening) continue;
+
+        // Check if entry exists for today (in user's local timezone)
         const entryResult = await pool.query(
           'SELECT m_sys_l, m_sys_r, e_sys_l, e_sys_r FROM entries WHERE user_id = $1 AND date = $2',
           [user.id, todayStr]
         );
         const entry = entryResult.rows[0] || {};
 
-        if (user.reminder_morning === currentTime) {
-          const alreadyDone = entry.m_sys_l != null || entry.m_sys_r != null;
-          if (!alreadyDone) {
-            await sendPush(
-              user.push_subscription,
-              '🌅 Час виміряти тиск',
-              'Зробіть ранковий вимір — це займе хвилину.',
-              { url: '/' }
-            );
-          }
+        if (isMorning && !(entry.m_sys_l != null || entry.m_sys_r != null)) {
+          await sendPush(user.push_subscription, '🌅 Час виміряти тиск',
+            'Зробіть ранковий вимір — це займе хвилину.', { url: '/' });
         }
-
-        if (user.reminder_evening === currentTime) {
-          const alreadyDone = entry.e_sys_l != null || entry.e_sys_r != null;
-          if (!alreadyDone) {
-            await sendPush(
-              user.push_subscription,
-              '🌙 Час виміряти тиск',
-              'Зробіть вечірній вимір — це займе хвилину.',
-              { url: '/' }
-            );
-          }
+        if (isEvening && !(entry.e_sys_l != null || entry.e_sys_r != null)) {
+          await sendPush(user.push_subscription, '🌙 Час виміряти тиск',
+            'Зробіть вечірній вимір — це займе хвилину.', { url: '/' });
         }
       }
     } catch (err) {

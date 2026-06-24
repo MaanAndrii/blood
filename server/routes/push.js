@@ -7,7 +7,7 @@ const router = express.Router();
 // PUT /api/push/settings — save push subscription + reminder times
 router.put('/settings', requireAuth, async (req, res) => {
   try {
-    const { subscription, morning, evening, enabled } = req.body;
+    const { subscription, morning, evening, enabled, timezone } = req.body;
 
     const updates = [];
     const values = [];
@@ -18,16 +18,25 @@ router.put('/settings', requireAuth, async (req, res) => {
       values.push(subscription ? JSON.stringify(subscription) : null);
     }
     if (morning !== undefined) {
+      if (morning && !/^\d{2}:\d{2}$/.test(morning)) return res.status(400).json({ error: 'morning must be HH:MM' });
       updates.push(`reminder_morning = $${idx++}`);
       values.push(morning);
     }
     if (evening !== undefined) {
+      if (evening && !/^\d{2}:\d{2}$/.test(evening)) return res.status(400).json({ error: 'evening must be HH:MM' });
       updates.push(`reminder_evening = $${idx++}`);
       values.push(evening);
     }
     if (enabled !== undefined) {
       updates.push(`reminders_enabled = $${idx++}`);
       values.push(Boolean(enabled));
+    }
+    if (timezone !== undefined) {
+      try { Intl.DateTimeFormat(undefined, { timeZone: timezone }); } catch {
+        return res.status(400).json({ error: 'Invalid timezone' });
+      }
+      updates.push(`timezone = $${idx++}`);
+      values.push(timezone);
     }
 
     if (!updates.length) {

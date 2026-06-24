@@ -2053,7 +2053,9 @@ function openProfileModal() {
     const effective = currentUser.effective_tier || currentUser.subscription_tier || 'premium';
     const exp = currentUser.subscription_expires_at ? new Date(currentUser.subscription_expires_at) : null;
     const daysLeft = exp ? Math.ceil((exp - new Date()) / 86400000) : null;
-    const isTrial = effective === 'premium' && exp && daysLeft > 0;
+    const isTrial = effective === 'premium' && exp && daysLeft > 0
+      && currentUser.created_at
+      && Math.round((exp - new Date(currentUser.created_at)) / 86400000) <= 8;
     let label, color, detail;
     if (effective === 'demo') {
       label = 'Demo'; color = 'var(--muted)';

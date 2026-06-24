@@ -322,7 +322,10 @@ function renderAdminUsers() {
   list.innerHTML = filtered.map(u => {
     const initials = (u.name||u.email||'?').split(' ').slice(0,2).map(w=>w[0]||'').join('').toUpperCase()||'?';
     const effective = getEffectiveTier(u);
-    const isTrial = u.subscription_tier === 'premium' && u.subscription_expires_at && new Date(u.subscription_expires_at) > new Date();
+    const isTrial = u.subscription_tier === 'premium' && u.subscription_expires_at
+      && new Date(u.subscription_expires_at) > new Date()
+      && u.created_at
+      && Math.round((new Date(u.subscription_expires_at) - new Date(u.created_at)) / 86400000) <= 8;
     const tierLabel = effective === 'demo' ? 'Demo' : (isTrial ? 'Trial' : 'Premium');
     const tierClass = effective === 'demo' ? 'demo' : (isTrial ? 'trial' : 'premium');
 

@@ -1,5 +1,14 @@
 const puppeteer = require('puppeteer');
 
+function escHtml(s) {
+  if (s == null) return '—';
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 function fmtDateUk(dateStr) {
   if (!dateStr) return '—';
   const d = new Date(dateStr);
@@ -176,7 +185,7 @@ function buildHtml(user, entries, dateFrom, dateTo) {
   </div>
 
   <table class="meta-table">
-    <tr><td>Пацієнт:</td><td>${user.name || '—'}</td></tr>
+    <tr><td>Пацієнт:</td><td>${escHtml(user.name)}</td></tr>
     <tr><td>Дата народження:</td><td>${dob}</td></tr>
     <tr><td>Період:</td><td>${fmtDateUk(dateFrom)} — ${fmtDateUk(dateTo)}</td></tr>
     <tr><td>Сформовано:</td><td>${today}</td></tr>

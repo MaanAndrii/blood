@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex,nofollow" />
+  <title>Адмін · BP &amp; BMI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg:        #0f1628;
+      --surface:   #1a2744;
+      --card:      #1f3060;
+      --border:    #2a3f6f;
+      --accent:    #e85249;
+      --accent2:   #34d399;
+      --warn:      #fb923c;
+      --text:      #e8edf8;
+      --muted:     #7a8fb5;
+      --morning:   #fbbf24;
+      --evening:   #818cf8;
+      --radius:    14px;
+      --radius-sm: 8px;
+      --font:      'Noto Sans', sans-serif;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100dvh;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    header {
+      background: #1c2e4a;
+      border-bottom: 1px solid var(--border);
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .header-title {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 16px; font-weight: 700;
+    }
+    .back-link {
+      font-size: 12px; color: var(--muted); text-decoration: none;
+      padding: 6px 10px; border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      transition: color .15s;
+    }
+    .back-link:hover { color: var(--text); }
+    main { padding: 16px; max-width: 720px; margin: 0 auto; }
+    .section-label {
+      font-size: 11px; font-weight: 600; letter-spacing: .06em;
+      text-transform: uppercase; color: var(--muted);
+      padding: 6px 0; border-bottom: 1px solid var(--border);
+      margin-bottom: 10px; margin-top: 20px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .section-label:first-child { margin-top: 0; }
+    input[type=search] {
+      width: 100%;
+      background: var(--card);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      font-size: 14px;
+      font-family: var(--font);
+      outline: none;
+      margin-bottom: 12px;
+      transition: border-color .15s;
+    }
+    input[type=search]:focus { border-color: var(--accent); }
+
+    /* User cards */
+    .admin-user-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+      margin-bottom: 10px;
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
+    .admin-avatar {
+      width: 42px; height: 42px; border-radius: 50%;
+      background: var(--accent); color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 15px; flex-shrink: 0;
+    }
+    .admin-user-info { flex: 1; min-width: 0; }
+    .admin-user-name { font-weight: 600; font-size: 15px; margin-bottom: 2px; }
+    .admin-user-email {
+      font-size: 12px; color: var(--muted); margin-bottom: 6px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .admin-stats { font-size: 11px; color: var(--muted); line-height: 1.7; margin-top: 6px; }
+
+    /* Tier badges */
+    .user-tier-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: .03em;
+    }
+    .user-tier-badge.premium { background: rgba(232,82,73,.15); color: #e85249; border: 1px solid rgba(232,82,73,.3); }
+    .user-tier-badge.demo    { background: rgba(122,143,181,.12); color: var(--muted); border: 1px solid var(--border); }
+    .user-tier-badge.trial   { background: rgba(52,211,153,.12); color: #34d399; border: 1px solid rgba(52,211,153,.3); }
+
+    /* Buttons */
+    .btn {
+      padding: 9px 16px;
+      border-radius: var(--radius-sm);
+      font-family: var(--font);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      transition: opacity .15s;
+    }
+    .btn:active { opacity: .75; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-outline {
+      background: transparent;
+      color: var(--text);
+      border: 1.5px solid var(--border);
+    }
+    .btn-sm { padding: 6px 12px; font-size: 12px; white-space: nowrap; flex-shrink: 0; }
+
+    /* Tier modal */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,.65);
+      z-index: 100;
+      align-items: center; justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-box {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      width: 92%; max-width: 360px;
+    }
+    .modal-title { font-size: 16px; font-weight: 700; margin-bottom: 16px; }
+    .modal-actions { display: flex; gap: 8px; margin-top: 16px; }
+    .tier-pick-btn, .period-btn {
+      flex: 1; padding: 10px 8px;
+      border: 1.5px solid var(--border);
+      background: transparent; color: var(--text);
+      border-radius: var(--radius-sm);
+      cursor: pointer; font-size: 13px; font-weight: 500;
+      font-family: var(--font);
+      transition: border-color .15s, background .15s, color .15s;
+    }
+    .tier-pick-btn.sel, .period-btn.sel {
+      border-color: var(--accent);
+      background: rgba(232,82,73,.12);
+      color: var(--accent);
+    }
+    .tier-pick-btn:active, .period-btn:active { opacity: .75; }
+    .expiry-hint { font-size: 12px; color: var(--muted); min-height: 18px; margin: 10px 0 4px; }
+
+    /* Toast */
+    #toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+      background: var(--accent2); color: #052e16;
+      padding: 10px 18px; border-radius: 20px;
+      font-size: 13px; font-weight: 600;
+      transition: transform .3s ease, opacity .3s;
+      pointer-events: none; z-index: 200;
+      opacity: 0; white-space: nowrap;
+    }
+    #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+    .error-box {
+      text-align: center; padding: 40px;
+      color: var(--warn);
+    }
+    .loading-box {
+      text-align: center; padding: 40px;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-title">
+    <svg viewBox="0 0 100 96" width="28" height="27">
+      <defs><linearGradient id="hg-adm" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e85249"/><stop offset="100%" stop-color="#b91c1c"/></linearGradient></defs>
+      <path d="M93,17 A50,50 0 1,1 7,17" stroke="white" stroke-width="5" fill="none" stroke-linecap="round" opacity=".8"/>
+      <path d="M50,78 C25,62 5,49 5,32 C5,14 20,8 32,12 C40,15 47,23 50,32 C53,23 60,15 68,12 C80,8 95,14 95,32 C95,49 75,62 50,78Z" fill="url(#hg-adm)"/>
+      <polyline points="15,46 22,46 26,40 30,46 33,49 37,28 41,54 44,46 50,38 55,46 62,46 83,46" stroke="white" stroke-width="4.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    ⚙️ Адмін-панель
+  </div>
+  <a href="/" class="back-link">← До додатку</a>
+</header>
+
+<main>
+  <div class="section-label">
+    <span>Користувачі</span>
+    <span id="adminUserCount" style="font-size:12px;color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0"></span>
+  </div>
+
+  <input id="adminSearchInput" type="search" placeholder="🔍 Пошук за email або ім'ям…" oninput="renderAdminUsers()" />
+
+  <div id="adminUsersList">
+    <div class="loading-box">Завантаження…</div>
+  </div>
+</main>
+
+<!-- Tier modal -->
+<div class="modal-overlay" id="adminTierModal" onclick="if(event.target===this)closeAdminTierModal()">
+  <div class="modal-box">
+    <div class="modal-title" id="adminTierTitle">Доступ</div>
+
+    <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Тип доступу</div>
+    <div style="display:flex;gap:8px;margin-bottom:16px">
+      <button class="tier-pick-btn" id="tierPickDemo"    onclick="selectTierPick('demo')">Demo</button>
+      <button class="tier-pick-btn" id="tierPickPremium" onclick="selectTierPick('premium')">Premium</button>
+    </div>
+
+    <div id="adminPeriodBlock" style="display:none">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Термін дії</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:4px">
+        <button class="period-btn" data-m="1"  onclick="selectPeriod(1)">1 місяць</button>
+        <button class="period-btn" data-m="3"  onclick="selectPeriod(3)">3 місяці</button>
+        <button class="period-btn" data-m="6"  onclick="selectPeriod(6)">6 місяців</button>
+        <button class="period-btn" data-m="12" onclick="selectPeriod(12)">1 рік</button>
+      </div>
+    </div>
+
+    <div class="expiry-hint" id="adminExpiryHint"></div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:14px;display:none" id="adminDemoNote">
+      ⚠️ Demo: обмежено 30 днів журналу, без Експорту
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-outline" style="flex:1" onclick="closeAdminTierModal()">Скасувати</button>
+      <button class="btn btn-primary" style="flex:2" id="btnSaveTier" onclick="saveTier()">Зберегти</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+function escHtml(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function fmtDate(str) {
+  if (!str) return '';
+  const [y,m,d] = String(str).slice(0,10).split('-');
+  return `${d}.${m}.${y}`;
+}
+function showToast(msg, color) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = color || 'var(--accent2)';
+  t.style.color = color ? '#fff' : '#052e16';
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2400);
+}
+function getEffectiveTier(u) {
+  if (!u) return 'demo';
+  if (u.subscription_tier === 'demo') return 'demo';
+  if (u.subscription_expires_at && new Date(u.subscription_expires_at) < new Date()) return 'demo';
+  return 'premium';
+}
+
+let _adminUsers = [];
+let _adminTierUserId = null;
+let _adminSelTier = null;
+let _adminSelMonths = null;
+
+async function loadAdminUsers() {
+  const list = document.getElementById('adminUsersList');
+  list.innerHTML = '<div class="loading-box">Завантаження…</div>';
+  try {
+    const r = await fetch('/api/users');
+    if (r.status === 401) { list.innerHTML = '<div class="error-box">Не авторизовано — увійдіть у додаток</div>'; return; }
+    if (r.status === 403) { list.innerHTML = '<div class="error-box">Доступ заборонено (потрібні права адміна)</div>'; return; }
+    if (!r.ok) throw new Error('Помилка сервера');
+    _adminUsers = await r.json();
+    renderAdminUsers();
+  } catch (err) {
+    list.innerHTML = `<div class="error-box">${escHtml(err.message)}</div>`;
+  }
+}
+
+function renderAdminUsers() {
+  const list = document.getElementById('adminUsersList');
+  const q = (document.getElementById('adminSearchInput').value || '').trim().toLowerCase();
+  const filtered = q
+    ? _adminUsers.filter(u =>
+        (u.email||'').toLowerCase().includes(q) ||
+        (u.name ||'').toLowerCase().includes(q))
+    : _adminUsers;
+
+  document.getElementById('adminUserCount').textContent =
+    q ? `${filtered.length} з ${_adminUsers.length} користувачів` : `${_adminUsers.length} користувачів`;
+
+  if (!filtered.length) {
+    list.innerHTML = `<div class="loading-box">${q ? 'Нічого не знайдено' : 'Немає користувачів'}</div>`;
+    return;
+  }
+
+  list.innerHTML = filtered.map(u => {
+    const initials = (u.name||u.email||'?').split(' ').slice(0,2).map(w=>w[0]||'').join('').toUpperCase()||'?';
+    const effective = getEffectiveTier(u);
+    const isTrial = u.subscription_tier === 'premium' && u.subscription_expires_at
+      && new Date(u.subscription_expires_at) > new Date()
+      && u.created_at
+      && Math.round((new Date(u.subscription_expires_at) - new Date(u.created_at)) / 86400000) <= 8;
+    const tierLabel = effective === 'demo' ? 'Demo' : (isTrial ? 'Trial' : 'Premium');
+    const tierClass = effective === 'demo' ? 'demo' : (isTrial ? 'trial' : 'premium');
+
+    let expiryBadge = '';
+    if (u.subscription_expires_at) {
+      const exp = new Date(u.subscription_expires_at);
+      const diff = Math.ceil((exp - new Date()) / 86400000);
+      if (diff < 0)    expiryBadge = `<span style="color:var(--warn);font-size:11px"> · Прострочено ${fmtDate(u.subscription_expires_at.slice(0,10))}</span>`;
+      else if (diff<=14) expiryBadge = `<span style="color:var(--warn);font-size:11px"> · Закінчується через ${diff} дн.</span>`;
+      else             expiryBadge = `<span style="font-size:11px;color:var(--muted)"> · до ${fmtDate(u.subscription_expires_at.slice(0,10))}</span>`;
+    }
+
+    const lastEntry = u.last_entry_date ? fmtDate(u.last_entry_date) : '—';
+    const joined = u.created_at ? new Date(u.created_at).toLocaleDateString('uk-UA',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+
+    return `<div class="admin-user-card">
+      <div class="admin-avatar">${escHtml(initials)}</div>
+      <div class="admin-user-info">
+        <div class="admin-user-name">${escHtml(u.name||'—')}${u.is_admin?' <span style="font-size:10px;color:var(--accent)">🔑</span>':''}</div>
+        <div class="admin-user-email">${escHtml(u.email||'')}</div>
+        <div><span class="user-tier-badge ${tierClass}">${tierLabel}</span>${expiryBadge}</div>
+        <div class="admin-stats">Записів: ${u.entry_count||0} · Останній: ${lastEntry}<br>В системі з: ${joined}</div>
+      </div>
+      <button class="btn btn-outline btn-sm" style="margin-top:2px" onclick="openAdminTierModal(${u.id})">Доступ</button>
+    </div>`;
+  }).join('');
+}
+
+function openAdminTierModal(userId) {
+  const user = _adminUsers.find(u => u.id === userId);
+  if (!user) return;
+  _adminTierUserId = userId;
+  _adminSelMonths = null;
+  document.getElementById('adminTierTitle').textContent = `Доступ: ${user.name || user.email}`;
+  selectTierPick(user.subscription_tier || 'premium');
+  document.getElementById('adminTierModal').classList.add('open');
+}
+function closeAdminTierModal() {
+  document.getElementById('adminTierModal').classList.remove('open');
+  _adminTierUserId = null;
+}
+function selectTierPick(tier) {
+  _adminSelTier = tier;
+  _adminSelMonths = null;
+  document.getElementById('tierPickDemo').classList.toggle('sel', tier==='demo');
+  document.getElementById('tierPickPremium').classList.toggle('sel', tier==='premium');
+  document.getElementById('adminPeriodBlock').style.display = tier==='premium' ? '' : 'none';
+  document.getElementById('adminDemoNote').style.display   = tier==='demo'    ? '' : 'none';
+  document.querySelectorAll('.period-btn').forEach(b=>b.classList.remove('sel'));
+  _updateExpiryHint();
+}
+function selectPeriod(months) {
+  _adminSelMonths = months;
+  document.querySelectorAll('.period-btn').forEach(b=>b.classList.toggle('sel', parseInt(b.dataset.m)===months));
+  _updateExpiryHint();
+}
+function _updateExpiryHint() {
+  const el = document.getElementById('adminExpiryHint');
+  if (_adminSelTier==='demo') { el.textContent='Без терміну дії'; return; }
+  if (!_adminSelMonths)       { el.textContent=''; return; }
+  const exp = new Date();
+  exp.setMonth(exp.getMonth()+_adminSelMonths);
+  el.textContent = `Діє до: ${exp.toLocaleDateString('uk-UA',{day:'2-digit',month:'long',year:'numeric'})}`;
+}
+async function saveTier() {
+  if (!_adminTierUserId) return;
+  if (_adminSelTier==='premium' && !_adminSelMonths) { showToast('⚠️ Оберіть термін дії','var(--warn)'); return; }
+  const btn = document.getElementById('btnSaveTier');
+  btn.disabled = true;
+  try {
+    const r = await fetch(`/api/users/${_adminTierUserId}`,{
+      method:'PUT', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({subscription_tier:_adminSelTier, months:_adminSelMonths}),
+    });
+    if (!r.ok) throw new Error((await r.json().catch(()=>({}))).error||'Помилка');
+    closeAdminTierModal();
+    await loadAdminUsers();
+    showToast('✅ Доступ оновлено');
+  } catch(err) {
+    showToast('⚠️ '+err.message,'var(--warn)');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+loadAdminUsers();
+</script>
+</body>
+</html>

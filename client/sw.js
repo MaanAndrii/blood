@@ -1,8 +1,8 @@
-const CACHE = 'health-v2';
-const ASSETS = ['/', '/manifest.json'];
+const CACHE = 'health-v3';
+const STATIC = ['/manifest.json'];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(STATIC)));
   self.skipWaiting();
 });
 
@@ -14,9 +14,17 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
-  // Don't cache API requests
   if (e.request.url.includes('/api/')) return;
 
+  // Navigation (HTML) — network-first so deploys are instant; fall back to cache offline
+  if (e.request.mode === 'navigate') {
+    e.respondWith(
+      fetch(e.request).catch(() => caches.match('/'))
+    );
+    return;
+  }
+
+  // Static assets — cache-first
   e.respondWith(
     caches.match(e.request).then(cached => cached || fetch(e.request))
   );

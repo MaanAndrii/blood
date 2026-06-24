@@ -4,6 +4,7 @@ const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { pool } = require('../db');
+const { getEffectiveTier } = require('../config/tiers');
 
 const router = express.Router();
 
@@ -31,11 +32,10 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
         `UPDATE users SET
            google_id = $1,
            name = $2,
-           avatar_url = $3,
-           refresh_token = $4
-         WHERE id = $5
+           avatar_url = $3
+         WHERE id = $4
          RETURNING *`,
-        [profile.id, profile.displayName, profile.photos?.[0]?.value, refreshToken, existing.rows[0].id]
+        [profile.id, profile.displayName, profile.photos?.[0]?.value, existing.rows[0].id]
       );
 
       return done(null, result.rows[0]);
@@ -113,8 +113,8 @@ router.post('/register', async (req, res) => {
     const hash = await bcrypt.hash(password, 10);
 
     const result = await pool.query(
-      `INSERT INTO users (email, name, password_hash, subscription_tier, is_admin, consented_at)
-       VALUES ($1, $2, $3, 'premium', FALSE, NOW())
+      `INSERT INTO users (email, name, password_hash, subscription_tier, subscription_expires_at, is_admin, consented_at)
+       VALUES ($1, $2, $3, 'premium', NOW() + interval '7 days', FALSE, NOW())
        RETURNING *`,
       [email.toLowerCase(), name.trim(), hash]
     );
@@ -183,13 +183,15 @@ router.get('/me', async (req, res) => {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
     const result = await pool.query(
       `SELECT id, email, name, avatar_url, is_admin, date_of_birth, created_at,
-              subscription_tier, reminders_enabled, reminder_morning, reminder_evening,
+              subscription_tier, subscription_expires_at,
+              reminders_enabled, reminder_morning, reminder_evening,
               height_cm
        FROM users WHERE id = $1`,
       [payload.id]
     );
     if (!result.rows.length) return res.status(401).json({ error: 'User not found' });
-    res.json(result.rows[0]);
+    const user = result.rows[0];
+    res.json({ ...user, effective_tier: getEffectiveTier(user) });
   } catch {
     res.status(401).json({ error: 'Invalid token' });
   }

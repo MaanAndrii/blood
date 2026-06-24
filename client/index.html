@@ -1261,7 +1261,6 @@
     <div class="user-chip" id="userChip" onclick="toggleUserMenu()">
       <div id="userChipAvatar" class="user-chip-initials">?</div>
       <span class="user-chip-name" id="userChipName">...</span>
-      <span class="user-tier-badge" id="userTierBadge"></span>
       <div class="user-menu" id="userMenu">
         <div class="user-menu-item danger" onclick="logout()">🚪 Вийти</div>
       </div>
@@ -1274,7 +1273,6 @@
   <div class="tab"        data-page="history" onclick="showPage('history')"><span class="tab-icon">📋</span>Журнал</div>
   <div class="tab"        data-page="stats"   onclick="showPage('stats')"><span class="tab-icon">📊</span>Графіки</div>
   <div class="tab"        data-page="export"  onclick="showPage('export')"><span class="tab-icon">📤</span>Експорт</div>
-  <div class="tab"        data-page="admin"   onclick="showPage('admin')" id="tabAdmin" style="display:none"><span class="tab-icon">⚙️</span>Адмін</div>
 </nav>
 
 <main>
@@ -1417,12 +1415,29 @@
         🔔 Дозволити сповіщення
       </button>
       <p style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.5">
-        Сповіщення надсилаються через сервер. Встановіть застосунок на головний екран для роботи у фоні.
+        Сповіщення надсилаються через сервер. Встановіть застосунок на головний екран для роботи у фоні.<br>
+        <span id="serverTzHint"></span>
       </p>
     </div>
 
     <div class="section-label" style="margin-top:20px">Статистика</div>
     <div class="card" id="exportStats"></div>
+  </div>
+
+  <!-- ══ ADMIN PAGE ══ -->
+  <div class="page" id="page-admin">
+    <div class="section-label" style="display:flex;justify-content:space-between;align-items:center">
+      <span>⚙️ Користувачі</span>
+      <span id="adminUserCount" style="font-size:12px;color:var(--muted)"></span>
+    </div>
+    <div style="margin-bottom:12px">
+      <input id="adminSearchInput" type="search" placeholder="🔍 Пошук за email або ім'ям…"
+        oninput="renderAdminUsers()"
+        style="width:100%;box-sizing:border-box;background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;font-size:14px;outline:none"/>
+    </div>
+    <div id="adminUsersList">
+      <div style="text-align:center;padding:40px;color:var(--muted)">Завантаження…</div>
+    </div>
   </div>
 
 </main>
@@ -1447,17 +1462,6 @@
       <button class="btn-outline" style="flex:1" onclick="closePdfModal()">Скасувати</button>
       <button class="btn-save" style="flex:2;margin-top:0" onclick="exportPDF()">Сформувати PDF</button>
     </div>
-  </div>
-</div>
-
-<!-- ══ ADMIN PAGE ══ -->
-<div class="page" id="page-admin">
-  <div class="section-label" style="display:flex;justify-content:space-between;align-items:center">
-    <span>⚙️ Користувачі</span>
-    <span id="adminUserCount" style="font-size:12px;color:var(--muted)"></span>
-  </div>
-  <div id="adminUsersList">
-    <div style="text-align:center;padding:40px;color:var(--muted)">Завантаження…</div>
   </div>
 </div>
 
@@ -1510,6 +1514,8 @@
       </div>
     </div>
 
+    <div id="profileTierInfo" style="margin:10px 0 4px"></div>
+
     <hr class="profile-divider" />
 
     <div style="margin-bottom:14px">
@@ -1539,6 +1545,37 @@
       Зона небезпеки · <a href="#" onclick="openPrivacyModal();return false" style="color:var(--accent);text-decoration:none">Політика конфіденційності</a>
     </div>
     <button class="btn-danger" onclick="confirmDeleteAccount()">🗑 Видалити акаунт і всі дані</button>
+  </div>
+</div>
+
+<!-- ══ ABOUT MODAL ══ -->
+<div class="modal-overlay" id="aboutModal" onclick="if(event.target===this)closeAboutModal()">
+  <div class="modal-box" style="max-width:360px;width:92%">
+    <div style="text-align:center;padding:8px 0 16px">
+      <svg viewBox="0 0 100 96" width="56" height="56" style="display:block;margin:0 auto 10px">
+        <defs><linearGradient id="hg-about" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e85249"/><stop offset="100%" stop-color="#b91c1c"/></linearGradient></defs>
+        <path d="M93,17 A50,50 0 1,1 7,17" stroke="white" stroke-width="5" fill="none" stroke-linecap="round" opacity="0.85"/>
+        <line x1="93" y1="68" x2="86" y2="64" stroke="white" stroke-width="4" stroke-linecap="round" opacity="0.85"/>
+        <line x1="50" y1="93" x2="50" y2="85" stroke="white" stroke-width="4" stroke-linecap="round" opacity="0.85"/>
+        <line x1="7"  y1="68" x2="14" y2="64" stroke="white" stroke-width="4" stroke-linecap="round" opacity="0.85"/>
+        <path d="M50,78 C25,62 5,49 5,32 C5,14 20,8 32,12 C40,15 47,23 50,32 C53,23 60,15 68,12 C80,8 95,14 95,32 C95,49 75,62 50,78Z" fill="url(#hg-about)"/>
+        <polyline points="15,46 22,46 26,40 30,46 33,49 37,28 41,54 44,46 50,38 55,46 62,46 83,46" stroke="white" stroke-width="4.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div style="font-size:18px;font-weight:700;color:var(--text)">BP &amp; BMI</div>
+      <div id="aboutVersion" style="font-size:12px;color:var(--muted);margin-top:2px"></div>
+    </div>
+    <p style="font-size:13px;color:var(--text-secondary,var(--muted));line-height:1.6;margin-bottom:12px">
+      Щоденник артеріального тиску, пульсу, ваги та ІМТ. Вимірювання зберігаються на вашому сервері — без хмарних посередників.
+    </p>
+    <ul style="font-size:12px;color:var(--muted);line-height:1.8;padding-left:18px;margin-bottom:16px">
+      <li>Ранкові та вечірні виміри по кожній руці</li>
+      <li>Класифікація тиску WHO/ESH 2018</li>
+      <li>Розрахунок ІМТ (6 категорій ВООЗ)</li>
+      <li>PDF-довідка для лікаря</li>
+      <li>Push-нагадування про виміри</li>
+      <li>GDPR: дані лишаються тільки у вас</li>
+    </ul>
+    <button class="btn-save" onclick="closeAboutModal()" style="width:100%">Зрозуміло</button>
   </div>
 </div>
 
@@ -1665,6 +1702,7 @@
 <script>
 // ── DATA LAYER ──────────────────────────────────────────────────────────────
 const DB_KEY        = 'health_entries_v2';
+const APP_VERSION   = '1.01';
 const REMINDER_KEY  = 'health_reminders';
 
 // ── Constants (U) ────────────────────────────────────────────────────────────
@@ -1872,7 +1910,7 @@ async function initApp() {
     }
     currentUser = await r.json();
     renderUserChip();
-    if (currentUser.is_admin) document.getElementById('tabAdmin').style.display = '';
+    applyDemoRestrictions();
 
     await fetchEntries();
     showApp();
@@ -1920,13 +1958,6 @@ function renderUserChip() {
   const initials = name.split(' ').slice(0,2).map(w => w[0] || '').join('').toUpperCase() || '?';
   document.getElementById('userChipName').textContent = name.split(' ')[0] || name;
 
-  const tier = currentUser.subscription_tier || 'premium';
-  const tierEl = document.getElementById('userTierBadge');
-  if (tierEl) {
-    tierEl.textContent = tier === 'demo' ? 'Demo' : 'Premium';
-    tierEl.className = 'user-tier-badge ' + (tier === 'demo' ? 'demo' : 'premium');
-  }
-
   const avatarEl = document.getElementById('userChipAvatar');
   if (currentUser.avatar_url) {
     avatarEl.innerHTML = '';
@@ -1957,6 +1988,24 @@ function renderUserChip() {
   profileItem.textContent = '👤 Профіль';
   profileItem.onclick = () => { menu.classList.remove('open'); openProfileModal(); };
   menu.appendChild(profileItem);
+
+  const aboutItem = document.createElement('div');
+  aboutItem.className = 'user-menu-item';
+  aboutItem.textContent = 'ℹ️ Про додаток';
+  aboutItem.onclick = () => {
+    menu.classList.remove('open');
+    document.getElementById('aboutVersion').textContent = `v${APP_VERSION}`;
+    openAboutModal();
+  };
+  menu.appendChild(aboutItem);
+
+  if (currentUser.is_admin) {
+    const adminItem = document.createElement('div');
+    adminItem.className = 'user-menu-item';
+    adminItem.textContent = '⚙️ Адмін-панель';
+    adminItem.onclick = () => { window.location.href = '/admin.html'; };
+    menu.appendChild(adminItem);
+  }
 
   const logoutItem = document.createElement('div');
   logoutItem.className = 'user-menu-item danger';
@@ -1996,6 +2045,32 @@ function openProfileModal() {
     document.getElementById('profileSinceDisplay').textContent = `У системі з ${fmt}`;
   } else {
     document.getElementById('profileSinceDisplay').textContent = '';
+  }
+
+  // Tier info block
+  const tierEl = document.getElementById('profileTierInfo');
+  if (tierEl) {
+    const effective = currentUser.effective_tier || currentUser.subscription_tier || 'premium';
+    const exp = currentUser.subscription_expires_at ? new Date(currentUser.subscription_expires_at) : null;
+    const daysLeft = exp ? Math.ceil((exp - new Date()) / 86400000) : null;
+    const isTrial = effective === 'premium' && exp && daysLeft > 0
+      && currentUser.created_at
+      && Math.round((exp - new Date(currentUser.created_at)) / 86400000) <= 8;
+    let label, color, detail;
+    if (effective === 'demo') {
+      label = 'Demo'; color = 'var(--muted)';
+      detail = 'Обмежений доступ — без Експорту, журнал 30 днів';
+    } else if (isTrial) {
+      label = 'Trial'; color = 'var(--accent2)';
+      detail = `Пробний повний доступ · закінчується через ${daysLeft} дн. (${exp.toLocaleDateString('uk-UA',{day:'2-digit',month:'long'})})`;
+    } else {
+      label = 'Premium'; color = 'var(--accent)';
+      detail = exp ? `Повний доступ · до ${exp.toLocaleDateString('uk-UA',{day:'2-digit',month:'long',year:'numeric'})}` : 'Повний доступ · безстроково';
+    }
+    tierEl.innerHTML = `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surface);border-radius:var(--radius-sm);border:1px solid var(--border)">
+      <span style="font-weight:700;font-size:12px;color:${color}">${label}</span>
+      <span style="font-size:11px;color:var(--muted);flex:1">${detail}</span>
+    </div>`;
   }
 
   document.getElementById('profileName').value = name;
@@ -2068,14 +2143,24 @@ async function loadAdminUsers() {
 
 function renderAdminUsers() {
   const list = document.getElementById('adminUsersList');
-  document.getElementById('adminUserCount').textContent = `${_adminUsers.length} користувачів`;
+  const q = (document.getElementById('adminSearchInput')?.value || '').trim().toLowerCase();
+  const filtered = q
+    ? _adminUsers.filter(u =>
+        (u.email || '').toLowerCase().includes(q) ||
+        (u.name  || '').toLowerCase().includes(q))
+    : _adminUsers;
 
-  if (!_adminUsers.length) {
-    list.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">Немає користувачів</div>';
+  document.getElementById('adminUserCount').textContent =
+    q ? `${filtered.length} з ${_adminUsers.length} користувачів` : `${_adminUsers.length} користувачів`;
+
+  if (!filtered.length) {
+    list.innerHTML = q
+      ? '<div style="text-align:center;padding:40px;color:var(--muted)">Нічого не знайдено</div>'
+      : '<div style="text-align:center;padding:40px;color:var(--muted)">Немає користувачів</div>';
     return;
   }
 
-  list.innerHTML = _adminUsers.map(u => {
+  list.innerHTML = filtered.map(u => {
     const isMe = u.id === currentUser?.id;
     const initials = (u.name || u.email || '?')
       .split(' ').slice(0,2).map(w=>w[0]||'').join('').toUpperCase() || '?';
@@ -2117,6 +2202,30 @@ function renderAdminUsers() {
               onclick="openAdminTierModal(${u.id})">Доступ</button>
     </div>`;
   }).join('');
+}
+
+function applyDemoRestrictions() {
+  if (!currentUser || currentUser.effective_tier !== 'demo') return;
+  const DEMO_MSG = 'Експорт недоступний у демо-версії';
+  document.querySelectorAll('#page-export .export-card[onclick]').forEach(card => {
+    card.removeAttribute('onclick');
+    card.style.opacity = '0.4';
+    card.style.cursor = 'not-allowed';
+    card.style.filter = 'grayscale(0.6)';
+    card.addEventListener('click', () => showToast('🔒 ' + DEMO_MSG, 'var(--muted)'));
+  });
+  const importLabel = document.querySelector('#page-export label.btn-outline');
+  if (importLabel) {
+    importLabel.style.opacity = '0.4';
+    importLabel.style.cursor = 'not-allowed';
+    importLabel.style.pointerEvents = 'none';
+    const inp = importLabel.querySelector('input');
+    if (inp) inp.disabled = true;
+    importLabel.addEventListener('click', e => {
+      e.preventDefault();
+      showToast('🔒 ' + DEMO_MSG, 'var(--muted)');
+    });
+  }
 }
 
 function openAdminTierModal(userId) {
@@ -2232,11 +2341,11 @@ function showPage(name) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.getElementById('page-' + name)?.classList.add('active');
   document.querySelector(`.tab[data-page="${name}"]`)?.classList.add('active');
+  window.scrollTo(0, 0);
   if (name === 'home')    { showDayOnHome(selectedWeekDate || todayStr()); renderWeekStrip(); renderHomeChart(); updateFabLabel(); }
   if (name === 'history') renderHistory();
   if (name === 'stats')   renderCharts();
   if (name === 'export')  { renderExportStats(); renderRemindersUI(); }
-  if (name === 'admin')   loadAdminUsers();
 }
 
 // ── DRUM ROLLERS ────────────────────────────────────────────────────────────
@@ -2720,6 +2829,13 @@ function bpBadge(sys, dia) {
   if (!cat) return '';
   return `<span style="display:inline-block;margin-left:6px;padding:1px 7px;border-radius:10px;font-size:10px;font-weight:600;background:${cat.color}22;color:${cat.color};border:1px solid ${cat.color}66">${cat.label}</span>`;
 }
+function bpBadgeRow(sys, dia) {
+  const cat = bpCategory(sys, dia);
+  const inner = cat
+    ? `<span style="padding:1px 8px;border-radius:10px;font-size:10px;font-weight:600;background:${cat.color}22;color:${cat.color};border:1px solid ${cat.color}66">${cat.label}</span>`
+    : '';
+  return `<div style="min-height:18px;margin-top:3px">${inner}</div>`;
+}
 
 function armDiffWarning(sys_l, sys_r) {
   if (sys_l == null || sys_r == null) return '';
@@ -2746,31 +2862,37 @@ function _renderSummaryInGrid(dateStr, gridId) {
     <div class="summary-col">
       <div class="summary-col-header" style="color:var(--morning)">🌅 Ранок</div>
       <div class="summary-item">
-        <div class="summary-value val-sys" style="font-size:16px">${bpStr(m.sys_l, m.dia_l)}${bpBadge(m.sys_l, m.dia_l)}</div>
+        <div class="summary-value val-sys" style="font-size:16px">${bpStr(m.sys_l, m.dia_l)}</div>
         <div class="summary-label">ліва рука</div>
+        ${bpBadgeRow(m.sys_l, m.dia_l)}
       </div>
       <div class="summary-item">
-        <div class="summary-value val-sys" style="font-size:16px">${bpStr(m.sys_r, m.dia_r)}${bpBadge(m.sys_r, m.dia_r)}</div>
+        <div class="summary-value val-sys" style="font-size:16px">${bpStr(m.sys_r, m.dia_r)}</div>
         <div class="summary-label">права рука</div>
+        ${bpBadgeRow(m.sys_r, m.dia_r)}
       </div>
       <div class="summary-item">
         <div class="summary-value val-pulse">${m.pulse ?? '—'}</div>
         <div class="summary-label">💚 Пульс</div>
+        <div style="min-height:18px;margin-top:3px"></div>
       </div>
     </div>
     <div class="summary-col">
       <div class="summary-col-header" style="color:var(--evening)">🌙 Вечір</div>
       <div class="summary-item">
-        <div class="summary-value" style="font-size:16px;color:var(--evening)">${bpStr(ev.sys_l, ev.dia_l)}${bpBadge(ev.sys_l, ev.dia_l)}</div>
+        <div class="summary-value" style="font-size:16px;color:var(--evening)">${bpStr(ev.sys_l, ev.dia_l)}</div>
         <div class="summary-label">ліва рука</div>
+        ${bpBadgeRow(ev.sys_l, ev.dia_l)}
       </div>
       <div class="summary-item">
-        <div class="summary-value" style="font-size:16px;color:var(--evening)">${bpStr(ev.sys_r, ev.dia_r)}${bpBadge(ev.sys_r, ev.dia_r)}</div>
+        <div class="summary-value" style="font-size:16px;color:var(--evening)">${bpStr(ev.sys_r, ev.dia_r)}</div>
         <div class="summary-label">права рука</div>
+        ${bpBadgeRow(ev.sys_r, ev.dia_r)}
       </div>
       <div class="summary-item">
         <div class="summary-value val-pulse">${ev.pulse ?? '—'}</div>
         <div class="summary-label">💚 Пульс</div>
+        <div style="min-height:18px;margin-top:3px"></div>
       </div>
     </div>
     ${e.weight ? (() => {
@@ -3188,19 +3310,27 @@ function renderCharts() {
 }
 
 // ── EXPORT ───────────────────────────────────────────────────────────────────
+function csvCell(v) {
+  if (v == null) return '';
+  const s = String(v);
+  return (s.includes(',') || s.includes('"') || s.includes('\n') || s.includes('\r'))
+    ? '"' + s.replace(/"/g, '""') + '"'
+    : s;
+}
+
 function exportCSV() {
   if (!entries.length) { showToast('⚠️ Немає даних для експорту', 'var(--warn)'); return; }
   const cols = [
     'Дата',
     'Ранок Сист. Л','Ранок Діаст. Л','Ранок Сист. П','Ранок Діаст. П','Ранок Пульс',
     'Вечір Сист. Л','Вечір Діаст. Л','Вечір Сист. П','Вечір Діаст. П','Вечір Пульс',
-    'Вага'
+    'Вага','Нотатки'
   ];
   const rows = entries.map(e => [
     String(e.date).slice(0,10),
     e.morning.sys_l ?? '', e.morning.dia_l ?? '', e.morning.sys_r ?? '', e.morning.dia_r ?? '', e.morning.pulse ?? '',
     e.evening.sys_l ?? '', e.evening.dia_l ?? '', e.evening.sys_r ?? '', e.evening.dia_r ?? '', e.evening.pulse ?? '',
-    e.weight ?? ''
+    e.weight ?? '', csvCell(e.notes)
   ].join(','));
   download('﻿' + [cols.join(','), ...rows].join('\n'), 'health_data.csv', 'text/csv');
   showToast('📄 CSV завантажено!');
@@ -3216,6 +3346,11 @@ function exportJSON() {
 function importJSON(event) {
   const file = event.target.files[0];
   if (!file) return;
+  if (file.size > 5 * 1024 * 1024) {
+    showToast('❌ Файл завеликий (макс. 5 МБ)', 'var(--warn)');
+    event.target.value = '';
+    return;
+  }
   const reader = new FileReader();
   reader.onload = async e => {
     try {
@@ -3426,13 +3561,21 @@ async function renderRemindersUI() {
   document.getElementById('reminderMorning').value     = s.morning  || '08:00';
   document.getElementById('reminderEvening').value     = s.evening  || '20:00';
 
-  // Check if VAPID is configured on server
+  // Check if VAPID is configured on server; also read server timezone
   try {
     const r = await fetch('/api/push/vapid-public-key');
     document.getElementById('vapidStatus').style.display = r.ok ? 'none' : '';
   } catch {
     document.getElementById('vapidStatus').style.display = '';
   }
+  try {
+    const h = await fetch('/api/health');
+    if (h.ok) {
+      const { tz } = await h.json();
+      const tzEl = document.getElementById('serverTzHint');
+      if (tzEl && tz) tzEl.textContent = `⏰ Часовий пояс сервера: ${tz}`;
+    }
+  } catch {}
 
   const perm = 'Notification' in window ? Notification.permission : 'unsupported';
   const statusEl = document.getElementById('notifStatus');
@@ -3560,10 +3703,63 @@ document.addEventListener('visibilitychange', async () => {
   }, { passive: true });
 })();
 
+// ── PWA INSTALL PROMPT ───────────────────────────────────────────────────────
+let _installPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  _installPrompt = e;
+  const banner = document.getElementById('installBanner');
+  if (banner) banner.style.display = 'flex';
+});
+window.addEventListener('appinstalled', () => {
+  _installPrompt = null;
+  const banner = document.getElementById('installBanner');
+  if (banner) banner.style.display = 'none';
+});
+async function triggerInstall() {
+  if (!_installPrompt) return;
+  _installPrompt.prompt();
+  const { outcome } = await _installPrompt.userChoice;
+  if (outcome === 'accepted') {
+    _installPrompt = null;
+    const banner = document.getElementById('installBanner');
+    if (banner) banner.style.display = 'none';
+  }
+}
+function dismissInstallBanner() {
+  const banner = document.getElementById('installBanner');
+  if (banner) banner.style.display = 'none';
+  _installPrompt = null;
+}
+
+// ── ABOUT ────────────────────────────────────────────────────────────────────
+function openAboutModal() {
+  document.getElementById('aboutModal').classList.add('open');
+}
+function closeAboutModal() {
+  document.getElementById('aboutModal').classList.remove('open');
+}
+
 // ── SERVICE WORKER ───────────────────────────────────────────────────────────
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(() => {});
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    // Don't reload if user is in the middle of data entry
+    if (!document.querySelector('.modal-overlay.open')) window.location.reload();
+  });
 }
 </script>
+
+<!-- ══ PWA INSTALL BANNER ══ -->
+<div id="installBanner" style="display:none;position:fixed;bottom:72px;left:12px;right:12px;background:#1f3060;border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;z-index:150;align-items:center;gap:10px;box-shadow:0 4px 20px rgba(0,0,0,.4)">
+  <span style="font-size:22px">📲</span>
+  <div style="flex:1;font-size:13px;line-height:1.4">
+    <div style="font-weight:600">Встановити додаток</div>
+    <div style="color:var(--muted);font-size:11px">Працює як нативний застосунок, без браузера</div>
+  </div>
+  <button onclick="triggerInstall()" style="background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap">Встановити</button>
+  <button onclick="dismissInstallBanner()" style="background:transparent;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:0 2px;line-height:1">×</button>
+</div>
+
 </body>
 </html>

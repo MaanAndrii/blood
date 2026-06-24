@@ -5,6 +5,8 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { pool } = require('../db');
 const { getEffectiveTier } = require('../config/tiers');
+const { driveAuthUrl, exchangeCode } = require('../services/drive');
+const { requireAuth } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -85,6 +87,47 @@ router.get('/google/callback',
     res.redirect('/');
   }
 );
+
+// ── Google Drive OAuth ────────────────────────────────────────────────────────
+
+router.get('/google/drive', requireAuth, (req, res) => {
+  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_DRIVE_CALLBACK_URL) {
+    return res.redirect('/?error=google_drive_not_configured');
+  }
+  res.redirect(driveAuthUrl(req.user.id));
+});
+
+router.get('/google/drive/callback', async (req, res) => {
+  const { code, state, error } = req.query;
+  if (error || !code || !state) return res.redirect('/?error=drive_denied');
+
+  try {
+    const userId = parseInt(Buffer.from(state, 'base64').toString(), 10);
+    if (!userId) return res.redirect('/?error=drive_bad_state');
+
+    const tokens = await exchangeCode(code);
+    if (!tokens.access_token) return res.redirect('/?error=drive_token_failed');
+
+    await pool.query(
+      `UPDATE users SET
+         drive_access_token=$1,
+         drive_refresh_token=COALESCE($2, drive_refresh_token),
+         drive_token_expires_at=$3
+       WHERE id=$4`,
+      [
+        tokens.access_token,
+        tokens.refresh_token || null,
+        tokens.expires_in ? new Date(Date.now() + tokens.expires_in * 1000) : null,
+        userId,
+      ]
+    );
+
+    res.redirect('/?drive_connected=1');
+  } catch (err) {
+    console.error('Drive OAuth callback error:', err);
+    res.redirect('/?error=drive_callback_failed');
+  }
+});
 
 // ── Local Register ────────────────────────────────────────────────────────────
 

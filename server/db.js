@@ -67,6 +67,10 @@ async function initDb() {
   await pool.query(`UPDATE users SET subscription_tier = 'premium' WHERE subscription_tier = 'free' OR subscription_tier IS NULL`);
   // User timezone for reminder scheduling
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS timezone TEXT DEFAULT 'Europe/Kyiv'`);
+  // Google Drive backup tokens
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS drive_access_token TEXT`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS drive_refresh_token TEXT`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS drive_token_expires_at TIMESTAMPTZ`);
 
   await pool.query(`
     CREATE INDEX IF NOT EXISTS idx_entries_user_date

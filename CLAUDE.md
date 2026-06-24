@@ -60,11 +60,10 @@
 - [ ] **K** — `refresh_token` stored but unused
 - [ ] **L** — JSON import has no file size limit (DoS risk)
 - [ ] **M** — Service Worker caches only root + manifest (offline mode incomplete)
-- [ ] **X** — Google Drive backup (button is placeholder, no functionality yet)
+- [x] **X** — Google Drive backup + restore (OAuth `drive.file` scope, tokens in DB, folder «BP & BMI Backup»)
 
 ### 🔲 Future / Deferred
 
 - [ ] Admin panel rework (add/remove users, change tier)
-- [ ] Google Drive real backup implementation
 - [ ] Demo tier feature restrictions
 - [ ] Timezone selector in settings

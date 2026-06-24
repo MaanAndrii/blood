@@ -1,0 +1,18 @@
+<svg viewBox="0 0 100 96" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="hg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ef7065"/>
+      <stop offset="100%" stop-color="#e83030"/>
+    </linearGradient>
+  </defs>
+  <!-- Stethoscope arc -->
+  <path d="M93,17 A50,50 0 1,1 7,17" stroke="rgba(255,255,255,0.8)" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+  <line x1="93" y1="67" x2="87" y2="64" stroke="rgba(255,255,255,0.8)" stroke-width="3.5" stroke-linecap="round"/>
+  <line x1="50" y1="92" x2="50" y2="85" stroke="rgba(255,255,255,0.8)" stroke-width="3.5" stroke-linecap="round"/>
+  <line x1="7"  y1="67" x2="13" y2="64" stroke="rgba(255,255,255,0.8)" stroke-width="3.5" stroke-linecap="round"/>
+  <!-- Heart -->
+  <path d="M50,78 C25,62 5,49 5,32 C5,14 20,8 32,12 C40,15 47,23 50,32 C53,23 60,15 68,12 C80,8 95,14 95,32 C95,49 75,62 50,78Z" fill="url(#hg)"/>
+  <!-- ECG pulse line -->
+  <polyline points="15,46 22,46 26,40 30,46 33,49 37,28 41,54 44,46 50,38 55,46 62,46 83,46"
+    stroke="white" stroke-width="2.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

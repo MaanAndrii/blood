@@ -1173,20 +1173,7 @@
 <div id="loginScreen">
   <div class="login-card" style="max-width:380px">
     <div style="display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:18px">
-      <svg width="64" height="62" viewBox="0 0 100 96" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <linearGradient id="hg-login" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="#ef7065"/>
-            <stop offset="100%" stop-color="#e83030"/>
-          </linearGradient>
-        </defs>
-        <path d="M93,17 A50,50 0 1,1 7,17" stroke="rgba(255,255,255,0.75)" stroke-width="4.5" fill="none" stroke-linecap="round"/>
-        <line x1="93" y1="67" x2="87" y2="64" stroke="rgba(255,255,255,0.75)" stroke-width="3.5" stroke-linecap="round"/>
-        <line x1="50" y1="92" x2="50" y2="85" stroke="rgba(255,255,255,0.75)" stroke-width="3.5" stroke-linecap="round"/>
-        <line x1="7"  y1="67" x2="13" y2="64" stroke="rgba(255,255,255,0.75)" stroke-width="3.5" stroke-linecap="round"/>
-        <path d="M50,78 C25,62 5,49 5,32 C5,14 20,8 32,12 C40,15 47,23 50,32 C53,23 60,15 68,12 C80,8 95,14 95,32 C95,49 75,62 50,78Z" fill="url(#hg-login)"/>
-        <polyline points="15,46 22,46 26,40 30,46 33,49 37,28 41,54 44,46 50,38 55,46 62,46 83,46" stroke="white" stroke-width="2.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
+      <img src="/icons/logo.svg" width="64" height="62" alt="BP &amp; BMI logo"/>
       <div style="text-align:left">
         <div style="font-size:26px;font-weight:800;letter-spacing:-0.5px;line-height:1.1">BP &amp; BMI</div>
         <div style="font-size:12px;color:var(--muted);margin-top:3px">Моніторинг здоров'я</div>
@@ -1241,20 +1228,7 @@
 
 <header>
   <div class="app-title">
-    <svg class="app-logo-icon" viewBox="0 0 100 96" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="hg-hdr" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#ef7065"/>
-          <stop offset="100%" stop-color="#e83030"/>
-        </linearGradient>
-      </defs>
-      <path d="M93,17 A50,50 0 1,1 7,17" stroke="rgba(255,255,255,0.8)" stroke-width="4.5" fill="none" stroke-linecap="round"/>
-      <line x1="93" y1="67" x2="87" y2="64" stroke="rgba(255,255,255,0.8)" stroke-width="3.5" stroke-linecap="round"/>
-      <line x1="50" y1="92" x2="50" y2="85" stroke="rgba(255,255,255,0.8)" stroke-width="3.5" stroke-linecap="round"/>
-      <line x1="7"  y1="67" x2="13" y2="64" stroke="rgba(255,255,255,0.8)" stroke-width="3.5" stroke-linecap="round"/>
-      <path d="M50,78 C25,62 5,49 5,32 C5,14 20,8 32,12 C40,15 47,23 50,32 C53,23 60,15 68,12 C80,8 95,14 95,32 C95,49 75,62 50,78Z" fill="url(#hg-hdr)"/>
-      <polyline points="15,46 22,46 26,40 30,46 33,49 37,28 41,54 44,46 50,38 55,46 62,46 83,46" stroke="white" stroke-width="2.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
+    <img class="app-logo-icon" src="/icons/logo.svg" alt="BP &amp; BMI logo"/>
     <span class="app-title-text">BP &amp; BMI</span>
   </div>
   <div style="display:flex;align-items:center;gap:8px">
@@ -1581,15 +1555,7 @@
 <div class="modal-overlay" id="aboutModal" onclick="if(event.target===this)closeAboutModal()">
   <div class="modal-box" style="max-width:360px;width:92%">
     <div style="text-align:center;padding:8px 0 16px">
-      <svg viewBox="0 0 100 96" width="56" height="56" style="display:block;margin:0 auto 10px">
-        <defs><linearGradient id="hg-about" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e85249"/><stop offset="100%" stop-color="#b91c1c"/></linearGradient></defs>
-        <path d="M93,17 A50,50 0 1,1 7,17" stroke="white" stroke-width="5" fill="none" stroke-linecap="round" opacity="0.85"/>
-        <line x1="93" y1="68" x2="86" y2="64" stroke="white" stroke-width="4" stroke-linecap="round" opacity="0.85"/>
-        <line x1="50" y1="93" x2="50" y2="85" stroke="white" stroke-width="4" stroke-linecap="round" opacity="0.85"/>
-        <line x1="7"  y1="68" x2="14" y2="64" stroke="white" stroke-width="4" stroke-linecap="round" opacity="0.85"/>
-        <path d="M50,78 C25,62 5,49 5,32 C5,14 20,8 32,12 C40,15 47,23 50,32 C53,23 60,15 68,12 C80,8 95,14 95,32 C95,49 75,62 50,78Z" fill="url(#hg-about)"/>
-        <polyline points="15,46 22,46 26,40 30,46 33,49 37,28 41,54 44,46 50,38 55,46 62,46 83,46" stroke="white" stroke-width="4.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
+      <img src="/icons/logo.svg" width="56" height="56" style="display:block;margin:0 auto 10px" alt="BP &amp; BMI logo"/>
       <div style="font-size:18px;font-weight:700;color:var(--text)">BP &amp; BMI</div>
       <div id="aboutVersion" style="font-size:12px;color:var(--muted);margin-top:2px"></div>
     </div>

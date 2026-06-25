@@ -597,13 +597,9 @@
     .summary-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      margin-bottom: 12px;
-    }
-    .summary-col {
-      display: flex;
-      flex-direction: column;
       gap: 6px;
+      margin-bottom: 12px;
+      align-items: stretch;
     }
     .summary-col-header {
       font-size: 11px;
@@ -3087,52 +3083,45 @@ function _renderSummaryInGrid(dateStr, gridId) {
   }
 
   const m = e.morning, ev = e.evening;
+  const bmi = e.weight ? calcBmi(e.weight, currentUser?.height_cm) : null;
+  const bmiCat = bmi ? bmiCategory(bmi) : null;
   grid.innerHTML = `
-    <div class="summary-col">
-      <div class="summary-col-header" style="color:var(--morning)">🌅 Ранок</div>
-      <div class="summary-item">
-        <div class="summary-value val-sys" style="font-size:16px">${bpStr(m.sys_l, m.dia_l)}</div>
-        <div class="summary-label">ліва рука</div>
-        ${bpBadgeRow(m.sys_l, m.dia_l)}
-      </div>
-      <div class="summary-item">
-        <div class="summary-value val-sys" style="font-size:16px">${bpStr(m.sys_r, m.dia_r)}</div>
-        <div class="summary-label">права рука</div>
-        ${bpBadgeRow(m.sys_r, m.dia_r)}
-      </div>
-      <div class="summary-item">
-        <div class="summary-value val-pulse">${m.pulse ?? '—'}</div>
-        <div class="summary-label">💚 Пульс</div>
-        <div style="min-height:18px;margin-top:3px"></div>
-      </div>
+    <div class="summary-col-header" style="color:var(--morning)">🌅 Ранок</div>
+    <div class="summary-col-header" style="color:var(--evening)">🌙 Вечір</div>
+    <div class="summary-item">
+      <div class="summary-value val-sys" style="font-size:16px">${bpStr(m.sys_l, m.dia_l)}</div>
+      <div class="summary-label">ліва рука</div>
+      ${bpBadgeRow(m.sys_l, m.dia_l)}
     </div>
-    <div class="summary-col">
-      <div class="summary-col-header" style="color:var(--evening)">🌙 Вечір</div>
-      <div class="summary-item">
-        <div class="summary-value" style="font-size:16px;color:var(--evening)">${bpStr(ev.sys_l, ev.dia_l)}</div>
-        <div class="summary-label">ліва рука</div>
-        ${bpBadgeRow(ev.sys_l, ev.dia_l)}
-      </div>
-      <div class="summary-item">
-        <div class="summary-value" style="font-size:16px;color:var(--evening)">${bpStr(ev.sys_r, ev.dia_r)}</div>
-        <div class="summary-label">права рука</div>
-        ${bpBadgeRow(ev.sys_r, ev.dia_r)}
-      </div>
-      <div class="summary-item">
-        <div class="summary-value val-pulse">${ev.pulse ?? '—'}</div>
-        <div class="summary-label">💚 Пульс</div>
-        <div style="min-height:18px;margin-top:3px"></div>
-      </div>
+    <div class="summary-item">
+      <div class="summary-value" style="font-size:16px;color:var(--evening)">${bpStr(ev.sys_l, ev.dia_l)}</div>
+      <div class="summary-label">ліва рука</div>
+      ${bpBadgeRow(ev.sys_l, ev.dia_l)}
     </div>
-    ${e.weight ? (() => {
-      const bmi = calcBmi(e.weight, currentUser?.height_cm);
-      const cat = bmi ? bmiCategory(bmi) : null;
-      const bmiStr = bmi ? ` &nbsp;<span style="font-size:12px;font-weight:500;color:${cat.color}">${bmi.toFixed(1)} ІМТ · ${cat.label}</span>` : '';
-      return `<div class="summary-item" style="grid-column:1/-1">
-        <div class="summary-value val-weight">${e.weight} кг${bmiStr}</div>
-        <div class="summary-label">⚖️ Вага${bmi ? ' / ІМТ' : ''}</div>
-      </div>`;
-    })() : ''}
+    <div class="summary-item">
+      <div class="summary-value val-sys" style="font-size:16px">${bpStr(m.sys_r, m.dia_r)}</div>
+      <div class="summary-label">права рука</div>
+      ${bpBadgeRow(m.sys_r, m.dia_r)}
+    </div>
+    <div class="summary-item">
+      <div class="summary-value" style="font-size:16px;color:var(--evening)">${bpStr(ev.sys_r, ev.dia_r)}</div>
+      <div class="summary-label">права рука</div>
+      ${bpBadgeRow(ev.sys_r, ev.dia_r)}
+    </div>
+    <div class="summary-item">
+      <div class="summary-value val-pulse">${m.pulse ?? '—'}</div>
+      <div class="summary-label">💚 Пульс</div>
+      <div style="min-height:18px;margin-top:3px"></div>
+    </div>
+    <div class="summary-item">
+      <div class="summary-value val-pulse">${ev.pulse ?? '—'}</div>
+      <div class="summary-label">💚 Пульс</div>
+      <div style="min-height:18px;margin-top:3px"></div>
+    </div>
+    ${e.weight ? `<div class="summary-item" style="grid-column:1/-1">
+      <div class="summary-value val-weight">${e.weight} кг${bmi ? ` &nbsp;<span style="font-size:12px;font-weight:500;color:${bmiCat.color}">${bmi.toFixed(1)} ІМТ · ${bmiCat.label}</span>` : ''}</div>
+      <div class="summary-label">⚖️ Вага${bmi ? ' / ІМТ' : ''}</div>
+    </div>` : ''}
   `;
 }
 

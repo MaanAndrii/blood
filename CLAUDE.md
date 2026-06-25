@@ -28,7 +28,7 @@ server/
     drive.js            — Google Drive API (token refresh, folder, upload, list, download)
 client/
   index.html            — entire SPA (HTML + CSS + JS inline)
-  sw.js                 — Service Worker (basic cache)
+  sw.js                 — Service Worker (offline mode: app shell + API GET cache)
 logs/app.log            — file-based error log
 ```
 
@@ -84,8 +84,8 @@ logs/app.log            — file-based error log
 ### 🔲 Pending / Known issues
 
 - [ ] **D** — Timezone selector for reminders (cron runs in server TZ; Pi uses `timedatectl`)
-- [ ] **J** — Demo tier restrictions not enforced (column exists, UI badge shows, but no feature gating)
-- [ ] **M** — Service Worker caches only root + manifest (offline mode incomplete)
+- [x] **J** — Demo tier server-side enforcement: `tierGuard` middleware on all export/import endpoints; `requireDriveTier` on Drive backup/restore; 403 `demo_restricted` returned for blocked features
+- [x] **M** — Service Worker offline mode: app shell + icons cached on install (`health-v4`); `/api/entries` + `/api/auth/me` network-first with stale cache fallback; mutations network-only
 
 ### 🔲 Future / Deferred
 

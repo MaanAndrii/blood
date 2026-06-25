@@ -1,17 +1,19 @@
 const TIERS = {
   demo: {
     max_history_days: 30,
-    export_pdf:  false,
-    export_csv:  false,
-    export_json: false,
-    import_json: false,
+    export_pdf:   false,
+    export_csv:   false,
+    export_json:  false,
+    import_json:  false,
+    drive_backup: false,
   },
   premium: {
     max_history_days: null,
-    export_pdf:  true,
-    export_csv:  true,
-    export_json: true,
-    import_json: true,
+    export_pdf:   true,
+    export_csv:   true,
+    export_json:  true,
+    import_json:  true,
+    drive_backup: true,
   },
 };
 

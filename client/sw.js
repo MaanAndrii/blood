@@ -1,32 +1,93 @@
-const CACHE = 'health-v3';
-const STATIC = ['/manifest.json'];
+const CACHE = 'health-v5';
+const API_CACHE = 'health-api-v5';
+
+const STATIC_SHELL = [
+  '/',
+  '/manifest.json',
+  '/icons/favicon.svg',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
+  '/icons/icon-maskable-192.png',
+  '/icons/icon-maskable-512.png',
+];
+
+// API GET routes to cache for offline reading
+const CACHED_API = ['/api/entries', '/api/auth/me'];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(STATIC)));
+  e.waitUntil(
+    caches.open(CACHE).then(c => c.addAll(STATIC_SHELL)).catch(() => {})
+  );
   self.skipWaiting();
 });
 
 self.addEventListener('activate', e => {
-  e.waitUntil(caches.keys().then(keys =>
-    Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
-  ));
+  e.waitUntil(
+    caches.keys().then(keys =>
+      Promise.all(
+        keys
+          .filter(k => k !== CACHE && k !== API_CACHE)
+          .map(k => caches.delete(k))
+      )
+    )
+  );
   self.clients.claim();
 });
 
 self.addEventListener('fetch', e => {
-  if (e.request.url.includes('/api/')) return;
+  const { request } = e;
+  const url = new URL(request.url);
 
-  // Navigation (HTML) — network-first so deploys are instant; fall back to cache offline
-  if (e.request.mode === 'navigate') {
+  // Only handle same-origin requests
+  if (url.origin !== self.location.origin) return;
+
+  // API requests
+  if (url.pathname.startsWith('/api/')) {
+    const shouldCache = request.method === 'GET' &&
+      CACHED_API.some(p => url.pathname === p || url.pathname.startsWith(p + '?'));
+
+    if (shouldCache) {
+      // Network-first: update cache on success, serve stale when offline
+      e.respondWith(
+        fetch(request).then(res => {
+          if (res.ok) {
+            const clone = res.clone();
+            caches.open(API_CACHE).then(c => c.put(request, clone));
+          }
+          return res;
+        }).catch(() => caches.match(request))
+      );
+    }
+    // Mutations and uncached API calls: network-only (no fallback)
+    return;
+  }
+
+  // HTML navigation — network-first, fall back to cached shell
+  if (request.mode === 'navigate') {
     e.respondWith(
-      fetch(e.request).catch(() => caches.match('/'))
+      fetch(request)
+        .then(res => {
+          if (res.ok) {
+            caches.open(CACHE).then(c => c.put(request, res.clone()));
+          }
+          return res;
+        })
+        .catch(() => caches.match('/') || caches.match(request))
     );
     return;
   }
 
-  // Static assets — cache-first
+  // Static assets — cache-first, fetch and cache on miss
   e.respondWith(
-    caches.match(e.request).then(cached => cached || fetch(e.request))
+    caches.match(request).then(cached => {
+      if (cached) return cached;
+      return fetch(request).then(res => {
+        if (res.ok) {
+          caches.open(CACHE).then(c => c.put(request, res.clone()));
+        }
+        return res;
+      });
+    })
   );
 });
 

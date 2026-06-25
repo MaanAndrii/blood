@@ -14,6 +14,7 @@ const usersRouter = require('./routes/users');
 const pdfRouter = require('./routes/pdf');
 const pushRouter = require('./routes/push');
 const backupRouter = require('./routes/backup');
+const exportRouter = require('./routes/export');
 const { scheduleReminders } = require('./services/push');
 
 const app = express();
@@ -67,6 +68,7 @@ app.use('/api/users', usersRouter);
 app.use('/api/pdf', pdfRouter);
 app.use('/api/push', pushRouter);
 app.use('/api/backup', backupRouter);
+app.use('/api/export', exportRouter);
 
 // ── Static Files ────────────────────────────────────────────────────────────
 const clientDir = path.join(__dirname, '..', 'client');

@@ -1,7 +1,19 @@
 const express = require('express');
 const { pool } = require('../db');
 const { requireAuth } = require('../middleware/auth');
+const { getTierConfig } = require('../config/tiers');
 const { uploadBackup, listBackups, downloadBackup } = require('../services/drive');
+
+async function requireDriveTier(req, res, next) {
+  const { rows } = await pool.query(
+    'SELECT subscription_tier, subscription_expires_at FROM users WHERE id=$1',
+    [req.user.id]
+  );
+  if (!getTierConfig(rows[0]).drive_backup) {
+    return res.status(403).json({ error: 'demo_restricted' });
+  }
+  next();
+}
 
 const router = express.Router();
 
@@ -32,7 +44,7 @@ router.delete('/drive', requireAuth, async (req, res) => {
 });
 
 // Create backup
-router.post('/drive', requireAuth, async (req, res) => {
+router.post('/drive', requireAuth, requireDriveTier, async (req, res) => {
   try {
     const { rows } = await pool.query(
       `SELECT date,
@@ -68,7 +80,7 @@ router.post('/drive', requireAuth, async (req, res) => {
 });
 
 // List available backups on Drive
-router.get('/drive/list', requireAuth, async (req, res) => {
+router.get('/drive/list', requireAuth, requireDriveTier, async (req, res) => {
   try {
     const files = await listBackups(req.user.id);
     res.json({ files });
@@ -79,7 +91,7 @@ router.get('/drive/list', requireAuth, async (req, res) => {
 });
 
 // Restore from a Drive backup file
-router.post('/drive/restore', requireAuth, async (req, res) => {
+router.post('/drive/restore', requireAuth, requireDriveTier, async (req, res) => {
   try {
     const { fileId } = req.body ?? {};
     if (!fileId) return res.status(400).json({ error: 'fileId required' });

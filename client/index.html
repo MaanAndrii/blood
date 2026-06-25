@@ -3841,29 +3841,34 @@ function csvCell(v) {
     : s;
 }
 
-function exportCSV() {
+async function exportCSV() {
   if (!entries.length) { showToast('⚠️ Немає даних для експорту', 'var(--warn)'); return; }
-  const cols = [
-    'Дата',
-    'Ранок Сист. Л','Ранок Діаст. Л','Ранок Сист. П','Ранок Діаст. П','Ранок Пульс',
-    'Вечір Сист. Л','Вечір Діаст. Л','Вечір Сист. П','Вечір Діаст. П','Вечір Пульс',
-    'Вага','Нотатки'
-  ];
-  const rows = entries.map(e => [
-    String(e.date).slice(0,10),
-    e.morning.sys_l ?? '', e.morning.dia_l ?? '', e.morning.sys_r ?? '', e.morning.dia_r ?? '', e.morning.pulse ?? '',
-    e.evening.sys_l ?? '', e.evening.dia_l ?? '', e.evening.sys_r ?? '', e.evening.dia_r ?? '', e.evening.pulse ?? '',
-    e.weight ?? '', csvCell(e.notes)
-  ].join(','));
-  download('﻿' + [cols.join(','), ...rows].join('\n'), 'health_data.csv', 'text/csv');
-  showToast('📄 CSV завантажено!');
+  try {
+    const r = await fetch('/api/export/csv');
+    if (r.status === 403) { showToast('🔒 Експорт недоступний у демо-версії', 'var(--warn)'); return; }
+    if (!r.ok) throw new Error();
+    const blob = await r.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'health_data.csv';
+    a.click();
+    showToast('📄 CSV завантажено!');
+  } catch { showToast('❌ Помилка експорту', 'var(--warn)'); }
 }
 
-function exportJSON() {
+async function exportJSON() {
   if (!entries.length) { showToast('⚠️ Немає даних для експорту', 'var(--warn)'); return; }
-  download(JSON.stringify({ version: 2, exported: new Date().toISOString(), entries }, null, 2),
-    'health_backup.json', 'application/json');
-  showToast('🗄️ JSON завантажено!');
+  try {
+    const r = await fetch('/api/export/json');
+    if (r.status === 403) { showToast('🔒 Експорт недоступний у демо-версії', 'var(--warn)'); return; }
+    if (!r.ok) throw new Error();
+    const blob = await r.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'health_backup.json';
+    a.click();
+    showToast('🗄️ JSON завантажено!');
+  } catch { showToast('❌ Помилка експорту', 'var(--warn)'); }
 }
 
 function importJSON(event) {
@@ -3878,22 +3883,18 @@ function importJSON(event) {
   reader.onload = async e => {
     try {
       const data = JSON.parse(e.target.result);
-      const imported = data.entries || data;
-      if (!Array.isArray(imported)) throw new Error();
-      let added = 0;
-      for (const ie of imported) {
-        const dateStr = String(ie.date).slice(0,10);
-        if (!entries.find(x => String(x.date).slice(0,10) === dateStr)) {
-          try {
-            await saveEntryToServer({ ...ie, date: dateStr });
-            added++;
-          } catch {}
-        }
-      }
+      const r = await fetch('/api/export/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (r.status === 403) { showToast('🔒 Імпорт недоступний у демо-версії', 'var(--warn)'); return; }
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'Помилка');
+      const { imported } = await r.json();
       await fetchEntries();
-      showToast(`✅ Імпортовано ${added} записів!`);
+      showToast(`✅ Імпортовано ${imported} записів!`);
       renderExportStats();
-    } catch { showToast('❌ Помилка файлу', 'var(--warn)'); }
+    } catch (err) { showToast('❌ ' + (err.message || 'Помилка файлу'), 'var(--warn)'); }
   };
   reader.readAsText(file);
   event.target.value = '';

@@ -3140,11 +3140,6 @@ function renderTodaySummary() {
   _renderSummaryInGrid(selectedWeekDate || todayStr(), 'summaryGrid');
 }
 
-function renderYesterdaySummary() {
-  const base = new Date((selectedWeekDate || todayStr()) + 'T00:00:00');
-  base.setDate(base.getDate() - 1);
-  _renderSummaryInGrid(_localDateStr(base), 'yesterdaySummaryGrid');
-}
 
 function showDayOnHome(dateStr) {
   const today = todayStr();

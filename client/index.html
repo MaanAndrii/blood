@@ -1892,7 +1892,7 @@
 <script>
 // ── DATA LAYER ──────────────────────────────────────────────────────────────
 const DB_KEY        = 'health_entries_v2';
-const APP_VERSION   = '1.06';
+const APP_VERSION   = '1.07';
 const REMINDER_KEY  = 'health_reminders';
 
 // ── Constants (U) ────────────────────────────────────────────────────────────
@@ -3657,7 +3657,7 @@ async function loadDriveFileList() {
           <div class="drive-file-name">${escHtml(f.name)}</div>
           <div style="font-size:11px;color:var(--muted);margin-top:2px">${date}${kb ? ' · ' + kb : ''}</div>
         </div>
-        <button class="btn-restore" onclick="restoreFromDrive('${f.id}', '${escHtml(f.name)}')">Відновити</button>
+        <button class="btn-restore" data-id="${escHtml(f.id)}" data-name="${escHtml(f.name)}" onclick="restoreFromDrive(this.dataset.id,this.dataset.name)">Відновити</button>
       </div>`;
     }).join('');
   } catch {

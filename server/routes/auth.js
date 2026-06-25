@@ -57,7 +57,7 @@ function cookieOpts() {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
-    maxAge: 30 * 24 * 60 * 60 * 1000,
+    maxAge: 7 * 24 * 60 * 60 * 1000,
   };
 }
 
@@ -65,7 +65,7 @@ function issueJwt(user) {
   return jwt.sign(
     { id: user.id, email: user.email, name: user.name, is_admin: user.is_admin },
     process.env.JWT_SECRET,
-    { expiresIn: '30d' }
+    { expiresIn: '7d' }
   );
 }
 

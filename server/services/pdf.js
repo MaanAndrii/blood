@@ -450,11 +450,12 @@ async function generatePdf(user, entries, dateFrom, dateTo) {
     headless: 'new',
     executablePath: process.env.CHROMIUM_PATH || '/usr/bin/chromium',
     args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    timeout: 15000,
   });
 
   try {
     const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: 'networkidle0' });
+    await page.setContent(html, { waitUntil: 'networkidle0', timeout: 30000 });
     const pdf = await page.pdf({
       format: 'A4',
       printBackground: true,
@@ -465,6 +466,7 @@ async function generatePdf(user, entries, dateFrom, dateTo) {
         <div style="font-size:9px;color:#888;width:100%;text-align:center;padding:0 10mm">
           <span class="pageNumber"></span> / <span class="totalPages"></span>
         </div>`,
+      timeout: 30000,
     });
     return pdf;
   } finally {

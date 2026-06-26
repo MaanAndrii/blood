@@ -1,7 +1,7 @@
 {
-  "name": "BP & BMI — Моніторинг здоров'я",
+  "name": "BP & BMI — Pulse & Pounds Under Analysis",
   "short_name": "BP & BMI",
-  "description": "Щоденний журнал артеріального тиску, пульсу, ваги та ІМТ",
+  "description": "Blood Pressure & Body Mass Index — daily journal for blood pressure, pulse, weight and BMI",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f1628",

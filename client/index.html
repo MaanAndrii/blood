@@ -1462,6 +1462,11 @@
       <div class="chart-wrap"><canvas id="chartWeight"></canvas></div>
     </div>
 
+    <div class="stat-card" id="bmiCard">
+      <div class="stat-title">📊 Індекс маси тіла (ІМТ)</div>
+      <div id="bmiCardBody"></div>
+    </div>
+
     <div class="stat-card" id="avgStats">
       <div class="stat-title">📊 Середні значення</div>
       <div id="avgStatsBody"></div>
@@ -1902,7 +1907,7 @@
 <script>
 // ── DATA LAYER ──────────────────────────────────────────────────────────────
 const DB_KEY        = 'health_entries_v2';
-const APP_VERSION   = '1.09';
+const APP_VERSION   = '1.10';
 const REMINDER_KEY  = 'health_reminders';
 
 // ── Constants (U) ────────────────────────────────────────────────────────────
@@ -3041,12 +3046,12 @@ function bpCategory(sys, dia) {
 }
 
 function bmiCategory(bmi) {
-  if (bmi < 18.5) return { label: 'Дефіцит',     color: '#60a5fa' };
-  if (bmi < 25)   return { label: 'Норма',        color: '#22c55e' };
-  if (bmi < 30)   return { label: 'Надлишок',     color: '#eab308' };
-  if (bmi < 35)   return { label: 'Ожиріння I',   color: '#f97316' };
-  if (bmi < 40)   return { label: 'Ожиріння II',  color: '#ef4444' };
-  return                  { label: 'Ожиріння III', color: '#b91c1c' };
+  if (bmi < 18.5) return { label: 'Дефіцит маси тіла', color: '#60a5fa', desc: 'Недостатня маса тіла — рекомендується консультація з лікарем' };
+  if (bmi < 25)   return { label: 'Норма',              color: '#22c55e', desc: 'Нормальна маса тіла — продовжуйте підтримувати здоровий спосіб життя' };
+  if (bmi < 30)   return { label: 'Надлишкова вага',    color: '#eab308', desc: 'Надлишкова маса тіла — рекомендовано збалансоване харчування та фізичну активність' };
+  if (bmi < 35)   return { label: 'Ожиріння I ст.',     color: '#f97316', desc: 'Ожиріння I ступеня — підвищений ризик серцево-судинних захворювань' };
+  if (bmi < 40)   return { label: 'Ожиріння II ст.',    color: '#ef4444', desc: 'Ожиріння II ступеня — значний ризик для здоров\'я, зверніться до лікаря' };
+  return                  { label: 'Ожиріння III ст.',   color: '#b91c1c', desc: 'Ожиріння III ступеня — дуже високий ризик, необхідна медична допомога' };
 }
 
 function calcBmi(weightKg, heightCm) {
@@ -3197,8 +3202,18 @@ function _renderSummaryInGrid(dateStr, gridId) {
       <div style="min-height:18px;margin-top:3px"></div>
     </div>
     ${e.weight ? `<div class="summary-item" style="grid-column:1/-1">
-      <div class="summary-value val-weight">${e.weight} кг${bmi ? ` &nbsp;<span style="font-size:12px;font-weight:500;color:${bmiCat.color}">${bmi.toFixed(1)} ІМТ · ${bmiCat.label}</span>` : ''}</div>
-      <div class="summary-label">⚖️ Вага${bmi ? ' / ІМТ' : ''}</div>
+      <div class="summary-value val-weight">${e.weight} кг</div>
+      <div class="summary-label">⚖️ Вага</div>
+    </div>` : ''}
+    ${e.weight && bmi ? `<div class="summary-item" style="grid-column:1/-1;background:var(--surface);border-radius:10px;padding:10px 12px">
+      <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
+        <span style="font-size:26px;font-weight:700;font-family:var(--mono);color:${bmiCat.color}">${bmi.toFixed(1)}</span>
+        <span style="font-size:13px;font-weight:600;color:${bmiCat.color}">${bmiCat.label}</span>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:3px">${bmiCat.desc}</div>
+      <div class="summary-label" style="margin-top:4px">📊 ІМТ (ВООЗ)</div>
+    </div>` : e.weight && !bmi ? `<div class="summary-item" style="grid-column:1/-1">
+      <div style="font-size:11px;color:var(--muted)">Вкажіть зріст у профілі для розрахунку ІМТ</div>
     </div>` : ''}
   `;
 }
@@ -3842,6 +3857,56 @@ function renderCharts() {
     plugins: { legend: { display: true, labels: { color: '#e8edf8', font: { size: 10 }, boxWidth: 16,
       filter: item => item.text !== '' } } }
   } : {});
+
+  // ── BMI card ─────────────────────────────────────────────────────────────
+  (function renderBmiCard() {
+    const el = document.getElementById('bmiCardBody');
+    const h = currentUser?.height_cm;
+    const lastWithWeight = entries.find(e => e.weight != null);
+    const w = lastWithWeight?.weight != null ? parseFloat(lastWithWeight.weight) : null;
+    const bmi = h && w ? calcBmi(w, h) : null;
+    const cat = bmi ? bmiCategory(bmi) : null;
+
+    const bmiRanges = [
+      ['< 18.5', 'Дефіцит маси тіла',  '#60a5fa'],
+      ['18.5–24.9', 'Норма',            '#22c55e'],
+      ['25–29.9', 'Надлишкова вага',    '#eab308'],
+      ['30–34.9', 'Ожиріння I ст.',     '#f97316'],
+      ['35–39.9', 'Ожиріння II ст.',    '#ef4444'],
+      ['≥ 40',    'Ожиріння III ст.',   '#b91c1c'],
+    ];
+
+    if (!h) {
+      el.innerHTML = `<div style="color:var(--muted);font-size:12px;padding:8px 0">
+        Вкажіть <strong>зріст</strong> у профілі для розрахунку ІМТ.
+      </div>`;
+    } else if (!w) {
+      el.innerHTML = `<div style="color:var(--muted);font-size:12px;padding:8px 0">
+        Немає записів з вагою для розрахунку ІМТ.
+      </div>`;
+    } else {
+      el.innerHTML = `
+        <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:6px;flex-wrap:wrap">
+          <span style="font-size:36px;font-weight:700;font-family:var(--mono);color:${cat.color}">${bmi.toFixed(1)}</span>
+          <div>
+            <div style="font-size:14px;font-weight:600;color:${cat.color}">${cat.label}</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px">${cat.desc}</div>
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:10px">
+          Зріст: ${h} см &nbsp;·&nbsp; Вага: ${w} кг &nbsp;·&nbsp; Рекомендована вага: ${_wMin ?? '—'}–${_wMax ?? '—'} кг
+        </div>
+        <table style="width:100%;border-collapse:collapse;font-size:11px">
+          ${bmiRanges.map(([range, label, color]) => {
+            const isCurrent = cat.label === label;
+            return `<tr style="${isCurrent ? `background:color-mix(in srgb,${color} 18%,transparent)` : ''}">
+              <td style="padding:4px 6px;font-family:var(--mono);color:${color};font-weight:600;white-space:nowrap">${range}</td>
+              <td style="padding:4px 6px;color:var(--text);font-weight:${isCurrent ? '700' : '400'}">${label}${isCurrent ? ' ◀' : ''}</td>
+            </tr>`;
+          }).join('')}
+        </table>`;
+    }
+  })();
 
   function avgOf(arr) { const a = arr.filter(x=>x!=null); return a.length ? Math.round(a.reduce((s,x)=>s+x,0)/a.length) : null; }
   const avgStats = [

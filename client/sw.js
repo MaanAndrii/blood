@@ -68,7 +68,8 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  // Static assets — cache-first, fetch and cache on miss
+  // Static assets — cache-first, fetch and cache on miss (GET only)
+  if (request.method !== 'GET') return;
   e.respondWith(
     caches.match(request).then(cached => {
       if (cached) return cached;

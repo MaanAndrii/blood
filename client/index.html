@@ -180,7 +180,7 @@
       cursor: pointer;
     }
     .gdpr-consent input[type="checkbox"] { margin-top: 2px; flex-shrink: 0; accent-color: var(--accent); }
-    .gdpr-consent .privacy-link { background:none;border:none;padding:0;color:var(--accent);font-size:inherit;cursor:pointer;text-decoration:none; }
+    .gdpr-consent .privacy-link { color:var(--accent);text-decoration:none; }
     .gdpr-consent .privacy-link:hover { text-decoration: underline; }
     .btn-danger {
       width: 100%;
@@ -1357,7 +1357,7 @@
         onkeydown="if(event.key==='Enter')submitRegister()" />
       <div class="gdpr-consent">
         <input type="checkbox" id="regConsent" />
-        <span>Я погоджуюсь з <button type="button" class="privacy-link" onclick="openPrivacyModal()">Політикою конфіденційності</button> та обробкою моїх персональних медичних даних відповідно до GDPR (ст. 9(2)(a))</span>
+        <span>Я погоджуюсь з <a href="/privacy" target="_blank" rel="noopener" class="privacy-link">Політикою конфіденційності</a> та обробкою моїх персональних медичних даних відповідно до GDPR (ст. 9(2)(a))</span>
       </div>
       <button class="btn-auth" id="btnRegister" onclick="submitRegister()">Зареєструватись</button>
     </div>

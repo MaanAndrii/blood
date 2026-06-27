@@ -72,7 +72,7 @@ app.use('/api/export', exportRouter);
 
 // ── Static Files ────────────────────────────────────────────────────────────
 const clientDir = path.join(__dirname, '..', 'client');
-app.use(express.static(clientDir, { extensions: ['html'] }));
+app.use(express.static(clientDir, { extensions: ['html'], index: false }));
 
 // Root: landing for guests, SPA for authenticated users
 const jwt = require('jsonwebtoken');

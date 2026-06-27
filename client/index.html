@@ -1357,7 +1357,7 @@
         onkeydown="if(event.key==='Enter')submitRegister()" />
       <label class="gdpr-consent">
         <input type="checkbox" id="regConsent" />
-        <span>Я погоджуюсь з <a href="#" onclick="openPrivacyModal();return false">Політикою конфіденційності</a> та обробкою моїх персональних медичних даних відповідно до GDPR (ст. 9(2)(a))</span>
+        <span>Я погоджуюсь з <a href="javascript:void(0)" onclick="event.preventDefault();event.stopPropagation();openPrivacyModal()">Політикою конфіденційності</a> та обробкою моїх персональних медичних даних відповідно до GDPR (ст. 9(2)(a))</span>
       </label>
       <button class="btn-auth" id="btnRegister" onclick="submitRegister()">Зареєструватись</button>
     </div>

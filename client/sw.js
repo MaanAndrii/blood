@@ -1,5 +1,5 @@
-const CACHE = 'health-v19';
-const API_CACHE = 'health-api-v19';
+const CACHE = 'health-v20';
+const API_CACHE = 'health-api-v20';
 
 const STATIC_SHELL = [
   '/manifest.json',
@@ -62,18 +62,9 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  // HTML navigation — network-first, fall back to cached shell
+  // HTML navigation — network only, never cache (content depends on auth state)
   if (request.mode === 'navigate') {
-    e.respondWith(
-      fetch(request)
-        .then(res => {
-          if (res.ok) {
-            caches.open(CACHE).then(c => c.put(request, res.clone()));
-          }
-          return res;
-        })
-        .catch(() => caches.match('/') || caches.match(request))
-    );
+    e.respondWith(fetch(request));
     return;
   }
 
@@ -83,7 +74,8 @@ self.addEventListener('fetch', e => {
       if (cached) return cached;
       return fetch(request).then(res => {
         if (res.ok) {
-          caches.open(CACHE).then(c => c.put(request, res.clone()));
+          const clone = res.clone();
+          caches.open(CACHE).then(c => c.put(request, clone));
         }
         return res;
       });

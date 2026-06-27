@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BP &amp; BMI — Blood Pressure &amp; Body Mass Index</title>
+  <meta name="description" content="Персональний щоденник артеріального тиску, пульсу, ваги та ІМТ. Відстежуйте показники здоров'я, переглядайте статистику, формуйте звіти для лікаря." />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f1729;
+      color: #e8edf8;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    a { color: inherit; text-decoration: none; }
+
+    /* ── Hero ── */
+    .hero {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 48px 20px 40px;
+    }
+    .logo-icon {
+      font-size: 64px;
+      line-height: 1;
+      margin-bottom: 20px;
+    }
+    .logo-name {
+      font-size: 36px;
+      font-weight: 800;
+      color: #e85249;
+      letter-spacing: -0.5px;
+    }
+    .logo-full {
+      font-size: 14px;
+      color: #7a8fb5;
+      margin-top: 6px;
+      margin-bottom: 4px;
+    }
+    .logo-tagline {
+      font-size: 13px;
+      color: #4a5f8a;
+      margin-bottom: 36px;
+    }
+    .hero-desc {
+      font-size: 16px;
+      color: #c8d4e8;
+      line-height: 1.6;
+      max-width: 480px;
+      margin-bottom: 40px;
+    }
+
+    /* ── CTA buttons ── */
+    .cta-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-bottom: 48px;
+    }
+    .btn {
+      display: inline-block;
+      padding: 13px 32px;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity .15s, transform .1s;
+      border: none;
+    }
+    .btn:active { transform: scale(.97); }
+    .btn-primary {
+      background: #e85249;
+      color: #fff;
+    }
+    .btn-secondary {
+      background: #1a2744;
+      color: #c8d4e8;
+      border: 1px solid #2a3f6f;
+    }
+    .btn:hover { opacity: .88; }
+
+    /* ── Feature cards ── */
+    .features {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 14px;
+      max-width: 760px;
+      width: 100%;
+      margin: 0 auto 20px;
+      padding: 0 20px;
+    }
+    .feature-card {
+      background: #1a2744;
+      border: 1px solid #2a3f6f;
+      border-radius: 14px;
+      padding: 18px 16px;
+      text-align: left;
+    }
+    .feature-icon { font-size: 28px; margin-bottom: 10px; }
+    .feature-title { font-size: 14px; font-weight: 700; color: #e8edf8; margin-bottom: 5px; }
+    .feature-text  { font-size: 12px; color: #7a8fb5; line-height: 1.5; }
+
+    /* ── Disclaimer ── */
+    .disclaimer {
+      max-width: 600px;
+      margin: 24px auto 0;
+      padding: 12px 20px;
+      background: #1a2744;
+      border-left: 3px solid #e85249;
+      border-radius: 0 8px 8px 0;
+      font-size: 12px;
+      color: #7a8fb5;
+      line-height: 1.5;
+      text-align: left;
+    }
+
+    /* ── Footer ── */
+    footer {
+      padding: 20px;
+      border-top: 1px solid #1a2744;
+      font-size: 12px;
+      color: #4a5f8a;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      max-width: 760px;
+      margin: 0 auto;
+      width: 100%;
+    }
+    footer a { color: #4a5f8a; }
+    footer a:hover { color: #7a8fb5; }
+  </style>
+</head>
+<body>
+  <div class="hero">
+    <div class="logo-icon">❤️</div>
+    <div class="logo-name">BP &amp; BMI</div>
+    <div class="logo-full">Blood Pressure &amp; Body Mass Index</div>
+    <div class="logo-tagline">Pulse &amp; Pounds Under Analysis</div>
+
+    <p class="hero-desc">
+      Персональний щоденник для відстеження артеріального тиску, пульсу,
+      ваги та індексу маси тіла. Графіки, статистика та PDF-звіти для лікаря —
+      все в одному застосунку.
+    </p>
+
+    <div class="cta-row">
+      <a href="/?auth=1" class="btn btn-primary">Увійти</a>
+      <a href="/?auth=1#register" class="btn btn-secondary">Зареєструватись</a>
+    </div>
+
+    <div class="features">
+      <div class="feature-card">
+        <div class="feature-icon">🩺</div>
+        <div class="feature-title">Артеріальний тиск</div>
+        <div class="feature-text">Записуйте систолічний і діастолічний тиск та пульс для обох рук. Класифікація ВООЗ/ESH 2023.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">⚖️</div>
+        <div class="feature-title">Вага та ІМТ</div>
+        <div class="feature-text">Відстежуйте масу тіла та індекс маси тіла. Рекомендований діапазон ваги на графіку.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📊</div>
+        <div class="feature-title">Графіки і статистика</div>
+        <div class="feature-text">Тижневий тренд тиску, динаміка ваги, середні значення та мінімум/максимум за обраний період.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📄</div>
+        <div class="feature-title">PDF для лікаря</div>
+        <div class="feature-text">Формуйте звіт за будь-який період — короткий (таблиця) або розширений (з аналітикою).</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🔔</div>
+        <div class="feature-title">Нагадування</div>
+        <div class="feature-text">Push-сповіщення про час вимірювань — вранці та ввечері у зручний для вас час.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">☁️</div>
+        <div class="feature-title">Резервні копії</div>
+        <div class="feature-text">Збереження даних у вашому Google Drive. Експорт у форматах CSV та JSON.</div>
+      </div>
+    </div>
+
+    <div class="disclaimer" style="max-width:720px;margin:24px 20px 0;">
+      ⚕️ <strong>Медичне застереження:</strong> BP &amp; BMI є інструментом для особистого ведення щоденника і не є медичним приладом чи засобом діагностики. Будь-які рішення щодо здоров'я приймайте разом з кваліфікованим лікарем.
+    </div>
+  </div>
+
+  <footer>
+    <span>© 2026 BP &amp; BMI — bpbmi.pp.ua</span>
+    <span>
+      <a href="/privacy">Політика конфіденційності</a>
+      &nbsp;·&nbsp;
+      <a href="/terms">Умови використання</a>
+    </span>
+  </footer>
+</body>
+</html>

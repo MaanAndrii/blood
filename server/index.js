@@ -74,6 +74,20 @@ app.use('/api/export', exportRouter);
 const clientDir = path.join(__dirname, '..', 'client');
 app.use(express.static(clientDir, { extensions: ['html'] }));
 
+// Root: landing for guests, SPA for authenticated users
+const jwt = require('jsonwebtoken');
+app.get('/', (req, res) => {
+  if (req.query.auth) return res.sendFile(path.join(clientDir, 'index.html'));
+  const token = req.cookies?.token;
+  if (token) {
+    try {
+      jwt.verify(token, process.env.JWT_SECRET);
+      return res.sendFile(path.join(clientDir, 'index.html'));
+    } catch {}
+  }
+  res.sendFile(path.join(clientDir, 'landing.html'));
+});
+
 // SPA fallback — serve index.html for any non-API route
 app.get('*', (req, res) => {
   if (!req.path.startsWith('/api')) {

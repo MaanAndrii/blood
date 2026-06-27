@@ -20,9 +20,12 @@ const { scheduleReminders } = require('./services/push');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Trust Cloudflare proxy so rate-limiting uses the real client IP
+app.set('trust proxy', 1);
+
 // ── Rate Limiting ────────────────────────────────────────────────────────────
 const generalLimit = rateLimit({ windowMs: 15 * 60 * 1000, max: 200, standardHeaders: true, legacyHeaders: false });
-const authLimit    = rateLimit({ windowMs: 15 * 60 * 1000, max: 20,  standardHeaders: true, legacyHeaders: false });
+const authLimit    = rateLimit({ windowMs: 15 * 60 * 1000, max: 50,  standardHeaders: true, legacyHeaders: false });
 
 // ── Logger (V) ───────────────────────────────────────────────────────────────
 const LOG_FILE = path.join(__dirname, '..', 'logs', 'app.log');

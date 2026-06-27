@@ -3,6 +3,7 @@ const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const { pool } = require('../db');
 const { getEffectiveTier } = require('../config/tiers');
 const { driveAuthUrl, exchangeCode } = require('../services/drive');
@@ -75,10 +76,26 @@ router.get('/google', (req, res, next) => {
   if (!process.env.GOOGLE_CLIENT_ID) {
     return res.redirect('/?error=google_not_configured');
   }
-  passport.authenticate('google', { scope: ['profile', 'email'], session: false })(req, res, next);
+  const state = crypto.randomBytes(16).toString('hex');
+  res.cookie('oauth_state', state, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 10 * 60 * 1000,
+  });
+  passport.authenticate('google', { scope: ['profile', 'email'], session: false, state })(req, res, next);
 });
 
 router.get('/google/callback',
+  (req, res, next) => {
+    const state = req.query.state;
+    const cookieState = req.cookies?.oauth_state;
+    res.clearCookie('oauth_state', { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax' });
+    if (!state || !cookieState || state !== cookieState) {
+      return res.redirect('/?error=access_denied');
+    }
+    next();
+  },
   passport.authenticate('google', { session: false, failureRedirect: '/?error=access_denied' }),
   (req, res) => {
     if (!req.user) return res.redirect('/?error=access_denied');

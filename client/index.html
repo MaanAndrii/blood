@@ -1540,6 +1540,7 @@
       <button class="btn-save" id="btnTestPush" onclick="sendTestPush()" style="display:none;margin-top:8px;background:var(--surface);color:var(--text);border:1px solid var(--border)">
         📳 Надіслати тестове сповіщення
       </button>
+      <div id="pushSubStatus" style="display:none;font-size:11px;margin-top:6px;color:var(--muted)"></div>
       <div class="time-row" style="margin-top:12px">
         <div class="time-field" style="flex:1">
           <label>🌍 Часовий пояс</label>
@@ -1558,7 +1559,7 @@
         </div>
       </div>
       <p style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.5">
-        Сповіщення надсилаються через сервер відповідно до обраного часового поясу. Встановіть застосунок на головний екран для роботи у фоні.<br>
+        Сповіщення надсилаються сервером у фоні. <strong>iOS Safari:</strong> додаток має бути встановлений на головний екран (Поділитись → На головний екран). <strong>Android:</strong> вимкніть оптимізацію батареї для браузера.<br>
         <span id="serverTzHint"></span>
       </p>
     </div>
@@ -1908,7 +1909,7 @@
 <script>
 // ── DATA LAYER ──────────────────────────────────────────────────────────────
 const DB_KEY        = 'health_entries_v2';
-const APP_VERSION   = '2.03';
+const APP_VERSION   = '2.04';
 const REMINDER_KEY  = 'health_reminders';
 
 // ── Constants (U) ────────────────────────────────────────────────────────────
@@ -4323,6 +4324,19 @@ async function renderRemindersUI() {
     statusEl.textContent = '✅ Сповіщення дозволено';
     btnEl.style.display = 'none';
     btnTestEl.style.display = 'flex';
+    // Show subscription DB status
+    fetch('/api/push/status').then(r => r.json()).then(data => {
+      const el = document.getElementById('pushSubStatus');
+      if (!el) return;
+      if (data.has_subscription) {
+        el.textContent = '✅ Підписка збережена на сервері — фонові сповіщення активні';
+        el.style.color = 'var(--ok, #4ade80)';
+      } else {
+        el.textContent = '⚠️ Підписка НЕ збережена на сервері. Вимкніть і увімкніть нагадування знову.';
+        el.style.color = 'var(--warn, #fb923c)';
+      }
+      el.style.display = 'block';
+    }).catch(() => {});
   } else if (perm === 'denied') {
     statusEl.className = 'notif-status denied';
     statusEl.textContent = '🚫 Сповіщення заблоковано браузером. Дозвольте їх у налаштуваннях сайту.';

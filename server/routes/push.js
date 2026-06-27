@@ -64,6 +64,21 @@ router.get('/vapid-public-key', (req, res) => {
   res.json({ publicKey: key });
 });
 
+// GET /api/push/status — check subscription status for authenticated user
+router.get('/status', requireAuth, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT push_subscription IS NOT NULL AS has_subscription,
+              reminders_enabled, reminder_morning, reminder_evening, timezone
+       FROM users WHERE id = $1`,
+      [req.user.id]
+    );
+    res.json(result.rows[0] || {});
+  } catch (err) {
+    res.status(500).json({ error: 'db_error' });
+  }
+});
+
 // POST /api/push/test — send immediate test push to the authenticated user
 router.post('/test', requireAuth, async (req, res) => {
   try {

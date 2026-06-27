@@ -18,14 +18,16 @@ function initWebPush() {
 
 async function sendPush(subscription, title, body, data = {}) {
   if (!subscription) return;
+  const endpoint = subscription.endpoint?.slice(-30) || '?';
   try {
     await webpush.sendNotification(
       subscription,
       JSON.stringify({ title, body, data })
     );
+    console.log(`[push] sent OK ...${endpoint}`);
   } catch (err) {
     if (err.statusCode === 410 || err.statusCode === 404) {
-      // Subscription expired — clear it
+      console.log(`[push] subscription expired (${err.statusCode}), clearing ...${endpoint}`);
       try {
         await pool.query(
           'UPDATE users SET push_subscription = NULL WHERE push_subscription->>\'endpoint\' = $1',
@@ -33,7 +35,7 @@ async function sendPush(subscription, title, body, data = {}) {
         );
       } catch {}
     } else {
-      console.error('[push] sendPush error:', err.message);
+      console.error(`[push] sendPush error ${err.statusCode || ''}: ${err.message}`);
     }
   }
 }
@@ -88,10 +90,12 @@ function scheduleReminders() {
         const entry = entryResult.rows[0] || {};
 
         if (isMorning && !(entry.m_sys_l != null || entry.m_sys_r != null)) {
+          console.log(`[push] morning reminder → user ${user.id} (${tz})`);
           await sendPush(user.push_subscription, '🌅 Час виміряти тиск',
             'Зробіть ранковий вимір — це займе хвилину.', { url: '/' });
         }
         if (isEvening && !(entry.e_sys_l != null || entry.e_sys_r != null)) {
+          console.log(`[push] evening reminder → user ${user.id} (${tz})`);
           await sendPush(user.push_subscription, '🌙 Час виміряти тиск',
             'Зробіть вечірній вимір — це займе хвилину.', { url: '/' });
         }

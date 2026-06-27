@@ -180,8 +180,8 @@
       cursor: pointer;
     }
     .gdpr-consent input[type="checkbox"] { margin-top: 2px; flex-shrink: 0; accent-color: var(--accent); }
-    .gdpr-consent a { color: var(--accent); text-decoration: none; }
-    .gdpr-consent a:hover { text-decoration: underline; }
+    .gdpr-consent .privacy-link { color:var(--accent);text-decoration:none; }
+    .gdpr-consent .privacy-link:hover { text-decoration: underline; }
     .btn-danger {
       width: 100%;
       padding: 10px;
@@ -1355,10 +1355,10 @@
       <input class="auth-input" type="email" id="regEmail" placeholder="Email" autocomplete="email" />
       <input class="auth-input" type="password" id="regPassword" placeholder="Пароль (мін. 8 символів)" autocomplete="new-password"
         onkeydown="if(event.key==='Enter')submitRegister()" />
-      <label class="gdpr-consent">
+      <div class="gdpr-consent">
         <input type="checkbox" id="regConsent" />
-        <span>Я погоджуюсь з <a href="#" onclick="openPrivacyModal();return false">Політикою конфіденційності</a> та обробкою моїх персональних медичних даних відповідно до GDPR (ст. 9(2)(a))</span>
-      </label>
+        <span>Я погоджуюсь з <a href="/privacy" target="_blank" rel="noopener" class="privacy-link">Політикою конфіденційності</a> та обробкою моїх персональних медичних даних відповідно до GDPR (ст. 9(2)(a))</span>
+      </div>
       <button class="btn-auth" id="btnRegister" onclick="submitRegister()">Зареєструватись</button>
     </div>
 
@@ -1741,36 +1741,36 @@
 </div>
 
 <!-- ══ PRIVACY POLICY MODAL ══ -->
-<div class="modal-overlay" id="privacyModal">
-  <div class="modal-box" style="max-width:480px;width:95%;max-height:88dvh;overflow-y:auto">
-    <div class="modal-title">🔒 Політика конфіденційності</div>
-    <div style="font-size:13px;line-height:1.6;color:var(--text)">
+<div class="modal-overlay" id="privacyModal" onclick="if(event.target===this)closePrivacyModal()">
+  <div class="modal-box" style="max-width:560px;width:95%;max-height:88dvh;overflow-y:auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div class="modal-title" style="margin:0">🔒 Політика конфіденційності</div>
+      <button onclick="closePrivacyModal()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;line-height:1;padding:0">✕</button>
+    </div>
+    <div style="font-size:13px;line-height:1.65;color:var(--text)">
+      <p style="margin:0 0 8px"><strong style="color:var(--accent)">1. Хто обробляє дані</strong><br>
+      Сервіс BP &amp; BMI (bpbmi.pp.ua). Контакт: <a href="mailto:marynyuk@gmail.com" style="color:var(--accent)">marynyuk@gmail.com</a></p>
 
-      <p style="margin:0 0 10px"><strong>Хто обробляє дані</strong><br>
-      Цей застосунок є особистим інструментом відстеження здоров'я. Власник сервера є єдиним контролером ваших даних.</p>
+      <p style="margin:0 0 8px"><strong style="color:var(--accent)">2. Які дані збираються</strong><br>
+      Ім'я, email, хешований пароль, дата народження, зріст, артеріальний тиск, пульс, вага, нотатки, підписки на push-сповіщення.</p>
 
-      <p style="margin:0 0 10px"><strong>Які дані збираються</strong><br>
-      Email, ім'я, дата народження, зріст, показники артеріального тиску, пульс, вага, нотатки до записів.</p>
+      <p style="margin:0 0 8px"><strong style="color:var(--accent)">3. Мета та правова підстава</strong><br>
+      Відображення вашої особистої медичної статистики. Правова підстава: явна згода (GDPR ст. 9(2)(a)).</p>
 
-      <p style="margin:0 0 10px"><strong>Мета обробки</strong><br>
-      Виключно для відображення вашої особистої медичної статистики. Дані не передаються третім особам.</p>
+      <p style="margin:0 0 8px"><strong style="color:var(--accent)">4. Зберігання</strong><br>
+      PostgreSQL на приватному сервері. Передача захищена HTTPS/TLS. Паролі — bcrypt. Дані зберігаються до видалення акаунту.</p>
 
-      <p style="margin:0 0 10px"><strong>Правова підстава (GDPR ст. 9(2)(a))</strong><br>
-      Обробка спеціальної категорії персональних даних (здоров'я) здійснюється на підставі вашої явної згоди, наданої при реєстрації.</p>
+      <p style="margin:0 0 8px"><strong style="color:var(--accent)">5. Треті сторони</strong><br>
+      Google Drive (резервні копії у вашому акаунті), Google OAuth (авторизація), Cloudflare (проксі). Дані не продаються.</p>
 
-      <p style="margin:0 0 10px"><strong>Зберігання</strong><br>
-      Дані зберігаються на приватному сервері. Шифрування транспорту — HTTPS. Дані зберігаються до видалення акаунту.</p>
+      <p style="margin:0 0 8px"><strong style="color:var(--accent)">6. Ваші права (GDPR)</strong><br>
+      Доступ — всі дані у застосунку. Портативність — експорт CSV/JSON. Видалення — кнопка «Видалити акаунт» у профілі. Відкликання згоди — через видалення акаунту.</p>
 
-      <p style="margin:0 0 10px"><strong>Ваші права (GDPR)</strong></p>
-      <ul style="margin:0 0 10px;padding-left:18px">
-        <li><strong>Доступ</strong> — ви бачите всі свої дані в застосунку</li>
-        <li><strong>Портативність</strong> — експорт у JSON / CSV (Журнал → Експорт)</li>
-        <li><strong>Видалення</strong> — кнопка "Видалити акаунт" у профілі видаляє всі записи безповоротно</li>
-        <li><strong>Відкликання згоди</strong> — видалення акаунту відкликає згоду</li>
-      </ul>
+      <p style="margin:0 0 8px"><strong style="color:var(--accent)">7. Медичне застереження</strong><br>
+      BP &amp; BMI є щоденником, а не медичним приладом. Не замінює консультацію лікаря.</p>
 
       <p style="margin:0;color:var(--muted);font-size:11px">
-        Питання щодо обробки даних направляйте власнику сервера.
+        Повна версія: <a href="/privacy" target="_blank" rel="noopener" style="color:var(--muted)">bpbmi.pp.ua/privacy</a>
       </p>
     </div>
     <div class="modal-actions" style="margin-top:20px">
@@ -1916,7 +1916,7 @@
 <script>
 // ── DATA LAYER ──────────────────────────────────────────────────────────────
 const DB_KEY        = 'health_entries_v2';
-const APP_VERSION   = '1.12';
+const APP_VERSION   = '1.13';
 const REMINDER_KEY  = 'health_reminders';
 
 // ── Constants (U) ────────────────────────────────────────────────────────────
@@ -2116,6 +2116,7 @@ async function confirmDeleteAccount() {
 }
 
 async function initApp() {
+  if (window.location.pathname !== '/') history.replaceState({}, '', '/');
   try {
     const r = await fetch('/api/auth/me');
     if (!r.ok) {

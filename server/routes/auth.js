@@ -84,7 +84,7 @@ router.get('/google/callback',
     if (!req.user) return res.redirect('/?error=access_denied');
     const token = issueJwt(req.user);
     res.cookie('token', token, cookieOpts());
-    res.redirect('/');
+    res.redirect('/app');
   }
 );
 

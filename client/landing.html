@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BP &amp; BMI — Blood Pressure &amp; Body Mass Index</title>
+  <meta name="description" content="Персональний щоденник артеріального тиску, пульсу, ваги та ІМТ. Відстежуйте показники здоров'я, переглядайте статистику, формуйте звіти для лікаря." />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f1729;
+      color: #e8edf8;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Hero ── */
+    .hero {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: 48px 20px 0;
+    }
+    .logo-icon { width: 88px; height: 88px; border-radius: 20px; margin-bottom: 16px; }
+    .logo-name { font-size: 34px; font-weight: 800; color: #e85249; letter-spacing: -0.5px; }
+    .logo-full { font-size: 13px; color: #7a8fb5; margin-top: 5px; }
+    .logo-tagline { font-size: 12px; color: #4a5f8a; margin-top: 3px; margin-bottom: 24px; }
+    .hero-desc {
+      font-size: 15px; color: #c8d4e8; line-height: 1.6;
+      max-width: 480px; margin-bottom: 36px;
+    }
+
+    /* ── Feature cards ── */
+    .features {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(195px, 1fr));
+      gap: 12px;
+      max-width: 760px;
+      width: 100%;
+      margin: 0 auto 36px;
+      padding: 0 20px;
+    }
+    .feature-card {
+      background: #1a2744;
+      border: 1px solid #2a3f6f;
+      border-radius: 14px;
+      padding: 16px;
+      text-align: left;
+    }
+    .feature-icon { font-size: 26px; margin-bottom: 8px; }
+    .feature-title { font-size: 13px; font-weight: 700; color: #e8edf8; margin-bottom: 4px; }
+    .feature-text  { font-size: 12px; color: #7a8fb5; line-height: 1.45; }
+
+    /* ── Auth form ── */
+    .auth-wrap {
+      width: 100%;
+      max-width: 400px;
+      margin: 0 auto 32px;
+      padding: 0 20px;
+    }
+    .auth-card {
+      background: #1a2744;
+      border: 1px solid #2a3f6f;
+      border-radius: 18px;
+      padding: 28px 24px;
+    }
+    .btn-google {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      width: 100%; padding: 13px;
+      background: #e85249; color: #fff; border: none;
+      border-radius: 12px; font-size: 15px; font-weight: 600;
+      cursor: pointer; text-decoration: none; transition: opacity .15s;
+    }
+    .btn-google:hover { opacity: .88; }
+    .auth-divider {
+      display: flex; align-items: center; gap: 10px;
+      margin: 18px 0 14px; color: #4a5f8a; font-size: 12px;
+    }
+    .auth-divider::before, .auth-divider::after {
+      content: ''; flex: 1; height: 1px; background: #2a3f6f;
+    }
+    .auth-tabs {
+      display: flex; border: 1px solid #2a3f6f;
+      border-radius: 10px; overflow: hidden; margin-bottom: 14px;
+    }
+    .auth-tab {
+      flex: 1; padding: 9px; border: none;
+      background: transparent; color: #7a8fb5;
+      font-size: 13px; font-weight: 500; cursor: pointer;
+      font-family: inherit; transition: background .15s, color .15s;
+    }
+    .auth-tab.active { background: #e85249; color: #fff; }
+    .auth-input {
+      width: 100%; padding: 11px 13px;
+      background: #0f1729; border: 1.5px solid #2a3f6f;
+      border-radius: 10px; color: #e8edf8; font-size: 14px;
+      font-family: inherit; margin-bottom: 10px; outline: none;
+      transition: border-color .15s;
+    }
+    .auth-input:focus { border-color: #e85249; }
+    .gdpr-row {
+      display: flex; gap: 8px; align-items: flex-start;
+      font-size: 12px; color: #7a8fb5; margin: 4px 0 12px; line-height: 1.45;
+    }
+    .gdpr-row input[type="checkbox"] { margin-top: 2px; flex-shrink: 0; accent-color: #e85249; }
+    .gdpr-row a { color: #e85249; text-decoration: none; }
+    .gdpr-row a:hover { text-decoration: underline; }
+    .btn-submit {
+      width: 100%; padding: 13px;
+      background: #e85249; color: #fff; border: none;
+      border-radius: 12px; font-size: 15px; font-weight: 600;
+      cursor: pointer; font-family: inherit;
+      transition: opacity .15s; margin-top: 2px;
+    }
+    .btn-submit:hover { opacity: .88; }
+    .btn-submit:disabled { opacity: .5; cursor: default; }
+    .auth-error {
+      display: none; color: #ef4444; font-size: 13px;
+      margin-top: 10px; text-align: center;
+    }
+
+    /* ── Disclaimer ── */
+    .disclaimer {
+      max-width: 720px; margin: 0 auto 32px;
+      padding: 12px 20px 12px 24px;
+      background: #1a2744; border-left: 3px solid #e85249;
+      border-radius: 0 8px 8px 0;
+      font-size: 12px; color: #7a8fb5; line-height: 1.5;
+      text-align: left; width: calc(100% - 40px);
+    }
+
+    /* ── Footer ── */
+    footer {
+      margin-top: auto;
+      padding: 20px;
+      border-top: 1px solid #1a2744;
+      font-size: 12px; color: #4a5f8a;
+      display: flex; justify-content: space-between;
+      align-items: center; flex-wrap: wrap; gap: 8px;
+      max-width: 760px; margin-left: auto; margin-right: auto; width: 100%;
+    }
+    footer a { color: #4a5f8a; }
+    footer a:hover { color: #7a8fb5; }
+  </style>
+</head>
+<body>
+
+  <div class="hero">
+    <img class="logo-icon" src="/icons/icon-192.png" alt="BP &amp; BMI" />
+    <div class="logo-name">BP &amp; BMI</div>
+    <div class="logo-full">Blood Pressure &amp; Body Mass Index</div>
+    <div class="logo-tagline">Pulse &amp; Pounds Under Analysis</div>
+
+    <p class="hero-desc">
+      Персональний щоденник для відстеження артеріального тиску, пульсу,
+      ваги та індексу маси тіла. Графіки, статистика та PDF-звіти для лікаря.
+    </p>
+  </div>
+
+  <div class="features">
+    <div class="feature-card">
+      <div class="feature-icon">🩺</div>
+      <div class="feature-title">Артеріальний тиск</div>
+      <div class="feature-text">Систолічний і діастолічний тиск та пульс для обох рук. Класифікація ВООЗ/ESH 2023.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">⚖️</div>
+      <div class="feature-title">Вага та ІМТ</div>
+      <div class="feature-text">Маса тіла та індекс маси тіла. Рекомендований діапазон ваги на графіку.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📊</div>
+      <div class="feature-title">Графіки і статистика</div>
+      <div class="feature-text">Тижневий тренд тиску, динаміка ваги, середні значення за обраний період.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📄</div>
+      <div class="feature-title">PDF для лікаря</div>
+      <div class="feature-text">Звіт за будь-який період — короткий (таблиця) або розширений (з аналітикою).</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🔔</div>
+      <div class="feature-title">Нагадування</div>
+      <div class="feature-text">Push-сповіщення про час вимірювань вранці та ввечері.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">☁️</div>
+      <div class="feature-title">Резервні копії</div>
+      <div class="feature-text">Збереження даних у Google Drive. Експорт у CSV та JSON.</div>
+    </div>
+  </div>
+
+  <!-- ── Auth form ── -->
+  <div class="auth-wrap">
+    <div class="auth-card">
+      <a href="/api/auth/google" class="btn-google">
+        <svg width="18" height="18" viewBox="0 0 48 48">
+          <path fill="#fff" d="M44.5 20H24v8.5h11.8C34.7 33.9 29.1 37.5 24 37.5c-7.5 0-13.5-6-13.5-13.5S16.5 10.5 24 10.5c3.3 0 6.3 1.2 8.6 3.2l6-6C34.9 4.1 29.7 2 24 2 11.9 2 2 11.9 2 24s9.9 22 22 22c12.8 0 21.5-9 21.5-21.5 0-1.4-.1-2.7-.3-4-.1-.2-.2-.5-.2-.5z" opacity=".3"/>
+          <path fill="#EA4335" d="M6.3 14.7l7 5.1C15.1 16.1 19.2 13.5 24 13.5c3.3 0 6.3 1.2 8.6 3.2l6-6C34.9 4.1 29.7 2 24 2 16.3 2 9.6 7.4 6.3 14.7z"/>
+          <path fill="#FBBC05" d="M24 46c5.9 0 11.3-2 15.4-5.3l-7.1-5.8C30.3 36.6 27.3 37.5 24 37.5c-5.1 0-9.5-3.3-11.1-7.9l-7 5.4C9.3 41.4 16.1 46 24 46z"/>
+          <path fill="#34A853" d="M44.5 20H24v8.5h11.8c-.9 2.6-2.6 4.8-4.8 6.4l7.1 5.8C42.3 37.5 46 31.3 46 24c0-1.4-.1-2.7-.3-4H44.5z"/>
+          <path fill="#4285F4" d="M6.3 14.7C4.9 17.4 4 20.6 4 24c0 3.3.8 6.4 2.3 9.1l7-5.4C12.5 26.5 12 25.3 12 24c0-1.4.4-2.6 1.1-3.7l-6.8-5.6z"/>
+        </svg>
+        Увійти через Google
+      </a>
+
+      <div class="auth-divider"><span>або</span></div>
+
+      <div class="auth-tabs">
+        <button class="auth-tab active" id="tabLogin" onclick="switchTab('login')">Вхід</button>
+        <button class="auth-tab" id="tabRegister" onclick="switchTab('register')">Реєстрація</button>
+      </div>
+
+      <!-- Login -->
+      <div id="formLogin">
+        <input class="auth-input" type="email" id="loginEmail" placeholder="Email" autocomplete="email" />
+        <input class="auth-input" type="password" id="loginPassword" placeholder="Пароль"
+          autocomplete="current-password" onkeydown="if(event.key==='Enter')submitLogin()" />
+        <button class="btn-submit" id="btnLogin" onclick="submitLogin()">Увійти</button>
+      </div>
+
+      <!-- Register -->
+      <div id="formRegister" style="display:none">
+        <input class="auth-input" type="text" id="regName" placeholder="Ім'я" autocomplete="name" />
+        <input class="auth-input" type="email" id="regEmail" placeholder="Email" autocomplete="email" />
+        <input class="auth-input" type="password" id="regPassword" placeholder="Пароль (мін. 8 символів)"
+          autocomplete="new-password" onkeydown="if(event.key==='Enter')submitRegister()" />
+        <div class="gdpr-row">
+          <input type="checkbox" id="regConsent" />
+          <span>Я погоджуюсь з <a href="/privacy" target="_blank" rel="noopener">Політикою конфіденційності</a> та обробкою моїх персональних медичних даних відповідно до GDPR (ст. 9(2)(a))</span>
+        </div>
+        <button class="btn-submit" id="btnRegister" onclick="submitRegister()">Зареєструватись</button>
+      </div>
+
+      <div class="auth-error" id="authError"></div>
+    </div>
+  </div>
+
+  <div class="disclaimer">
+    ⚕️ <strong>Медичне застереження:</strong> BP &amp; BMI є інструментом для особистого ведення щоденника і не є медичним приладом чи засобом діагностики. Будь-які рішення щодо здоров'я приймайте разом з кваліфікованим лікарем.
+  </div>
+
+  <footer>
+    <span>© 2026 BP &amp; BMI — bpbmi.pp.ua</span>
+    <span>
+      <a href="/privacy">Політика конфіденційності</a>
+      &nbsp;·&nbsp;
+      <a href="/terms">Умови використання</a>
+    </span>
+  </footer>
+
+  <script>
+    function switchTab(tab) {
+      document.getElementById('formLogin').style.display    = tab === 'login'    ? '' : 'none';
+      document.getElementById('formRegister').style.display = tab === 'register' ? '' : 'none';
+      document.getElementById('tabLogin').classList.toggle('active',    tab === 'login');
+      document.getElementById('tabRegister').classList.toggle('active', tab === 'register');
+      document.getElementById('authError').style.display = 'none';
+    }
+
+    function showError(msg) {
+      const el = document.getElementById('authError');
+      el.textContent = msg;
+      el.style.display = 'block';
+    }
+
+    async function submitLogin() {
+      const email    = document.getElementById('loginEmail').value.trim();
+      const password = document.getElementById('loginPassword').value;
+      const btn      = document.getElementById('btnLogin');
+      if (!email || !password) { showError('Введіть email і пароль'); return; }
+      btn.disabled = true; btn.textContent = '…';
+      try {
+        const r = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+        });
+        const data = await r.json();
+        if (!r.ok) { showError(data.error || 'Помилка входу'); return; }
+        window.location.href = '/';
+      } catch { showError('Помилка мережі'); }
+      finally { btn.disabled = false; btn.textContent = 'Увійти'; }
+    }
+
+    async function submitRegister() {
+      const name     = document.getElementById('regName').value.trim();
+      const email    = document.getElementById('regEmail').value.trim();
+      const password = document.getElementById('regPassword').value;
+      const consent  = document.getElementById('regConsent').checked;
+      const btn      = document.getElementById('btnRegister');
+      if (!name)               { showError("Введіть ім'я"); return; }
+      if (!email)              { showError('Введіть email'); return; }
+      if (password.length < 8) { showError('Пароль має містити мінімум 8 символів'); return; }
+      if (!consent)            { showError('Необхідно погодитись з Політикою конфіденційності'); return; }
+      btn.disabled = true; btn.textContent = '…';
+      try {
+        const r = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email, password, consented: true }),
+        });
+        const data = await r.json();
+        if (!r.ok) { showError(data.error || 'Помилка реєстрації'); return; }
+        window.location.href = '/';
+      } catch { showError('Помилка мережі'); }
+      finally { btn.disabled = false; btn.textContent = 'Зареєструватись'; }
+    }
+  </script>
+</body>
+</html>

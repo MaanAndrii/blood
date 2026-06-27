@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Політика конфіденційності — BP &amp; BMI</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f1729;
+      color: #e8edf8;
+      line-height: 1.7;
+      padding: 24px 16px 64px;
+    }
+    .container { max-width: 720px; margin: 0 auto; }
+    header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 36px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid #2a3f6f;
+    }
+    .logo { font-size: 28px; font-weight: 800; color: #e85249; }
+    .logo-sub { font-size: 12px; color: #7a8fb5; margin-top: 2px; }
+    h1 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+    .updated { font-size: 12px; color: #7a8fb5; margin-bottom: 36px; }
+    h2 { font-size: 15px; font-weight: 700; color: #e85249; margin: 28px 0 8px; }
+    p { margin-bottom: 12px; font-size: 14px; color: #c8d4e8; }
+    ul { padding-left: 20px; margin-bottom: 12px; }
+    li { font-size: 14px; color: #c8d4e8; margin-bottom: 4px; }
+    .badge {
+      display: inline-block;
+      background: #1a2744;
+      border: 1px solid #2a3f6f;
+      border-radius: 6px;
+      padding: 2px 8px;
+      font-size: 12px;
+      color: #7a8fb5;
+      margin-right: 4px;
+    }
+    a { color: #60a5fa; }
+    footer {
+      margin-top: 48px;
+      padding-top: 20px;
+      border-top: 1px solid #2a3f6f;
+      font-size: 12px;
+      color: #7a8fb5;
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <div class="logo">BP &amp; BMI</div>
+        <div class="logo-sub">Blood Pressure &amp; Body Mass Index</div>
+      </div>
+    </header>
+
+    <h1>🔒 Політика конфіденційності</h1>
+    <div class="updated">Чинна з: 27 червня 2026 року</div>
+
+    <h2>1. Хто обробляє дані</h2>
+    <p>
+      Сервіс BP &amp; BMI (<strong>bpbmi.pp.ua</strong>) є персональним інструментом моніторингу здоров'я.
+      Власник і адміністратор сервісу є єдиним контролером персональних даних у розумінні Регламенту ЄС 2016/679 (GDPR).
+      Контакт: <a href="mailto:marynyuk@gmail.com">marynyuk@gmail.com</a>
+    </p>
+
+    <h2>2. Які дані збираються</h2>
+    <p>При реєстрації та використанні сервісу збираються:</p>
+    <ul>
+      <li><span class="badge">Обліковий запис</span> Ім'я, адреса електронної пошти, хешований пароль</li>
+      <li><span class="badge">Профіль</span> Дата народження, зріст</li>
+      <li><span class="badge">Медичні дані</span> Артеріальний тиск (систолічний / діастолічний), пульс, маса тіла, нотатки</li>
+      <li><span class="badge">Технічні</span> Дата та час записів, підписки на push-сповіщення (VAPID-ключ)</li>
+    </ul>
+    <p>
+      Медичні дані належать до <strong>спеціальної категорії персональних даних</strong> згідно зі статтею 9 GDPR
+      і обробляються з підвищеними заходами захисту.
+    </p>
+
+    <h2>3. Мета та правова підстава обробки</h2>
+    <ul>
+      <li><strong>Надання сервісу</strong> — відображення, аналіз і зберігання ваших медичних показників</li>
+      <li><strong>Push-нагадування</strong> — надсилання сповіщень про час вимірювань (за вашим вибором)</li>
+      <li><strong>Резервне копіювання</strong> — збереження ваших даних у вашому Google Drive (за вашим вибором)</li>
+    </ul>
+    <p>
+      Правова підстава: <strong>явна згода суб'єкта даних</strong> (GDPR ст. 9(2)(a)), надана при реєстрації.
+      Для push-сповіщень — окрема згода через браузер.
+    </p>
+
+    <h2>4. Де та як зберігаються дані</h2>
+    <ul>
+      <li>Дані зберігаються у базі даних PostgreSQL на приватному сервері</li>
+      <li>Передача даних захищена протоколом <strong>HTTPS / TLS</strong></li>
+      <li>Паролі зберігаються у вигляді хешу bcrypt (10 раундів) — оригінальний пароль не зберігається</li>
+      <li>Дані зберігаються до моменту видалення акаунту користувачем</li>
+    </ul>
+
+    <h2>5. Передача даних третім особам</h2>
+    <p>Ваші дані <strong>не передаються, не продаються і не розкриваються</strong> третім особам, за такими винятками:</p>
+    <ul>
+      <li><strong>Google Drive</strong> — резервні копії ваших даних у вашому власному акаунті Google (тільки якщо ви підключили Drive)</li>
+      <li><strong>Google OAuth</strong> — аутентифікація через Google (ім'я та email з вашого Google-акаунту)</li>
+      <li><strong>Cloudflare</strong> — проксі-захист з'єднань (не зберігає медичні дані)</li>
+    </ul>
+
+    <h2>6. Ваші права (GDPR)</h2>
+    <ul>
+      <li><strong>Право на доступ</strong> — всі ваші дані відображаються у застосунку</li>
+      <li><strong>Право на портативність</strong> — експорт у форматах CSV та JSON (Вкладка «Експорт»)</li>
+      <li><strong>Право на видалення</strong> — кнопка «Видалити акаунт» у профілі видаляє всі ваші дані безповоротно</li>
+      <li><strong>Право на відкликання згоди</strong> — видалення акаунту автоматично відкликає всі надані згоди</li>
+      <li><strong>Право на заперечення</strong> — ви можете відключити push-сповіщення у налаштуваннях у будь-який час</li>
+    </ul>
+    <p>Для реалізації прав звертайтесь: <a href="mailto:marynyuk@gmail.com">marynyuk@gmail.com</a></p>
+
+    <h2>7. Медичне застереження</h2>
+    <p>
+      BP &amp; BMI є інструментом для <strong>особистого ведення щоденника</strong>, а не медичним приладом чи засобом діагностики.
+      Дані застосунку не замінюють консультацію лікаря. Будь-які медичні рішення приймайте лише після консультації з кваліфікованим фахівцем.
+    </p>
+
+    <h2>8. Cookies та локальне зберігання</h2>
+    <ul>
+      <li><strong>JWT-токен</strong> — httpOnly cookie для аутентифікації (термін дії: 7 днів)</li>
+      <li><strong>Service Worker кеш</strong> — офлайн-версія застосунку та кеш API-відповідей</li>
+    </ul>
+    <p>Маркетингові cookies або трекінг не використовуються.</p>
+
+    <h2>9. Зміни до політики</h2>
+    <p>
+      У разі суттєвих змін до цієї політики ми повідомимо вас через інтерфейс застосунку.
+      Продовження використання сервісу після змін означає прийняття нової редакції.
+    </p>
+
+    <h2>10. Контактна інформація</h2>
+    <p>
+      З питань конфіденційності та обробки персональних даних звертайтесь:<br>
+      <a href="mailto:marynyuk@gmail.com">marynyuk@gmail.com</a>
+    </p>
+
+    <footer>
+      <span>BP &amp; BMI — bpbmi.pp.ua</span>
+      <span>
+        <a href="/terms" style="color:#7a8fb5;text-decoration:none">Умови використання</a>
+        &nbsp;·&nbsp;
+        <a href="/" style="color:#7a8fb5;text-decoration:none">Повернутись до застосунку</a>
+      </span>
+    </footer>
+  </div>
+</body>
+</html>

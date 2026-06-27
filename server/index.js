@@ -20,9 +20,12 @@ const { scheduleReminders } = require('./services/push');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Trust Cloudflare proxy so rate-limiting uses the real client IP
+app.set('trust proxy', 1);
+
 // ── Rate Limiting ────────────────────────────────────────────────────────────
 const generalLimit = rateLimit({ windowMs: 15 * 60 * 1000, max: 200, standardHeaders: true, legacyHeaders: false });
-const authLimit    = rateLimit({ windowMs: 15 * 60 * 1000, max: 20,  standardHeaders: true, legacyHeaders: false });
+const authLimit    = rateLimit({ windowMs: 15 * 60 * 1000, max: 50,  standardHeaders: true, legacyHeaders: false });
 
 // ── Logger (V) ───────────────────────────────────────────────────────────────
 const LOG_FILE = path.join(__dirname, '..', 'logs', 'app.log');
@@ -72,7 +75,20 @@ app.use('/api/export', exportRouter);
 
 // ── Static Files ────────────────────────────────────────────────────────────
 const clientDir = path.join(__dirname, '..', 'client');
-app.use(express.static(clientDir));
+app.use(express.static(clientDir, { extensions: ['html'], index: false }));
+
+// Root: landing for guests, SPA for authenticated users
+const jwt = require('jsonwebtoken');
+app.get('/', (req, res) => {
+  const token = req.cookies?.token;
+  if (token) {
+    try {
+      jwt.verify(token, process.env.JWT_SECRET);
+      return res.sendFile(path.join(clientDir, 'index.html'));
+    } catch {}
+  }
+  res.sendFile(path.join(clientDir, 'landing.html'));
+});
 
 // SPA fallback — serve index.html for any non-API route
 app.get('*', (req, res) => {

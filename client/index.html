@@ -1663,7 +1663,10 @@
 <!-- ══ PROFILE MODAL ══ -->
 <div class="modal-overlay" id="profileModal">
   <div class="modal-box" style="max-width:390px;width:92%;max-height:90dvh;overflow-y:auto">
-    <div class="modal-title">👤 Профіль</div>
+    <div class="modal-title" style="display:flex;justify-content:space-between;align-items:center">
+      <span>👤 Профіль</span>
+      <button onclick="closeProfileModal()" style="background:none;border:none;font-size:20px;color:var(--muted);cursor:pointer;line-height:1;padding:0 2px">&times;</button>
+    </div>
 
     <!-- Avatar + name + email -->
     <div class="profile-avatar-wrap">
@@ -1712,11 +1715,14 @@
 <!-- ══ ABOUT MODAL ══ -->
 <div class="modal-overlay" id="aboutModal" onclick="if(event.target===this)closeAboutModal()">
   <div class="modal-box" style="max-width:360px;width:92%">
-    <div style="text-align:center;padding:8px 0 16px">
+    <div style="display:flex;justify-content:flex-end;margin-bottom:-8px">
+      <button onclick="closeAboutModal()" style="background:none;border:none;font-size:20px;color:var(--muted);cursor:pointer;line-height:1;padding:0 2px">&times;</button>
+    </div>
+    <div style="text-align:center;padding:4px 0 16px">
       <img src="/icons/logo.svg" width="56" height="56" style="display:block;margin:0 auto 10px" alt="BP &amp; BMI logo"/>
       <div style="font-size:18px;font-weight:700;color:var(--text)">BP &amp; BMI</div>
-      <div style="font-size:11px;color:var(--muted);margin-top:3px;letter-spacing:.3px">Pulse &amp; Pounds Under Analysis</div>
-      <div style="font-size:10px;color:var(--muted);margin-top:1px;opacity:.7">Blood Pressure &amp; Body Mass Index</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:3px;opacity:.7">Blood Pressure &amp; Body Mass Index</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:1px;letter-spacing:.3px">Pulse &amp; Pounds Under Analysis</div>
       <div id="aboutVersion" style="font-size:12px;color:var(--muted);margin-top:6px"></div>
     </div>
     <p style="font-size:13px;color:var(--text-secondary,var(--muted));line-height:1.6;margin-bottom:12px">
@@ -1910,7 +1916,7 @@
 <script>
 // ── DATA LAYER ──────────────────────────────────────────────────────────────
 const DB_KEY        = 'health_entries_v2';
-const APP_VERSION   = '1.11';
+const APP_VERSION   = '1.12';
 const REMINDER_KEY  = 'health_reminders';
 
 // ── Constants (U) ────────────────────────────────────────────────────────────
@@ -3685,11 +3691,26 @@ async function loadDriveFileList() {
           <div class="drive-file-name">${escHtml(f.name)}</div>
           <div style="font-size:11px;color:var(--muted);margin-top:2px">${date}${kb ? ' · ' + kb : ''}</div>
         </div>
-        <button class="btn-restore" data-id="${escHtml(f.id)}" data-name="${escHtml(f.name)}" onclick="restoreFromDrive(this.dataset.id,this.dataset.name)">Відновити</button>
+        <div style="display:flex;gap:6px">
+          <button class="btn-restore" data-id="${escHtml(f.id)}" data-name="${escHtml(f.name)}" onclick="restoreFromDrive(this.dataset.id,this.dataset.name)">Відновити</button>
+          <button class="btn-outline" style="padding:6px 10px;font-size:12px;color:var(--warn);border-color:var(--warn)" data-id="${escHtml(f.id)}" data-name="${escHtml(f.name)}" onclick="deleteFromDrive(this.dataset.id,this.dataset.name)">🗑</button>
+        </div>
       </div>`;
     }).join('');
   } catch {
     box.innerHTML = '<div style="color:var(--warn);font-size:13px;padding:8px 0">Помилка завантаження списку</div>';
+  }
+}
+
+async function deleteFromDrive(fileId, filename) {
+  if (!confirm(`Видалити файл "${filename}" з Google Drive?\nЦю дію неможливо скасувати.`)) return;
+  try {
+    const r = await fetch(`/api/backup/drive/file/${encodeURIComponent(fileId)}`, { method: 'DELETE' });
+    if (!r.ok) throw new Error((await r.json()).error || 'Помилка');
+    showToast('🗑 Файл видалено з Drive');
+    loadDriveFileList();
+  } catch (err) {
+    showToast('❌ ' + err.message, 'var(--warn)');
   }
 }
 

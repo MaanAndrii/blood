@@ -2,7 +2,7 @@ const express = require('express');
 const { pool } = require('../db');
 const { requireAuth } = require('../middleware/auth');
 const { getTierConfig } = require('../config/tiers');
-const { uploadBackup, listBackups, downloadBackup } = require('../services/drive');
+const { uploadBackup, listBackups, downloadBackup, deleteFile } = require('../services/drive');
 
 async function requireDriveTier(req, res, next) {
   const { rows } = await pool.query(
@@ -127,6 +127,20 @@ router.post('/drive/restore', requireAuth, requireDriveTier, async (req, res) =>
     res.json({ ok: true, imported, skipped });
   } catch (err) {
     if (err.code === 'not_connected') return res.status(403).json({ error: 'not_connected' });
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete a backup file from Drive
+router.delete('/drive/file/:fileId', requireAuth, requireDriveTier, async (req, res) => {
+  try {
+    const { fileId } = req.params;
+    if (!fileId) return res.status(400).json({ error: 'fileId required' });
+    await deleteFile(req.user.id, fileId);
+    res.json({ ok: true });
+  } catch (err) {
+    if (err.code === 'not_connected') return res.status(403).json({ error: 'not_connected' });
+    console.error('Drive delete error:', err);
     res.status(500).json({ error: err.message });
   }
 });

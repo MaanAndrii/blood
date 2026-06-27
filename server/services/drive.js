@@ -165,4 +165,13 @@ async function downloadBackup(userId, fileId) {
   return r.json();
 }
 
-module.exports = { driveAuthUrl, exchangeCode, uploadBackup, listBackups, downloadBackup };
+async function deleteFile(userId, fileId) {
+  const token = await getAccessToken(userId);
+  const r = await fetch(`${DRIVE_API}/files/${fileId}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!r.ok && r.status !== 204) throw new Error(`Drive delete failed: ${r.status}`);
+}
+
+module.exports = { driveAuthUrl, exchangeCode, uploadBackup, listBackups, downloadBackup, deleteFile };

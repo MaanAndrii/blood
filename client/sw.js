@@ -1,8 +1,7 @@
-const CACHE = 'health-v18';
-const API_CACHE = 'health-api-v18';
+const CACHE = 'health-v19';
+const API_CACHE = 'health-api-v19';
 
 const STATIC_SHELL = [
-  '/',
   '/manifest.json',
   '/icons/favicon.svg',
   '/icons/icon-192.png',
@@ -12,7 +11,8 @@ const STATIC_SHELL = [
 ];
 
 // API GET routes to cache for offline reading
-const CACHED_API = ['/api/entries', '/api/auth/me'];
+// /api/auth/me excluded — auth state must never be served from cache
+const CACHED_API = ['/api/entries'];
 
 self.addEventListener('install', e => {
   e.waitUntil(

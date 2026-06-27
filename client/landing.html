@@ -28,8 +28,9 @@
       padding: 48px 20px 40px;
     }
     .logo-icon {
-      font-size: 64px;
-      line-height: 1;
+      width: 96px;
+      height: 96px;
+      border-radius: 22px;
       margin-bottom: 20px;
     }
     .logo-name {
@@ -79,11 +80,6 @@
     .btn-primary {
       background: #e85249;
       color: #fff;
-    }
-    .btn-secondary {
-      background: #1a2744;
-      color: #c8d4e8;
-      border: 1px solid #2a3f6f;
     }
     .btn:hover { opacity: .88; }
 
@@ -143,7 +139,7 @@
 </head>
 <body>
   <div class="hero">
-    <div class="logo-icon">❤️</div>
+    <img class="logo-icon" src="/icons/icon-192.png" alt="BP &amp; BMI" />
     <div class="logo-name">BP &amp; BMI</div>
     <div class="logo-full">Blood Pressure &amp; Body Mass Index</div>
     <div class="logo-tagline">Pulse &amp; Pounds Under Analysis</div>
@@ -155,8 +151,7 @@
     </p>
 
     <div class="cta-row">
-      <a href="/?auth=1" class="btn btn-primary">Увійти</a>
-      <a href="/?auth=1#register" class="btn btn-secondary">Зареєструватись</a>
+      <a href="/?auth=1" class="btn btn-primary">Увійти / Зареєструватись</a>
     </div>
 
     <div class="features">

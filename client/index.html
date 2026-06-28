@@ -805,6 +805,34 @@
     }
     .toast.show { transform: translateX(-50%) translateY(0); }
 
+    /* ── SCROLL TO TOP ── */
+    #scrollTopBtn {
+      position: fixed;
+      bottom: 24px;
+      right: 16px;
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      font-size: 22px;
+      line-height: 1;
+      cursor: pointer;
+      z-index: 300;
+      box-shadow: 0 3px 12px rgba(0,0,0,.35);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .25s, transform .25s;
+      transform: translateY(10px);
+    }
+    #scrollTopBtn.visible {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+    #scrollTopBtn:active { transform: scale(.9); }
+
     /* ── TOGGLE SWITCH ── */
     .toggle-row {
       display: flex;
@@ -1192,7 +1220,7 @@
 <nav>
   <div class="tab active" data-page="home"    onclick="showPage('home')"><span class="tab-icon">🏠</span>Головна</div>
   <div class="tab"        data-page="history" onclick="showPage('history')"><span class="tab-icon">📋</span>Журнал</div>
-  <div class="tab"        data-page="stats"   onclick="showPage('stats')"><span class="tab-icon">📊</span>Графіки</div>
+  <div class="tab"        data-page="stats"   onclick="showPage('stats')"><span class="tab-icon">📊</span>Статистика</div>
   <div class="tab"        data-page="export"  onclick="showPage('export')"><span class="tab-icon">🗄️</span>Дані</div>
 </nav>
 
@@ -1228,20 +1256,24 @@
 
   <!-- ══ HISTORY PAGE ══ -->
   <div class="page" id="page-history">
-    <div class="filter-row">
-      <div class="filter-chip active" onclick="setFilter(this,'all')">Всі</div>
-      <div class="filter-chip" onclick="setFilter(this,'7')">7 днів</div>
-      <div class="filter-chip" onclick="setFilter(this,'30')">30 днів</div>
-      <div class="filter-chip" onclick="setFilter(this,'90')">3 місяці</div>
+    <div style="display:flex;gap:8px;align-items:center;padding:4px 0 8px">
+      <input type="date" id="historyDateFrom" onchange="journalPage=0;renderHistory()"
+        style="flex:1;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;padding:6px 10px;font-family:var(--font);outline:none">
+      <span style="font-size:12px;color:var(--muted);flex-shrink:0">—</span>
+      <input type="date" id="historyDateTo" onchange="journalPage=0;renderHistory()"
+        style="flex:1;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;padding:6px 10px;font-family:var(--font);outline:none">
+      <button onclick="document.getElementById('historyDateFrom').value='';document.getElementById('historyDateTo').value='';journalPage=0;renderHistory()"
+        style="background:none;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-size:12px;padding:6px 10px;cursor:pointer;flex-shrink:0;font-family:var(--font)">✕</button>
     </div>
     <div id="historyList"></div>
+    <div id="journalPagination" style="display:flex;justify-content:center;align-items:center;gap:8px;padding:12px 0"></div>
   </div>
 
   <!-- ══ STATS PAGE ══ -->
   <div class="page" id="page-stats">
     <div class="filter-row">
-      <div class="filter-chip active" onclick="setStatsFilter(this,'7')">7 днів</div>
-      <div class="filter-chip" onclick="setStatsFilter(this,'14')">14 днів</div>
+      <div class="filter-chip active" onclick="setStatsFilter(this,'10')">10 днів</div>
+      <div class="filter-chip" onclick="setStatsFilter(this,'15')">15 днів</div>
       <div class="filter-chip" onclick="setStatsFilter(this,'30')">30 днів</div>
     </div>
 
@@ -1275,6 +1307,24 @@
       <div id="bmiCardBody"></div>
     </div>
 
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+      <div class="stat-card" id="minBpCard" style="margin:0">
+        <div class="stat-title">⬇️ Мінімум</div>
+        <div id="minBpCardBody"></div>
+      </div>
+      <div class="stat-card" id="maxBpCard" style="margin:0">
+        <div class="stat-title">⬆️ Максимум</div>
+        <div id="maxBpCardBody"></div>
+      </div>
+    </div>
+
+    <div class="stat-card" id="mapCard">
+      <div class="stat-title">💓 Середній артеріальний тиск (MAP)</div>
+      <div id="mapCardBody"></div>
+    </div>
+
+    <div id="whoEshCard"></div>
+
     <div class="stat-card" id="avgStats">
       <div class="stat-title">📊 Середні значення</div>
       <div id="avgStatsBody"></div>
@@ -1283,6 +1333,11 @@
     <div class="stat-card" id="extStats">
       <div class="stat-title">📐 Розширена статистика</div>
       <div id="extStatsBody"></div>
+    </div>
+
+    <div class="stat-card" id="trendStats">
+      <div class="stat-title">📈 Тренди</div>
+      <div id="trendStatsBody"></div>
     </div>
 
     <div class="stat-card" id="corrStats">
@@ -1734,10 +1789,12 @@
 
 <div class="toast" id="toast"></div>
 
+<button id="scrollTopBtn" onclick="window.scrollTo({top:0,behavior:'smooth'})" aria-label="Прокрутити вгору">↑</button>
+
 <script>
 // ── DATA LAYER ──────────────────────────────────────────────────────────────
 const DB_KEY        = 'health_entries_v2';
-const APP_VERSION   = '2.16';
+const APP_VERSION   = '2.26';
 const REMINDER_KEY  = 'health_reminders';
 
 // ── Constants (U) ────────────────────────────────────────────────────────────
@@ -1749,8 +1806,9 @@ const HISTORY_MONTHS   = 3;    // max months shown in charts by default
 let entries = [];
 let currentUser = null;
 let isDataStale = false;
-let historyFilter = 'all';
-let statsFilter = '7';
+let journalPage = 0;
+const JOURNAL_PER_PAGE = 10;
+let statsFilter = '10';
 let charts = {};
 let editingDate = null;
 let reminderTimers = [];
@@ -2302,6 +2360,10 @@ function showPage(name) {
   if (name === 'export')  { renderExportStats(); renderRemindersUI(); }
 }
 
+window.addEventListener('scroll', () => {
+  document.getElementById('scrollTopBtn').classList.toggle('visible', window.scrollY > 200);
+}, { passive: true });
+
 // ── DRUM ROLLERS ────────────────────────────────────────────────────────────
 const ITEM_H = 52;
 // nullAt: insert "—" item between this value and the next (natural "unset" default)
@@ -2818,6 +2880,19 @@ function statMinMax(arr) {
   return { min: Math.min(...nums), max: Math.max(...nums) };
 }
 
+function linearSlope(arr) {
+  const pts = arr.map((v, i) => [i, v]).filter(([, y]) => y != null);
+  if (pts.length < 2) return null;
+  const n = pts.length;
+  const sx = pts.reduce((s, [x]) => s + x, 0);
+  const sy = pts.reduce((s, [, y]) => s + y, 0);
+  const sxy = pts.reduce((s, [x, y]) => s + x * y, 0);
+  const sx2 = pts.reduce((s, [x]) => s + x * x, 0);
+  const den = n * sx2 - sx * sx;
+  if (den === 0) return null;
+  return (n * sxy - sx * sy) / den;
+}
+
 function pearsonR(xArr, yArr) {
   const pairs = xArr.map((x, i) => [x, yArr[i]]).filter(([x, y]) => x != null && y != null);
   if (pairs.length < 3) return null;
@@ -3125,19 +3200,23 @@ function openSmartEntryModal() {
 }
 
 // ── HISTORY ─────────────────────────────────────────────────────────────────
-function setFilter(el, val) {
-  document.querySelectorAll('.filter-row .filter-chip').forEach(c => c.classList.remove('active'));
-  el.classList.add('active');
-  historyFilter = val;
-  renderHistory();
-}
-
 function filterEntries(days) {
   if (days === 'all') return entries;
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - Number(days));
   const cutStr = cutoff.toISOString().slice(0,10);
   return entries.filter(e => String(e.date).slice(0,10) >= cutStr);
+}
+
+function _journalFiltered() {
+  const from = document.getElementById('historyDateFrom')?.value || '';
+  const to   = document.getElementById('historyDateTo')?.value   || '';
+  return entries.filter(e => {
+    const d = String(e.date).slice(0,10);
+    if (from && d < from) return false;
+    if (to   && d > to)   return false;
+    return true;
+  });
 }
 
 function _hcolBpRow(label, sys, dia, color) {
@@ -3166,11 +3245,28 @@ function _hcolArmDiff(sys_l, sys_r) {
 
 function renderHistory() {
   const list = document.getElementById('historyList');
-  const data = filterEntries(historyFilter);
-  if (!data.length) {
+  const pag  = document.getElementById('journalPagination');
+  const all  = _journalFiltered();
+  const total = all.length;
+  const pages = Math.max(1, Math.ceil(total / JOURNAL_PER_PAGE));
+  if (journalPage >= pages) journalPage = pages - 1;
+  const data = all.slice(journalPage * JOURNAL_PER_PAGE, (journalPage + 1) * JOURNAL_PER_PAGE);
+
+  if (!total) {
     list.innerHTML = `<div class="empty-state"><div class="icon">📋</div><p>Записів поки немає.<br/>Додайте перший вимір!</p></div>`;
+    pag.innerHTML = '';
     return;
   }
+
+  // Pagination controls
+  const btnStyle = (disabled) =>
+    `style="padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:${disabled?'var(--muted)':'var(--text)'};font-size:13px;cursor:${disabled?'default':'pointer'};font-family:var(--font)"`;
+  pag.innerHTML = `
+    <button ${btnStyle(journalPage===0)} ${journalPage===0?'disabled':''} onclick="journalPage--;renderHistory()">‹</button>
+    <span style="font-size:12px;color:var(--muted)">${journalPage+1} / ${pages} &nbsp;(${total})</span>
+    <button ${btnStyle(journalPage>=pages-1)} ${journalPage>=pages-1?'disabled':''} onclick="journalPage++;renderHistory()">›</button>
+  `;
+
   list.innerHTML = data.map(e => {
     const m = e.morning, ev = e.evening;
     const dateStr = String(e.date).slice(0,10);
@@ -3220,6 +3316,7 @@ async function deleteEntry(date) {
   // Only update local state after server confirms
   entries = entries.filter(e => String(e.date).slice(0,10) !== date);
   saveLocalData(entries);
+  journalPage = 0;
   renderHistory();
   renderTodaySummary();
   showToast('🗑 Запис видалено', 'var(--warn)');
@@ -3535,7 +3632,8 @@ function renderInsights(data) {
              + (e.evening.sys_l != null && e.evening.sys_r != null ? 1 : 0);
   }, 0);
   const armLabel = totalMeasures ? `${armDiffCount} з ${totalMeasures}` : '—';
-  const armNote = armDiffCount === 0 ? 'Різниця в межах норми' : armDiffCount <= 2 ? 'Кілька вимірів потребують уваги' : 'Часта різниця >10 мм — порадьтеся з лікарем';
+  const armIsWarn = armDiffCount > 2;
+  const armNote = armDiffCount === 0 ? 'Різниця в межах норми' : armDiffCount <= 2 ? 'Кілька вимірів потребують уваги' : '⚠️ Порадьтеся з лікарем';
 
   // 4. Average pulse
   const allPulse = [...data.map(e => e.morning.pulse), ...data.map(e => e.evening.pulse)];
@@ -3556,10 +3654,10 @@ function renderInsights(data) {
       <div class="insight-value">${mveLabel}</div>
       <div class="insight-note">${mveNote}</div>
     </div>
-    <div class="insight-card">
+    <div class="insight-card" style="${armIsWarn ? 'border-color:#f97316;background:rgba(249,115,22,.1)' : ''}">
       <div class="insight-label">Різниця рук >10 мм</div>
-      <div class="insight-value">${armLabel}</div>
-      <div class="insight-note">${armNote}</div>
+      <div class="insight-value" style="${armIsWarn ? 'color:#f97316' : ''}">${armLabel}</div>
+      <div class="insight-note" style="${armIsWarn ? 'color:#f97316;font-weight:600' : ''}">${armNote}</div>
     </div>
     <div class="insight-card">
       <div class="insight-label">Середній пульс</div>
@@ -3714,7 +3812,7 @@ function renderCharts() {
           </div>
         </div>
         <div style="font-size:11px;color:var(--muted);margin-bottom:10px">
-          Зріст: ${h} см &nbsp;·&nbsp; Вага: ${w} кг &nbsp;·&nbsp; Рекомендована вага: ${_wMin ?? '—'}–${_wMax ?? '—'} кг
+          Зріст: ${h} см &nbsp;·&nbsp; Вага: ${w} кг &nbsp;·&nbsp; Середня за період: ${avgOf(data.map(e=>e.weight)) ?? '—'} кг &nbsp;·&nbsp; Рекомендована: ${_wMin ?? '—'}–${_wMax ?? '—'} кг
         </div>
         <table style="width:100%;border-collapse:collapse;font-size:11px">
           ${bmiRanges.map(([range, label, color]) => {
@@ -3728,26 +3826,96 @@ function renderCharts() {
     }
   })();
 
+  // ── Min/Max BP cards ─────────────────────────────────────────────────────
+  (function renderMinMaxCards() {
+    const readings = [];
+    data.forEach(e => {
+      const p = String(e.date).slice(0, 10).split('-');
+      const dl = p[2] + '.' + p[1];
+      if (e.morning.sys_l != null && e.morning.dia_l != null)
+        readings.push({ sys: e.morning.sys_l, dia: e.morning.dia_l,
+          pulse: e.morning.pulse_l ?? e.morning.pulse, date: dl, label: 'ранок • Л' });
+      if (e.morning.sys_r != null && e.morning.dia_r != null)
+        readings.push({ sys: e.morning.sys_r, dia: e.morning.dia_r,
+          pulse: e.morning.pulse_r ?? e.morning.pulse, date: dl, label: 'ранок • П' });
+      if (e.evening.sys_l != null && e.evening.dia_l != null)
+        readings.push({ sys: e.evening.sys_l, dia: e.evening.dia_l,
+          pulse: e.evening.pulse_l ?? e.evening.pulse, date: dl, label: 'вечір • Л' });
+      if (e.evening.sys_r != null && e.evening.dia_r != null)
+        readings.push({ sys: e.evening.sys_r, dia: e.evening.dia_r,
+          pulse: e.evening.pulse_r ?? e.evening.pulse, date: dl, label: 'вечір • П' });
+    });
+
+    const noData = `<div style="color:var(--muted);font-size:12px;padding:6px 0">Немає даних</div>`;
+    function cardHtml(r) {
+      if (!r) return noData;
+      const pulse = r.pulse != null
+        ? `<div style="font-size:13px;color:var(--muted);margin:3px 0">Пульс: ${r.pulse} уд/хв</div>` : '';
+      return `<div style="font-size:26px;font-weight:700;color:var(--accent);letter-spacing:.5px">${r.sys}&thinsp;/&thinsp;${r.dia}</div>
+        ${pulse}
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">${r.date} • ${r.label}</div>`;
+    }
+
+    const minR = readings.length ? readings.reduce((a, b) => b.sys < a.sys ? b : a) : null;
+    const maxR = readings.length ? readings.reduce((a, b) => b.sys > a.sys ? b : a) : null;
+    document.getElementById('minBpCardBody').innerHTML = cardHtml(minR);
+    document.getElementById('maxBpCardBody').innerHTML = cardHtml(maxR);
+  })();
+
   function avgOf(arr) { const a = arr.filter(x=>x!=null); return a.length ? Math.round(a.reduce((s,x)=>s+x,0)/a.length) : null; }
-  const avgStats = [
-    ['Сист. ранок — ліва', avgOf(data.map(e=>e.morning.sys_l)), 'мм', 'val-sys'],
-    ['Сист. ранок — права', avgOf(data.map(e=>e.morning.sys_r)), 'мм', 'val-sys'],
-    ['Діаст. ранок — ліва', avgOf(data.map(e=>e.morning.dia_l)), 'мм', 'val-dia'],
-    ['Діаст. ранок — права', avgOf(data.map(e=>e.morning.dia_r)), 'мм', 'val-dia'],
-    ['Сист. вечір — ліва', avgOf(data.map(e=>e.evening.sys_l)), 'мм', 'val-sys'],
-    ['Сист. вечір — права', avgOf(data.map(e=>e.evening.sys_r)), 'мм', 'val-sys'],
-    ['Діаст. вечір — ліва', avgOf(data.map(e=>e.evening.dia_l)), 'мм', 'val-dia'],
-    ['Діаст. вечір — права', avgOf(data.map(e=>e.evening.dia_r)), 'мм', 'val-dia'],
-    ['Пульс ранок', avgOf(data.map(e=>e.morning.pulse)), 'уд/хв', 'val-pulse'],
-    ['Пульс вечір', avgOf(data.map(e=>e.evening.pulse)), 'уд/хв', 'val-pulse'],
-    ['Вага', avgOf(data.map(e=>e.weight)), 'кг', 'val-weight'],
-  ];
-  document.getElementById('avgStatsBody').innerHTML = avgStats.map(([label, value, unit, cls]) =>
-    `<div class="stat-row">
-      <span>${label}</span>
-      <span class="${cls}">${value != null ? value + ' ' + unit : '—'}</span>
-    </div>`
-  ).join('');
+
+  // ── MAP card ──────────────────────────────────────────────────────────────
+  (function renderMapCard() {
+    const allSys = [], allDia = [];
+    data.forEach(e => {
+      [e.morning.sys_l, e.morning.sys_r, e.evening.sys_l, e.evening.sys_r].forEach(v => { if (v != null) allSys.push(v); });
+      [e.morning.dia_l, e.morning.dia_r, e.evening.dia_l, e.evening.dia_r].forEach(v => { if (v != null) allDia.push(v); });
+    });
+    const avgS = avgOf(allSys), avgD = avgOf(allDia);
+    const el = document.getElementById('mapCardBody');
+    if (avgS == null || avgD == null) {
+      el.innerHTML = `<div style="color:var(--muted);font-size:12px">Немає даних</div>`;
+      return;
+    }
+    const map = Math.round((avgS + 2 * avgD) / 3);
+    let mapLabel, mapColor;
+    if      (map < 70)   { mapLabel = 'Знижений';           mapColor = '#60a5fa'; }
+    else if (map <= 100) { mapLabel = 'Норма';               mapColor = '#22c55e'; }
+    else if (map <= 110) { mapLabel = 'Підвищений';          mapColor = '#f97316'; }
+    else                 { mapLabel = 'Значно підвищений';   mapColor = '#ef4444'; }
+    el.innerHTML = `
+      <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
+        <span style="font-size:26px;font-weight:700;color:${mapColor}">${map}<span style="font-size:14px;font-weight:400;margin-left:4px">мм рт.ст.</span></span>
+        <span style="font-size:13px;font-weight:600;color:${mapColor}">${mapLabel}</span>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:5px">Відображає перфузійний тиск органів. Норма: 70–100 мм рт.ст.</div>`;
+  })();
+  function _hcolBp(sysArr, diaArr, color) {
+    const s = avgOf(sysArr), d = avgOf(diaArr);
+    return `<span style="color:${color}">${s ?? '—'}&thinsp;/&thinsp;${d ?? '—'}</span><span style="color:var(--muted);font-size:11px"> мм</span>`;
+  }
+  function _hcolPulse(arr) {
+    const v = avgOf(arr);
+    return `<span style="color:var(--accent2)">${v ?? '—'}</span><span style="color:var(--muted);font-size:11px"> уд/хв</span>`;
+  }
+  function _hcolRow(label, inner) {
+    return `<div class="hcol-row"><div class="hcol-row-label">${label}</div><div class="hcol-row-val">${inner}</div></div>`;
+  }
+  document.getElementById('avgStatsBody').innerHTML = `
+    <div class="history-body">
+      <div class="history-col">
+        <div class="history-col-title" style="color:var(--morning)">🌅 Ранок</div>
+        ${_hcolRow('Ліва рука', _hcolBp(data.map(e=>e.morning.sys_l), data.map(e=>e.morning.dia_l), 'var(--morning)'))}
+        ${_hcolRow('Права рука', _hcolBp(data.map(e=>e.morning.sys_r), data.map(e=>e.morning.dia_r), 'var(--morning)'))}
+        ${_hcolRow('Пульс', _hcolPulse(data.map(e=>e.morning.pulse)))}
+      </div>
+      <div class="history-col">
+        <div class="history-col-title" style="color:var(--evening)">🌙 Вечір</div>
+        ${_hcolRow('Ліва рука', _hcolBp(data.map(e=>e.evening.sys_l), data.map(e=>e.evening.dia_l), 'var(--evening)'))}
+        ${_hcolRow('Права рука', _hcolBp(data.map(e=>e.evening.sys_r), data.map(e=>e.evening.dia_r), 'var(--evening)'))}
+        ${_hcolRow('Пульс', _hcolPulse(data.map(e=>e.evening.pulse)))}
+      </div>
+    </div>`;
 
   // — Extended statistics —
   if (data.length >= 3) { // correlation guard uses its own threshold of 10 below
@@ -3763,33 +3931,104 @@ function renderCharts() {
     const ePulse = data.map(e => e.evening.pulse);
     const wts    = data.map(e => e.weight);
 
-    function mmStr(arr) { const m = statMinMax(arr); return m ? `${m.min} / ${m.max}` : '—'; }
-
     const avgMSys = avgOf(mSysL.map((v,i) => v ?? mSysR[i]));
     const avgESys = avgOf(eSysL.map((v,i) => v ?? eSysR[i]));
     const dailyIdx = (avgMSys != null && avgESys != null && avgMSys > 0)
       ? Math.round((avgMSys - avgESys) / avgMSys * 100 * 10) / 10 : null;
 
-    const avgSys = avgOf(mSysL) ?? avgOf(mSysR);
-    const avgDia = avgOf(mDiaL) ?? avgOf(mDiaR);
-    const cat = bpCategory(avgSys, avgDia);
+    function _extVal(v, unit) { return `<span>${v ?? '—'}${unit ? `<span style="color:var(--muted);font-size:11px"> ${unit}</span>` : ''}</span>`; }
+    function _extPair(vL, vR, unit) {
+      return `<span style="font-family:var(--mono);font-size:13px;font-weight:500">${vL ?? '—'}&thinsp;/&thinsp;${vR ?? '—'}<span style="color:var(--muted);font-size:11px"> ${unit}</span></span>`;
+    }
+    document.getElementById('extStatsBody').innerHTML = `
+      <div class="history-body">
+        <div class="history-col">
+          <div class="history-col-title" style="color:var(--morning)">🌅 Ранок</div>
+          ${_hcolRow('Медіана Сист. Л / П', _extPair(statMedian(mSysL), statMedian(mSysR), 'мм'))}
+          ${_hcolRow('Медіана Діаст. Л / П', _extPair(statMedian(mDiaL), statMedian(mDiaR), 'мм'))}
+          ${_hcolRow('Ст. відхил. Сист. Л', _extVal(statStdDev(mSysL), 'мм'))}
+        </div>
+        <div class="history-col">
+          <div class="history-col-title" style="color:var(--evening)">🌙 Вечір</div>
+          ${_hcolRow('Медіана Сист. Л / П', _extPair(statMedian(eSysL), statMedian(eSysR), 'мм'))}
+          ${_hcolRow('Медіана Діаст. Л / П', _extPair(statMedian(eDiaL), statMedian(eDiaR), 'мм'))}
+          ${_hcolRow('Ст. відхил. Сист. Л', _extVal(statStdDev(eSysL), 'мм'))}
+        </div>
+      </div>
+      <div class="history-row" style="margin-top:8px">
+        <span class="history-row-label">Денний індекс (ранок−вечір)/ранок</span>
+        <span class="history-row-val">${dailyIdx != null ? dailyIdx + ' %' : '—'}</span>
+      </div>`;
 
-    const extRows = [
-      ['Медіана Сист. ранок Л / П', `${statMedian(mSysL) ?? '—'} / ${statMedian(mSysR) ?? '—'}`, 'мм'],
-      ['Медіана Сист. вечір Л / П', `${statMedian(eSysL) ?? '—'} / ${statMedian(eSysR) ?? '—'}`, 'мм'],
-      ['Медіана Діаст. ранок Л / П', `${statMedian(mDiaL) ?? '—'} / ${statMedian(mDiaR) ?? '—'}`, 'мм'],
-      ['Медіана Діаст. вечір Л / П', `${statMedian(eDiaL) ?? '—'} / ${statMedian(eDiaR) ?? '—'}`, 'мм'],
-      ['Ст. відхилення Сист. ранок Л', statStdDev(mSysL), 'мм'],
-      ['Ст. відхилення Сист. вечір Л', statStdDev(eSysL), 'мм'],
-      ['Мін/Макс Сист. ранок Л', mmStr(mSysL), ''],
-      ['Мін/Макс Сист. вечір Л', mmStr(eSysL), ''],
-      ['Мін/Макс пульс', mmStr([...mPulse, ...ePulse]), 'уд/хв'],
-      ['Денний індекс (ранок−вечір)/ранок', dailyIdx != null ? dailyIdx + ' %' : '—', ''],
-      ['WHO/ESH 2023 (серед. ранок)', cat ? cat.label : '—', ''],
-    ];
-    document.getElementById('extStatsBody').innerHTML = extRows.map(([label, value, unit]) =>
-      `<div class="stat-row"><span>${label}</span><span>${value != null ? value + (unit ? ' ' + unit : '') : '—'}</span></div>`
-    ).join('');
+    // — WHO/ESH 2023 card —
+    (function renderWhoEshCard() {
+      const allSys = [], allDia = [];
+      data.forEach(e => {
+        [e.morning.sys_l, e.morning.sys_r, e.evening.sys_l, e.evening.sys_r].forEach(v => { if (v != null) allSys.push(v); });
+        [e.morning.dia_l, e.morning.dia_r, e.evening.dia_l, e.evening.dia_r].forEach(v => { if (v != null) allDia.push(v); });
+      });
+      const cat = bpCategory(avgOf(allSys), avgOf(allDia));
+      const el = document.getElementById('whoEshCard');
+      if (!cat) { el.style.display = 'none'; return; }
+      el.style.display = '';
+
+      const WHO_NEIGHBORS = {
+        'Оптимальний':       { prev: null,                  next: 'Нормальний' },
+        'Нормальний':        { prev: 'Оптимальний',         next: 'Висок. нормальний' },
+        'Висок. нормальний': { prev: 'Нормальний',          next: 'Гіпертензія 1 ст.' },
+        'Ізол. сист. АГ':    { prev: 'Висок. нормальний',  next: 'Гіпертензія 1 ст.' },
+        'Ізол. діаст. АГ':   { prev: 'Висок. нормальний',  next: 'Гіпертензія 1 ст.' },
+        'Гіпертензія 1 ст.': { prev: 'Висок. нормальний',  next: 'Гіпертензія 2 ст.' },
+        'Гіпертензія 2 ст.': { prev: 'Гіпертензія 1 ст.', next: 'Гіпертензія 3 ст.' },
+        'Гіпертензія 3 ст.': { prev: 'Гіпертензія 2 ст.', next: null },
+      };
+      const nb = WHO_NEIGHBORS[cat.label] || { prev: null, next: null };
+      const side = (label, dir) => label
+        ? `<div style="font-size:10px;color:var(--muted);margin-bottom:3px">${dir}</div>
+           <div style="font-size:11px;color:var(--muted);font-weight:500;line-height:1.3">${label}</div>`
+        : '';
+
+      el.innerHTML = `<div class="stat-card" style="margin-bottom:10px">
+        <div class="stat-title">🩺 WHO/ESH 2023</div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
+          <div style="flex:1;text-align:left">${side(nb.prev, '‹')}</div>
+          <div style="flex:0 0 auto;text-align:center;padding:0 4px">
+            <div style="font-size:22px;font-weight:700;color:${cat.color};line-height:1.2">${cat.label}</div>
+          </div>
+          <div style="flex:1;text-align:right">${side(nb.next, '›')}</div>
+        </div>
+      </div>`;
+    })();
+
+    // — Trends (linear regression over selected period) —
+    (function renderTrends() {
+      const avgSysArr  = data.map(e => { const v = [e.morning.sys_l, e.morning.sys_r, e.evening.sys_l, e.evening.sys_r].filter(x=>x!=null); return v.length ? Math.round(v.reduce((a,b)=>a+b,0)/v.length) : null; });
+      const avgDiaArr  = data.map(e => { const v = [e.morning.dia_l, e.morning.dia_r, e.evening.dia_l, e.evening.dia_r].filter(x=>x!=null); return v.length ? Math.round(v.reduce((a,b)=>a+b,0)/v.length) : null; });
+      const pulseArr   = data.map(e => { const v = [e.morning.pulse, e.evening.pulse].filter(x=>x!=null); return v.length ? Math.round(v.reduce((a,b)=>a+b,0)/v.length) : null; });
+      const weightArr  = data.map(e => e.weight != null ? parseFloat(e.weight) : null);
+
+      function trendRow(label, arr, unit, threshold, decimals) {
+        const slope = linearSlope(arr);
+        const pts = arr.filter(x => x != null).length;
+        if (slope == null || pts < 2) return `<div class="stat-row"><span>${label}</span><span style="color:var(--muted)">—</span></div>`;
+        const total = slope * (arr.length - 1);
+        const abs = Math.abs(total);
+        if (abs < threshold) return `<div class="stat-row"><span>${label}</span><span style="color:var(--muted)">без змін</span></div>`;
+        const val = decimals ? total.toFixed(decimals) : Math.round(total);
+        const absVal = decimals ? abs.toFixed(decimals) : Math.round(abs);
+        const down = total < 0;
+        const color = down ? '#22c55e' : '#ef4444';
+        return `<div class="stat-row"><span>${label}</span><span style="color:${color};font-weight:600">${down ? '↓' : '↑'} ${absVal} ${unit}</span></div>`;
+      }
+
+      const el = document.getElementById('trendStatsBody');
+      el.innerHTML =
+        trendRow('Систолічний', avgSysArr,  'мм',   2,   0) +
+        trendRow('Діастолічний', avgDiaArr,  'мм',   2,   0) +
+        trendRow('Пульс',        pulseArr,   'уд/хв', 2,  0) +
+        trendRow('Вага',         weightArr,  'кг',    0.3, 1);
+      document.getElementById('trendStats').style.display = '';
+    })();
 
     // — Correlation analysis (requires N≥10 for statistical reliability) —
     if (data.length >= 10) {
@@ -3818,6 +4057,7 @@ function renderCharts() {
     document.getElementById('extStats').style.display = '';
   } else {
     document.getElementById('extStats').style.display = 'none';
+    document.getElementById('trendStats').style.display = 'none';
     document.getElementById('corrStats').style.display = 'none';
   }
 }

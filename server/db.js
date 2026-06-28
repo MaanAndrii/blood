@@ -65,6 +65,10 @@ async function initDb() {
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_expires_at TIMESTAMPTZ`);
   // Migrate legacy 'free' tier to 'premium'
   await pool.query(`UPDATE users SET subscription_tier = 'premium' WHERE subscription_tier = 'free' OR subscription_tier IS NULL`);
+  // Migrate is_admin=TRUE users to admin tier
+  await pool.query(`UPDATE users SET subscription_tier = 'admin', subscription_expires_at = NULL WHERE is_admin = TRUE AND subscription_tier != 'admin'`);
+  // Migrate short-expiry trial premiums (created within 8 days of expiry) → demo
+  await pool.query(`UPDATE users SET subscription_tier = 'demo', subscription_expires_at = NULL WHERE subscription_tier = 'premium' AND subscription_expires_at IS NOT NULL AND (subscription_expires_at - created_at) <= interval '8 days'`);
   // User timezone for reminder scheduling
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS timezone TEXT DEFAULT 'Europe/Kyiv'`);
   // Google Drive backup tokens

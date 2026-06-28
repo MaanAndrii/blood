@@ -42,16 +42,17 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
         return done(null, result.rows[0]);
       }
 
-      // New user — auto-register; first ever user gets admin rights
+      // New user — auto-register; first ever user gets admin tier
       const countRes = await pool.query('SELECT COUNT(*) FROM users');
-      const isAdmin = parseInt(countRes.rows[0].count, 10) === 0;
+      const isFirst = parseInt(countRes.rows[0].count, 10) === 0;
+      const tier = isFirst ? 'admin' : 'demo';
 
       const result = await pool.query(
         `INSERT INTO users
-           (email, name, avatar_url, google_id, subscription_tier, subscription_expires_at, is_admin, consented_at)
-         VALUES ($1, $2, $3, $4, 'premium', NOW() + interval '7 days', $5, NOW())
+           (email, name, avatar_url, google_id, subscription_tier, is_admin, consented_at)
+         VALUES ($1, $2, $3, $4, $5, $6, NOW())
          RETURNING *`,
-        [email, profile.displayName, profile.photos?.[0]?.value, profile.id, isAdmin]
+        [email, profile.displayName, profile.photos?.[0]?.value, profile.id, tier, isFirst]
       );
 
       return done(null, result.rows[0]);
@@ -77,7 +78,7 @@ function cookieOpts() {
 
 function issueJwt(user) {
   return jwt.sign(
-    { id: user.id, email: user.email, name: user.name, is_admin: user.is_admin },
+    { id: user.id, email: user.email, name: user.name },
     process.env.JWT_SECRET,
     { expiresIn: '7d' }
   );
@@ -184,11 +185,16 @@ router.post('/register', async (req, res) => {
 
     const hash = await bcrypt.hash(password, 10);
 
+    // First ever user gets admin tier
+    const countRes = await pool.query('SELECT COUNT(*) FROM users');
+    const isFirst = parseInt(countRes.rows[0].count, 10) === 0;
+    const tier = isFirst ? 'admin' : 'demo';
+
     const result = await pool.query(
-      `INSERT INTO users (email, name, password_hash, subscription_tier, subscription_expires_at, is_admin, consented_at)
-       VALUES ($1, $2, $3, 'premium', NOW() + interval '7 days', FALSE, NOW())
+      `INSERT INTO users (email, name, password_hash, subscription_tier, is_admin, consented_at)
+       VALUES ($1, $2, $3, $4, $5, NOW())
        RETURNING *`,
-      [email.toLowerCase(), name.trim(), hash]
+      [email.toLowerCase(), name.trim(), hash, tier, isFirst]
     );
 
     const token = issueJwt(result.rows[0]);
@@ -328,7 +334,7 @@ router.get('/me', async (req, res) => {
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
     const result = await pool.query(
-      `SELECT id, email, name, avatar_url, is_admin, date_of_birth, created_at,
+      `SELECT id, email, name, avatar_url, date_of_birth, created_at,
               subscription_tier, subscription_expires_at,
               reminders_enabled, reminder_morning, reminder_evening,
               height_cm, timezone,

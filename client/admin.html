@@ -116,8 +116,9 @@
       letter-spacing: .03em;
     }
     .user-tier-badge.premium { background: rgba(232,82,73,.15); color: #e85249; border: 1px solid rgba(232,82,73,.3); }
-    .user-tier-badge.demo    { background: rgba(122,143,181,.12); color: var(--muted); border: 1px solid var(--border); }
-    .user-tier-badge.trial   { background: rgba(52,211,153,.12); color: #34d399; border: 1px solid rgba(52,211,153,.3); }
+    .user-tier-badge.demo    { background: rgba(52,211,153,.12); color: #34d399; border: 1px solid rgba(52,211,153,.3); }
+    .user-tier-badge.free    { background: rgba(122,143,181,.12); color: var(--muted); border: 1px solid var(--border); }
+    .user-tier-badge.admin   { background: rgba(231,76,60,.15); color: #e74c3c; border: 1px solid rgba(231,76,60,.3); }
 
     /* Buttons */
     .btn {
@@ -229,24 +230,28 @@
     <div class="modal-title" id="adminTierTitle">Доступ</div>
 
     <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Тип доступу</div>
-    <div style="display:flex;gap:8px;margin-bottom:16px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
       <button class="tier-pick-btn" id="tierPickDemo"    onclick="selectTierPick('demo')">Demo</button>
       <button class="tier-pick-btn" id="tierPickPremium" onclick="selectTierPick('premium')">Premium</button>
+      <button class="tier-pick-btn" id="tierPickFree"    onclick="selectTierPick('free')">Free</button>
+      <button class="tier-pick-btn" id="tierPickAdmin"   onclick="selectTierPick('admin')">Admin</button>
     </div>
 
     <div id="adminPeriodBlock" style="display:none">
       <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Термін дії</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:4px">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:4px">
         <button class="period-btn" data-m="1"  onclick="selectPeriod(1)">1 місяць</button>
-        <button class="period-btn" data-m="3"  onclick="selectPeriod(3)">3 місяці</button>
         <button class="period-btn" data-m="6"  onclick="selectPeriod(6)">6 місяців</button>
         <button class="period-btn" data-m="12" onclick="selectPeriod(12)">1 рік</button>
       </div>
     </div>
 
     <div class="expiry-hint" id="adminExpiryHint"></div>
-    <div style="font-size:11px;color:var(--muted);margin-bottom:14px;display:none" id="adminDemoNote">
-      ⚠️ Demo: обмежено 30 днів журналу, без Експорту
+    <div style="font-size:11px;color:var(--muted);margin-bottom:14px;display:none" id="adminFreeNote">
+      ℹ️ Free: обмежено 30 днів журналу, без Експорту та Drive
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:14px;display:none" id="adminAdminNote">
+      ⚠️ Admin: повний доступ, права адміністратора системи
     </div>
 
     <div class="modal-actions">
@@ -277,10 +282,20 @@ function showToast(msg, color) {
   setTimeout(() => t.classList.remove('show'), 2400);
 }
 function getEffectiveTier(u) {
-  if (!u) return 'demo';
-  if (u.subscription_tier === 'demo') return 'demo';
-  if (u.subscription_expires_at && new Date(u.subscription_expires_at) < new Date()) return 'demo';
-  return 'premium';
+  if (!u) return 'free';
+  const tier = u.subscription_tier;
+  if (tier === 'admin') return 'admin';
+  if (tier === 'demo') {
+    const created = u.created_at ? new Date(u.created_at) : null;
+    if (created && new Date() < new Date(created.getTime() + 7 * 86400000)) return 'demo';
+    return 'free';
+  }
+  if (tier === 'free') return 'free';
+  if (tier === 'premium') {
+    if (u.subscription_expires_at && new Date(u.subscription_expires_at) < new Date()) return 'free';
+    return 'premium';
+  }
+  return 'free';
 }
 
 let _adminUsers = [];
@@ -323,12 +338,9 @@ function renderAdminUsers() {
   list.innerHTML = filtered.map(u => {
     const initials = (u.name||u.email||'?').split(' ').slice(0,2).map(w=>w[0]||'').join('').toUpperCase()||'?';
     const effective = getEffectiveTier(u);
-    const isTrial = u.subscription_tier === 'premium' && u.subscription_expires_at
-      && new Date(u.subscription_expires_at) > new Date()
-      && u.created_at
-      && Math.round((new Date(u.subscription_expires_at) - new Date(u.created_at)) / 86400000) <= 8;
-    const tierLabel = effective === 'demo' ? 'Demo' : (isTrial ? 'Trial' : 'Premium');
-    const tierClass = effective === 'demo' ? 'demo' : (isTrial ? 'trial' : 'premium');
+    const tierLabels = { admin: 'Admin', demo: 'Demo', premium: 'Premium', free: 'Free' };
+    const tierLabel = tierLabels[effective] || 'Free';
+    const tierClass = effective;
 
     let expiryBadge = '';
     if (u.subscription_expires_at) {
@@ -345,7 +357,7 @@ function renderAdminUsers() {
     return `<div class="admin-user-card">
       <div class="admin-avatar">${escHtml(initials)}</div>
       <div class="admin-user-info">
-        <div class="admin-user-name">${escHtml(u.name||'—')}${u.is_admin?' <span style="font-size:10px;color:var(--accent)">🔑</span>':''}</div>
+        <div class="admin-user-name">${escHtml(u.name||'—')}</div>
         <div class="admin-user-email">${escHtml(u.email||'')}</div>
         <div><span class="user-tier-badge ${tierClass}">${tierLabel}</span>${expiryBadge}</div>
         <div class="admin-stats">Записів: ${u.entry_count||0} · Останній: ${lastEntry}<br>В системі з: ${joined}</div>
@@ -361,7 +373,7 @@ function openAdminTierModal(userId) {
   _adminTierUserId = userId;
   _adminSelMonths = null;
   document.getElementById('adminTierTitle').textContent = `Доступ: ${user.name || user.email}`;
-  selectTierPick(user.subscription_tier || 'premium');
+  selectTierPick(user.subscription_tier || 'demo');
   document.getElementById('adminTierModal').classList.add('open');
 }
 function closeAdminTierModal() {
@@ -371,11 +383,13 @@ function closeAdminTierModal() {
 function selectTierPick(tier) {
   _adminSelTier = tier;
   _adminSelMonths = null;
-  document.getElementById('tierPickDemo').classList.toggle('sel', tier==='demo');
-  document.getElementById('tierPickPremium').classList.toggle('sel', tier==='premium');
-  document.getElementById('adminPeriodBlock').style.display = tier==='premium' ? '' : 'none';
-  document.getElementById('adminDemoNote').style.display   = tier==='demo'    ? '' : 'none';
-  document.querySelectorAll('.period-btn').forEach(b=>b.classList.remove('sel'));
+  ['demo','premium','free','admin'].forEach(t =>
+    document.getElementById('tierPick' + t.charAt(0).toUpperCase() + t.slice(1)).classList.toggle('sel', tier === t)
+  );
+  document.getElementById('adminPeriodBlock').style.display  = tier === 'premium' ? '' : 'none';
+  document.getElementById('adminFreeNote').style.display     = tier === 'free'    ? '' : 'none';
+  document.getElementById('adminAdminNote').style.display    = tier === 'admin'   ? '' : 'none';
+  document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('sel'));
   _updateExpiryHint();
 }
 function selectPeriod(months) {
@@ -385,10 +399,10 @@ function selectPeriod(months) {
 }
 function _updateExpiryHint() {
   const el = document.getElementById('adminExpiryHint');
-  if (_adminSelTier==='demo') { el.textContent='Без терміну дії'; return; }
-  if (!_adminSelMonths)       { el.textContent=''; return; }
+  if (_adminSelTier !== 'premium') { el.textContent = ''; return; }
+  if (!_adminSelMonths) { el.textContent = ''; return; }
   const exp = new Date();
-  exp.setMonth(exp.getMonth()+_adminSelMonths);
+  exp.setMonth(exp.getMonth() + _adminSelMonths);
   el.textContent = `Діє до: ${exp.toLocaleDateString('uk-UA',{day:'2-digit',month:'long',year:'numeric'})}`;
 }
 async function saveTier() {

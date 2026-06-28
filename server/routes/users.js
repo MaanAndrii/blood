@@ -159,6 +159,33 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
+// POST /api/users/:id/reset-password — admin only: set a new password for any user
+router.post('/:id/reset-password', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const userId = parseInt(req.params.id, 10);
+    if (isNaN(userId)) return res.status(400).json({ error: 'Invalid user id' });
+
+    const { password } = req.body;
+    if (!password || password.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    }
+
+    const bcrypt = require('bcryptjs');
+    const hash = await bcrypt.hash(password, 10);
+
+    const result = await pool.query(
+      'UPDATE users SET password_hash = $1 WHERE id = $2 RETURNING id',
+      [hash, userId]
+    );
+    if (!result.rows.length) return res.status(404).json({ error: 'User not found' });
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('POST /api/users/:id/reset-password error:', err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
 // DELETE /api/users/me — delete own account (GDPR right to erasure)
 router.delete('/me', requireAuth, async (req, res) => {
   try {

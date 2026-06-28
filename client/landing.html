@@ -122,6 +122,25 @@
       margin-top: 10px; text-align: center;
     }
 
+    /* ── Password helpers ── */
+    .pw-wrap { position: relative; margin-bottom: 10px; }
+    .pw-wrap .auth-input { margin-bottom: 0; padding-right: 40px; }
+    .pw-eye {
+      position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+      background: none; border: none; cursor: pointer;
+      color: #7a8fb5; font-size: 15px; padding: 4px; line-height: 1;
+    }
+    .pw-eye:hover { color: #e8edf8; }
+    .caps-warn {
+      display: none; font-size: 11px; color: #fb923c;
+      margin: 3px 0 6px; padding: 3px 8px;
+      background: rgba(251,146,60,.1); border-radius: 6px;
+    }
+    .pw-strength-bar { height: 3px; background: #2a3f6f; border-radius: 2px; margin: 3px 0 3px; }
+    .pw-strength-fill { height: 100%; border-radius: 2px; width: 0; transition: width .25s, background .25s; }
+    .pw-strength-label { font-size: 11px; min-height: 16px; margin-bottom: 8px; }
+    .forgot-hint { font-size: 11px; color: #4a5f8a; margin: 3px 0 10px; }
+
     /* ── Disclaimer ── */
     .disclaimer {
       max-width: 720px; margin: 0 auto 32px;
@@ -222,8 +241,15 @@
       <!-- Login -->
       <div id="formLogin">
         <input class="auth-input" type="email" id="loginEmail" placeholder="Email" autocomplete="email" />
-        <input class="auth-input" type="password" id="loginPassword" placeholder="Пароль"
-          autocomplete="current-password" onkeydown="if(event.key==='Enter')submitLogin()" />
+        <div class="pw-wrap">
+          <input class="auth-input" type="password" id="loginPassword" placeholder="Пароль"
+            autocomplete="current-password"
+            onkeydown="if(event.key==='Enter')submitLogin()"
+            onkeyup="checkCaps(event,'capsLogin')" />
+          <button class="pw-eye" type="button" onclick="togglePw('loginPassword',this)" tabindex="-1" aria-label="Показати/приховати пароль">👁</button>
+        </div>
+        <div class="caps-warn" id="capsLogin">⇧ Caps Lock увімкнено</div>
+        <p class="forgot-hint">Забули пароль? Зверніться до адміністратора для відновлення.</p>
         <button class="btn-submit" id="btnLogin" onclick="submitLogin()">Увійти</button>
       </div>
 
@@ -231,8 +257,17 @@
       <div id="formRegister" style="display:none">
         <input class="auth-input" type="text" id="regName" placeholder="Ім'я" autocomplete="name" />
         <input class="auth-input" type="email" id="regEmail" placeholder="Email" autocomplete="email" />
-        <input class="auth-input" type="password" id="regPassword" placeholder="Пароль (мін. 8 символів)"
-          autocomplete="new-password" onkeydown="if(event.key==='Enter')submitRegister()" />
+        <div class="pw-wrap">
+          <input class="auth-input" type="password" id="regPassword" placeholder="Пароль (мін. 8 символів)"
+            autocomplete="new-password"
+            onkeydown="if(event.key==='Enter')submitRegister()"
+            onkeyup="checkCaps(event,'capsReg');updateStrength(this.value)"
+            oninput="updateStrength(this.value)" />
+          <button class="pw-eye" type="button" onclick="togglePw('regPassword',this)" tabindex="-1" aria-label="Показати/приховати пароль">👁</button>
+        </div>
+        <div class="caps-warn" id="capsReg">⇧ Caps Lock увімкнено</div>
+        <div class="pw-strength-bar"><div class="pw-strength-fill" id="pwFill"></div></div>
+        <div class="pw-strength-label" id="pwLabel"></div>
         <div class="gdpr-row">
           <input type="checkbox" id="regConsent" />
           <span>Я погоджуюсь з <a href="/privacy" target="_blank" rel="noopener">Політикою конфіденційності</a> та обробкою моїх персональних медичних даних відповідно до GDPR (ст. 9(2)(a))</span>
@@ -258,6 +293,42 @@
   </footer>
 
   <script>
+    function togglePw(id, btn) {
+      const inp = document.getElementById(id);
+      const show = inp.type === 'password';
+      inp.type = show ? 'text' : 'password';
+      btn.textContent = show ? '🙈' : '👁';
+    }
+
+    function checkCaps(e, warnId) {
+      const on = e.getModifierState?.('CapsLock') ?? false;
+      document.getElementById(warnId).style.display = on ? 'block' : 'none';
+    }
+
+    function updateStrength(val) {
+      const fill = document.getElementById('pwFill');
+      const label = document.getElementById('pwLabel');
+      if (!fill) return;
+      if (!val) { fill.style.width = '0'; label.textContent = ''; return; }
+      const hasNum = /\d/.test(val);
+      const hasSym = /[^a-zA-Z0-9Ѐ-ӿ]/.test(val);
+      let score = 0;
+      if (val.length >= 8) score++;
+      if (val.length >= 8 && hasNum) score++;
+      if (val.length >= 8 && hasSym) score++;
+      const levels = [
+        ['25%', '#ef4444', val.length < 8 ? 'Мін. 8 символів' : 'Слабкий'],
+        ['50%', '#fb923c', 'Помірний'],
+        ['75%', '#fbbf24', 'Хороший'],
+        ['100%', '#22c55e', 'Сильний'],
+      ];
+      const [w, bg, text] = levels[Math.min(score, 3)];
+      fill.style.width = w;
+      fill.style.background = bg;
+      label.style.color = bg;
+      label.textContent = text;
+    }
+
     function switchTab(tab) {
       document.getElementById('formLogin').style.display    = tab === 'login'    ? '' : 'none';
       document.getElementById('formRegister').style.display = tab === 'register' ? '' : 'none';

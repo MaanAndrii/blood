@@ -1134,6 +1134,27 @@
     .entry-modal-close:active { background: var(--border); }
     .entry-modal-body { padding: 14px 16px 20px; }
 
+    /* ── INSIGHT CARDS ── */
+    .insight-cards-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    @media (max-width: 400px) { .insight-cards-grid { grid-template-columns: 1fr; } }
+    .insight-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+    }
+    .insight-label { font-size: 11px; color: var(--muted); margin-bottom: 3px; }
+    .insight-value { font-size: 15px; font-weight: 700; line-height: 1.2; margin-bottom: 2px; }
+    .insight-note  { font-size: 11px; color: var(--muted); }
+    /* ── REMINDER SYNC STATUS ── */
+    #reminderSyncStatus {
+      font-size: 11px; margin-top: 8px; min-height: 16px; color: var(--muted);
+      transition: color .2s;
+    }
   </style>
 </head>
 <body>
@@ -1216,6 +1237,11 @@
       <div class="filter-chip" onclick="setStatsFilter(this,'30')">30 днів</div>
     </div>
 
+    <div class="stat-card" id="insightCards">
+      <div class="stat-title">💡 Інсайти</div>
+      <div id="insightCardsBody" class="insight-cards-grid"></div>
+    </div>
+
     <div class="stat-card">
       <div class="stat-title">📈 Систолічний тиск — ліва/права, ранок/вечір</div>
       <div class="chart-wrap"><canvas id="chartSys"></canvas></div>
@@ -1252,8 +1278,12 @@
     </div>
 
     <div class="stat-card" id="corrStats">
-      <div class="stat-title">🔗 Кореляційний аналіз (r Пірсона)</div>
+      <div class="stat-title" title="r Пірсона: від −1 (обернена залежність) до +1 (пряма залежність). Значення ближче до 0 — зв'язок відсутній.">🔗 Кореляційний аналіз (r Пірсона) ℹ️</div>
       <div id="corrStatsBody"></div>
+    </div>
+
+    <div style="font-size:11px;color:var(--muted);text-align:center;padding:4px 0 14px;line-height:1.5">
+      Інсайти та аналіз — довідково. Це не медичний діагноз — зверніться до лікаря.
     </div>
   </div>
 
@@ -1342,6 +1372,7 @@
           </select>
         </div>
       </div>
+      <div id="reminderSyncStatus"></div>
       <p style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.5">
         Сповіщення надсилаються сервером у фоні. <strong>iOS Safari:</strong> додаток має бути встановлений на головний екран (Поділитись → На головний екран). <strong>Android:</strong> вимкніть оптимізацію батареї для браузера.<br>
         <span id="serverTzHint"></span>
@@ -1651,7 +1682,7 @@
           Підключіть Google Drive щоб автоматично зберігати резервні копії ваших даних у хмарі.
         </p>
         <button class="btn-save" style="width:100%" onclick="connectDrive()">
-          <img src="https://www.google.com/favicon.ico" style="width:16px;height:16px;vertical-align:middle;margin-right:6px" onerror="this.style.display='none'">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" style="vertical-align:middle;margin-right:6px;flex-shrink:0" aria-hidden="true"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
           Підключити Google Drive
         </button>
       </div>
@@ -1686,7 +1717,7 @@
 <script>
 // ── DATA LAYER ──────────────────────────────────────────────────────────────
 const DB_KEY        = 'health_entries_v2';
-const APP_VERSION   = '2.09';
+const APP_VERSION   = '2.11';
 const REMINDER_KEY  = 'health_reminders';
 
 // ── Constants (U) ────────────────────────────────────────────────────────────
@@ -1876,18 +1907,20 @@ async function initApp() {
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('drive_connected') === '1') {
       history.replaceState({}, '', window.location.pathname);
-      setTimeout(() => openDriveModal(), 300);
+      showToast('✅ Google Drive підключено!');
+      setTimeout(() => openDriveModal(true), 300);
     } else if (urlParams.get('error')?.startsWith('drive_')) {
       history.replaceState({}, '', window.location.pathname);
       const msgs = {
-        drive_no_callback_url: 'GOOGLE_DRIVE_CALLBACK_URL не додано в .env',
+        drive_no_callback_url: 'GOOGLE_DRIVE_CALLBACK_URL не налаштовано в .env',
         drive_no_client_id:    'GOOGLE_CLIENT_ID не налаштовано в .env',
-        drive_denied:          'Доступ відхилено',
-        drive_token_failed:    'Не вдалось отримати токен',
-        drive_callback_failed: 'Помилка callback',
+        drive_denied:          'Не вдалося підключити Drive — доступ відхилено. Спробуйте ще раз.',
+        drive_token_failed:    'Не вдалося підключити Drive — помилка отримання токена.',
+        drive_callback_failed: 'Не вдалося підключити Drive. Перевірте доступи Google і спробуйте ще раз.',
+        drive_bad_state:       'Помилка авторизації Drive. Спробуйте ще раз.',
       };
       const code = urlParams.get('error');
-      showToast('❌ Drive: ' + (msgs[code] || code), 'var(--warn)');
+      showToast('❌ ' + (msgs[code] || 'Помилка Drive: ' + code), 'var(--warn)');
     }
   } catch (err) {
     console.error('initApp error:', err);
@@ -3153,9 +3186,10 @@ function closeDayModal() {
 }
 
 // ── DRIVE BACKUP ────────────────────────────────────────────────────────────
-async function openDriveModal() {
+async function openDriveModal(showSuccess = false) {
   document.getElementById('driveModal').classList.add('open');
-  document.getElementById('driveStatusBanner').style.display = 'none';
+  const banner = document.getElementById('driveStatusBanner');
+  banner.style.display = 'none';
   document.getElementById('driveNotConnected').style.display = 'none';
   document.getElementById('driveConnected').style.display = 'none';
   document.getElementById('driveFileList').innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0">Завантаження…</div>';
@@ -3164,6 +3198,10 @@ async function openDriveModal() {
     const r = await fetch('/api/backup/drive/status');
     const { connected } = await r.json();
     if (connected) {
+      if (showSuccess) {
+        banner.style.cssText = 'display:block;background:rgba(52,211,153,.12);color:#34d399;border:1px solid rgba(52,211,153,.3);border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:14px';
+        banner.textContent = '✅ Google Drive успішно підключено!';
+      }
       document.getElementById('driveConnected').style.display = 'block';
       loadDriveFileList();
     } else {
@@ -3308,9 +3346,82 @@ function buildChart(id, labels, datasets, extraOpts = {}) {
   });
 }
 
+function renderInsights(data) {
+  const el = document.getElementById('insightCardsBody');
+  if (!el) return;
+  if (!data.length) { el.innerHTML = '<p style="color:var(--muted);font-size:.85rem">Немає даних за обраний період</p>'; return; }
+
+  function avg(arr) { const a = arr.filter(x => x != null); return a.length ? Math.round(a.reduce((s,x)=>s+x,0)/a.length) : null; }
+
+  // 1. Average BP + WHO/ESH category
+  const mSysAll = data.map(e => e.morning.sys_l ?? e.morning.sys_r);
+  const mDiaAll = data.map(e => e.morning.dia_l ?? e.morning.dia_r);
+  const aSys = avg(mSysAll), aDia = avg(mDiaAll);
+  const cat = bpCategory(aSys, aDia);
+  const bpLabel = (aSys != null && aDia != null) ? `${aSys}/${aDia}` : '—';
+  const catLabel = cat ? cat.label : '—';
+  const catColor = cat ? cat.color : 'var(--muted)';
+
+  // 2. Morning vs evening systolic diff
+  const avgMSys = avg(mSysAll);
+  const eSysAll = data.map(e => e.evening.sys_l ?? e.evening.sys_r);
+  const avgESys = avg(eSysAll);
+  let mveLabel = '—', mveNote = '';
+  if (avgMSys != null && avgESys != null) {
+    const diff = avgMSys - avgESys;
+    mveLabel = (diff >= 0 ? '+' : '') + diff + ' мм';
+    mveNote = diff > 5 ? 'Ранок вищий — типово' : diff < -5 ? 'Вечір вищий — варто відстежити' : 'Ранок і вечір збігаються';
+  }
+
+  // 3. Arm difference >10mm
+  const armDiffCount = data.reduce((n, e) => {
+    const mDiff = (e.morning.sys_l != null && e.morning.sys_r != null) ? Math.abs(e.morning.sys_l - e.morning.sys_r) : null;
+    const eDiff = (e.evening.sys_l != null && e.evening.sys_r != null) ? Math.abs(e.evening.sys_l - e.evening.sys_r) : null;
+    return n + (mDiff != null && mDiff > 10 ? 1 : 0) + (eDiff != null && eDiff > 10 ? 1 : 0);
+  }, 0);
+  const totalMeasures = data.reduce((n, e) => {
+    return n + (e.morning.sys_l != null && e.morning.sys_r != null ? 1 : 0)
+             + (e.evening.sys_l != null && e.evening.sys_r != null ? 1 : 0);
+  }, 0);
+  const armLabel = totalMeasures ? `${armDiffCount} з ${totalMeasures}` : '—';
+  const armNote = armDiffCount === 0 ? 'Різниця в межах норми' : armDiffCount <= 2 ? 'Кілька вимірів потребують уваги' : 'Часта різниця >10 мм — порадьтеся з лікарем';
+
+  // 4. Average pulse
+  const allPulse = [...data.map(e => e.morning.pulse), ...data.map(e => e.evening.pulse)];
+  const avgPulse = avg(allPulse);
+  let pulseNote = '—';
+  if (avgPulse != null) {
+    pulseNote = avgPulse < 60 ? 'Брадикардія' : avgPulse > 100 ? 'Тахікардія' : 'Норма';
+  }
+
+  el.innerHTML = `
+    <div class="insight-card">
+      <div class="insight-label">Середній тиск (ранок)</div>
+      <div class="insight-value" style="color:${catColor}">${bpLabel}</div>
+      <div class="insight-note">${catLabel}</div>
+    </div>
+    <div class="insight-card">
+      <div class="insight-label">Ранок vs Вечір (сист.)</div>
+      <div class="insight-value">${mveLabel}</div>
+      <div class="insight-note">${mveNote}</div>
+    </div>
+    <div class="insight-card">
+      <div class="insight-label">Різниця рук >10 мм</div>
+      <div class="insight-value">${armLabel}</div>
+      <div class="insight-note">${armNote}</div>
+    </div>
+    <div class="insight-card">
+      <div class="insight-label">Середній пульс</div>
+      <div class="insight-value">${avgPulse != null ? avgPulse + ' уд/хв' : '—'}</div>
+      <div class="insight-note">${pulseNote}</div>
+    </div>
+  `;
+}
+
 function renderCharts() {
   const data = filterEntries(statsFilter).slice().reverse();
   const labels = data.map(e => fmtDate(String(e.date).slice(0,10)));
+  renderInsights(data);
 
   buildChart('chartSys', labels, [
     {
@@ -3488,7 +3599,7 @@ function renderCharts() {
   ).join('');
 
   // — Extended statistics —
-  if (data.length >= 3) {
+  if (data.length >= 3) { // correlation guard uses its own threshold of 10 below
     const mSysL  = data.map(e => e.morning.sys_l);
     const mDiaL  = data.map(e => e.morning.dia_l);
     const mSysR  = data.map(e => e.morning.sys_r);
@@ -3529,25 +3640,31 @@ function renderCharts() {
       `<div class="stat-row"><span>${label}</span><span>${value != null ? value + (unit ? ' ' + unit : '') : '—'}</span></div>`
     ).join('');
 
-    // — Correlation analysis —
-    const sysByDay = data.map(e => e.morning.sys_l ?? e.morning.sys_r);
-    const rSysW  = pearsonR(sysByDay, wts);
-    const rPulseS = pearsonR(mPulse, sysByDay);
-    const rMornEve = pearsonR(sysByDay, data.map(e => e.evening.sys_l ?? e.evening.sys_r));
-    const rSysWt = pearsonR(wts, data.map(e => e.morning.dia_l ?? e.morning.dia_r));
+    // — Correlation analysis (requires N≥10 for statistical reliability) —
+    if (data.length >= 10) {
+      const sysByDay = data.map(e => e.morning.sys_l ?? e.morning.sys_r);
+      const rSysW  = pearsonR(sysByDay, wts);
+      const rPulseS = pearsonR(mPulse, sysByDay);
+      const rMornEve = pearsonR(sysByDay, data.map(e => e.evening.sys_l ?? e.evening.sys_r));
+      const rSysWt = pearsonR(wts, data.map(e => e.morning.dia_l ?? e.morning.dia_r));
 
-    const corrRows = [
-      ['Систолічний тиск ↔ Вага', rSysW],
-      ['Діастолічний тиск ↔ Вага', rSysWt],
-      ['Пульс ↔ Систолічний тиск', rPulseS],
-      ['Ранок ↔ Вечір (Сист.)', rMornEve],
-    ];
-    document.getElementById('corrStatsBody').innerHTML = corrRows.map(([label, r]) =>
-      `<div class="stat-row"><span>${label}</span><span>${corrStrength(r)}</span></div>`
-    ).join('');
+      const corrRows = [
+        ['Систолічний тиск ↔ Вага', rSysW],
+        ['Діастолічний тиск ↔ Вага', rSysWt],
+        ['Пульс ↔ Систолічний тиск', rPulseS],
+        ['Ранок ↔ Вечір (Сист.)', rMornEve],
+      ];
+      document.getElementById('corrStatsBody').innerHTML = corrRows.map(([label, r]) =>
+        `<div class="stat-row"><span>${label}</span><span>${corrStrength(r)}</span></div>`
+      ).join('');
+      document.getElementById('corrStats').style.display = '';
+    } else {
+      document.getElementById('corrStatsBody').innerHTML =
+        `<p style="color:var(--muted);font-size:.85rem">Потрібно щонайменше 10 записів (є ${data.length})</p>`;
+      document.getElementById('corrStats').style.display = '';
+    }
 
     document.getElementById('extStats').style.display = '';
-    document.getElementById('corrStats').style.display = '';
   } else {
     document.getElementById('extStats').style.display = 'none';
     document.getElementById('corrStats').style.display = 'none';
@@ -3774,20 +3891,24 @@ async function saveReminderSettings() {
   scheduleReminders(s);
 
   // Save to server + handle push subscription
+  const syncEl = document.getElementById('reminderSyncStatus');
+  if (syncEl) syncEl.innerHTML = '<span style="color:var(--muted)">⏳ Синхронізація…</span>';
   try {
     const payload = { morning: s.morning, evening: s.evening, enabled: s.enabled, timezone: s.timezone };
     if ('serviceWorker' in navigator && 'PushManager' in window) {
       if (s.enabled) {
         const sub = await initPushSubscription(s);
-        if (sub !== null) payload.subscription = sub; // only update DB if we got a valid sub
-        // if null (e.g. SW not ready yet) — leave existing subscription in DB intact
+        if (sub !== null) payload.subscription = sub;
       } else {
-        payload.subscription = null; // explicitly clear when user disables reminders
+        payload.subscription = null;
       }
     }
     await savePushSettingsToServer(payload);
+    if (syncEl) syncEl.innerHTML = '<span style="color:#22c55e">✅ Синхронізовано з сервером</span>';
   } catch (err) {
     console.warn('savePushSettings failed:', err);
+    if (syncEl) syncEl.innerHTML = '<span style="color:var(--warn)">⚠️ Лише локально — push можуть не працювати</span>';
+    showToast('⚠️ Нагадування збережено локально. Push-сповіщення можуть не працювати', 'var(--warn)');
   }
 }
 

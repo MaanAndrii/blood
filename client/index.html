@@ -138,12 +138,20 @@
       cursor: pointer;
       padding: 4px 8px;
       border-radius: 20px;
-      border: 1px solid var(--border);
+      border: 1.5px solid var(--border);
       background: var(--card);
-      transition: border-color .15s;
+      transition: border-color .3s, box-shadow .3s;
       position: relative;
     }
     .user-chip:active { border-color: var(--accent); }
+    .user-chip.sync-pending {
+      border-color: #e85249;
+      box-shadow: 0 0 0 2px rgba(232,82,73,.18);
+    }
+    .user-chip.sync-ok {
+      border-color: #34d399;
+      box-shadow: 0 0 0 2px rgba(52,211,153,.18);
+    }
     .user-chip-avatar {
       width: 26px; height: 26px;
       border-radius: 50%;
@@ -1729,7 +1737,7 @@
 <script>
 // ── DATA LAYER ──────────────────────────────────────────────────────────────
 const DB_KEY        = 'health_entries_v2';
-const APP_VERSION   = '2.14';
+const APP_VERSION   = '2.15';
 const REMINDER_KEY  = 'health_reminders';
 
 // ── Constants (U) ────────────────────────────────────────────────────────────
@@ -1798,8 +1806,10 @@ async function saveEntryToServer(entry) {
     body: JSON.stringify(entry),
   });
   if (!r.ok) {
-    const err = await r.json().catch(() => ({}));
-    throw new Error(err.error || 'Server error');
+    const data = await r.json().catch(() => ({}));
+    const e = new Error(data.error || `${r.status}`);
+    e.status = r.status;
+    throw e;
   }
   return r.json();
 }
@@ -1811,6 +1821,83 @@ async function deleteEntryFromServer(date) {
     throw new Error(err.error || `HTTP ${r.status}`);
   }
 }
+
+// ── PENDING ENTRY QUEUE ──────────────────────────────────────────────────────
+const PENDING_KEY = 'pendingEntries';
+
+function _getPending() {
+  try { return JSON.parse(localStorage.getItem(PENDING_KEY) || '[]'); } catch { return []; }
+}
+function _setPending(list) {
+  localStorage.setItem(PENDING_KEY, JSON.stringify(list));
+}
+
+function _updateChipSync() {
+  const chip = document.getElementById('userChip');
+  if (!chip) return;
+  const hasPending = _getPending().length > 0;
+  chip.classList.toggle('sync-pending', hasPending);
+  chip.classList.remove('sync-ok');
+}
+
+function _flashChipOk() {
+  const chip = document.getElementById('userChip');
+  if (!chip) return;
+  chip.classList.remove('sync-pending');
+  chip.classList.add('sync-ok');
+  setTimeout(() => chip.classList.remove('sync-ok'), 2500);
+}
+
+function enqueuePendingEntry(entry) {
+  const list = _getPending();
+  // Replace existing entry for same date if present
+  const idx = list.findIndex(e => e.date === entry.date);
+  if (idx >= 0) list[idx] = entry; else list.push(entry);
+  _setPending(list);
+  _updateChipSync();
+}
+
+async function flushPendingEntries() {
+  const list = _getPending();
+  if (!list.length) return;
+  const failed = [];
+  let synced = 0;
+  for (const entry of list) {
+    try {
+      const r = await fetch('/api/entries', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(entry),
+      });
+      if (r.ok) {
+        const saved = await r.json();
+        // Merge into local entries
+        entries = entries.filter(e => String(e.date).slice(0,10) !== entry.date);
+        entries.push(saved);
+        entries.sort((a,b) => String(b.date).localeCompare(String(a.date)));
+        saveLocalData(entries);
+        synced++;
+      } else if (r.status >= 400 && r.status < 500) {
+        // Client error (e.g. 400 validation) — discard silently, don't retry
+      } else {
+        failed.push(entry); // 5xx — keep for next attempt
+      }
+    } catch {
+      failed.push(entry); // network error — keep
+    }
+  }
+  _setPending(failed);
+  _updateChipSync();
+  if (synced > 0) {
+    _flashChipOk();
+    showToast(`✅ Синхронізовано ${synced} ${synced === 1 ? 'запис' : 'записів'}`);
+    renderWeekStrip();
+    renderHomeChart();
+    showDayOnHome(todayStr());
+  }
+}
+
+window.addEventListener('online', () => { if (currentUser) flushPendingEntries(); });
 
 // ── AUTH ────────────────────────────────────────────────────────────────────
 function showLoginScreen() {
@@ -1876,6 +1963,8 @@ async function initApp() {
     await fetchEntries();
     showApp();
     initRollers();
+    _updateChipSync();
+    flushPendingEntries();
 
     // Init page
     const days = ['Нд','Пн','Вт','Ср','Чт','Пт','Сб'];
@@ -2494,9 +2583,22 @@ async function saveEntry() {
     entries.sort((a,b) => String(b.date).localeCompare(String(a.date)));
     saveLocalData(entries);
   } catch (err) {
-    hideLoading();
-    showToast('⚠️ Помилка збереження: ' + err.message, 'var(--warn)');
-    return;
+    // Network error or 5xx: queue locally and show non-blocking warning
+    const isNetworkError = err instanceof TypeError;
+    const is5xx = err.status >= 500;
+    if (isNetworkError || is5xx) {
+      enqueuePendingEntry(entry);
+      // Still show in UI optimistically
+      entries = entries.filter(e => String(e.date).slice(0,10) !== date);
+      entries.push(entry);
+      entries.sort((a,b) => String(b.date).localeCompare(String(a.date)));
+      saveLocalData(entries);
+      showToast('📶 Немає зв\'язку · запис збережено локально', 'var(--warn)');
+    } else {
+      hideLoading();
+      showToast('⚠️ ' + err.message, 'var(--warn)');
+      return;
+    }
   }
   hideLoading();
   closeEntryModal();

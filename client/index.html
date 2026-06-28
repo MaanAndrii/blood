@@ -79,6 +79,27 @@
       transition: background .15s;
     }
     .btn-danger:active { background: rgba(239,68,68,.12); }
+    .user-chip-arrow {
+      font-size: 10px;
+      color: var(--muted);
+      pointer-events: none;
+      flex-shrink: 0;
+    }
+    /* ── SW UPDATE BANNER ── */
+    #swUpdateBanner {
+      display: none;
+      position: fixed;
+      bottom: 72px;
+      left: 12px; right: 12px;
+      background: #1f3060;
+      border: 1px solid var(--accent);
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      z-index: 150;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 4px 20px rgba(0,0,0,.4);
+    }
     /* ── HEADER ── */
     header {
       background: var(--surface);
@@ -1128,9 +1149,10 @@
   <div style="display:flex;align-items:center;gap:8px">
     <span class="today-badge" id="headerDate"></span>
     <!-- User chip -->
-    <div class="user-chip" id="userChip" onclick="toggleUserMenu()">
+    <div class="user-chip" id="userChip" onclick="toggleUserMenu()" role="button" aria-label="Меню профілю" aria-haspopup="true">
       <div id="userChipAvatar" class="user-chip-initials">?</div>
       <span class="user-chip-name" id="userChipName">...</span>
+      <span class="user-chip-arrow" aria-hidden="true">▾</span>
       <div class="user-menu" id="userMenu">
         <div class="user-menu-item danger" onclick="logout()">🚪 Вийти</div>
       </div>
@@ -1142,7 +1164,7 @@
   <div class="tab active" data-page="home"    onclick="showPage('home')"><span class="tab-icon">🏠</span>Головна</div>
   <div class="tab"        data-page="history" onclick="showPage('history')"><span class="tab-icon">📋</span>Журнал</div>
   <div class="tab"        data-page="stats"   onclick="showPage('stats')"><span class="tab-icon">📊</span>Графіки</div>
-  <div class="tab"        data-page="export"  onclick="showPage('export')"><span class="tab-icon">📤</span>Експорт</div>
+  <div class="tab"        data-page="export"  onclick="showPage('export')"><span class="tab-icon">🗄️</span>Дані</div>
 </nav>
 
 <main>
@@ -1238,7 +1260,7 @@
   <!-- ══ EXPORT PAGE ══ -->
   <div class="page" id="page-export">
 
-    <div class="section-label">Експорт даних</div>
+    <div class="section-label">Мої дані</div>
     <div class="export-grid">
       <div class="export-card" onclick="exportCSV()">
         <span class="export-icon">📄</span>
@@ -1422,7 +1444,7 @@
 <div class="modal-overlay" id="aboutModal" onclick="if(event.target===this)closeAboutModal()">
   <div class="modal-box" style="max-width:360px;width:92%">
     <div style="display:flex;justify-content:flex-end;margin-bottom:-8px">
-      <button onclick="closeAboutModal()" style="background:none;border:none;font-size:20px;color:var(--muted);cursor:pointer;line-height:1;padding:0 2px">&times;</button>
+      <button onclick="closeAboutModal()" style="background:none;border:none;font-size:20px;color:var(--muted);cursor:pointer;line-height:1;padding:0 2px" aria-label="Закрити">&times;</button>
     </div>
     <div style="text-align:center;padding:4px 0 16px">
       <img src="/icons/logo.svg" width="56" height="56" style="display:block;margin:0 auto 10px" alt="BP &amp; BMI logo"/>
@@ -1451,7 +1473,7 @@
   <div class="modal-box" style="max-width:560px;width:95%;max-height:88dvh;overflow-y:auto">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
       <div class="modal-title" style="margin:0">🔒 Політика конфіденційності</div>
-      <button onclick="closePrivacyModal()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;line-height:1;padding:0">✕</button>
+      <button onclick="closePrivacyModal()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;line-height:1;padding:0" aria-label="Закрити">✕</button>
     </div>
     <div style="font-size:13px;line-height:1.65;color:var(--text)">
       <p style="margin:0 0 8px"><strong style="color:var(--accent)">1. Хто обробляє дані</strong><br>
@@ -1485,12 +1507,54 @@
   </div>
 </div>
 
+<!-- ══ DELETE ACCOUNT MODAL ══ -->
+<div class="modal-overlay" id="deleteAccountModal" onclick="if(event.target===this)closeDeleteAccountModal()">
+  <div class="modal-box" style="max-width:380px;width:92%">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div class="modal-title" style="margin:0;color:#ef4444">🗑 Видалення акаунта</div>
+      <button onclick="closeDeleteAccountModal()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;line-height:1;padding:0" aria-label="Закрити">✕</button>
+    </div>
+
+    <div style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.55">
+      Буде <strong style="color:#ef4444">безповоротно</strong> видалено:
+    </div>
+    <ul style="font-size:13px;color:var(--text);line-height:1.8;padding-left:18px;margin-bottom:16px">
+      <li>Усі ваші записи тиску, пульсу та ваги</li>
+      <li>Профіль (ім'я, дата народження, зріст)</li>
+      <li>Push-підписки та налаштування нагадувань</li>
+      <li>Резервні копії Google Drive</li>
+    </ul>
+
+    <div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);border-radius:var(--radius-sm);padding:10px 12px;font-size:12px;color:#ef4444;margin-bottom:16px">
+      ⚠️ Цю дію неможливо скасувати. Рекомендуємо спочатку зробити резервну копію.
+    </div>
+
+    <button class="btn-outline" style="width:100%;margin-bottom:16px" onclick="closeDeleteAccountModal();exportJSON()">
+      📥 Завантажити JSON-копію перед видаленням
+    </button>
+
+    <div style="font-size:12px;color:var(--muted);margin-bottom:6px">
+      Для підтвердження введіть <strong style="color:var(--text)">DELETE</strong>:
+    </div>
+    <input id="deleteConfirmInput" type="text" placeholder="DELETE"
+      style="width:100%;box-sizing:border-box;background:var(--card);color:var(--text);border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;font-size:14px;outline:none;letter-spacing:1px;margin-bottom:16px"
+      oninput="document.getElementById('btnConfirmDelete').disabled = this.value !== 'DELETE'" />
+
+    <div class="modal-actions">
+      <button class="btn-outline" style="flex:1" onclick="closeDeleteAccountModal()">Скасувати</button>
+      <button id="btnConfirmDelete" class="btn-danger" style="flex:2;padding:10px" disabled onclick="executeDeleteAccount()">
+        Видалити назавжди
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- ══ ENTRY MODAL ══ -->
 <div class="modal-overlay" id="entryModal">
   <div class="entry-modal-box">
     <div class="entry-modal-header">
       <div class="entry-modal-title" id="entryModalTitle">Новий запис</div>
-      <button class="entry-modal-close" onclick="closeEntryModal()">✕</button>
+      <button class="entry-modal-close" onclick="closeEntryModal()" aria-label="Закрити форму запису">✕</button>
     </div>
     <div class="entry-modal-body">
       <!-- Edit banner -->
@@ -1562,10 +1626,10 @@
 <div class="modal-overlay" id="dayModal">
   <div class="entry-modal-box">
     <div class="entry-modal-header">
-      <button class="day-nav-btn" id="dayNavPrev" onclick="dayModalNav(-1)">‹</button>
+      <button class="day-nav-btn" id="dayNavPrev" onclick="dayModalNav(-1)" aria-label="Попередній день">‹</button>
       <div class="entry-modal-title" id="dayModalTitle" style="text-align:center"></div>
-      <button class="day-nav-btn" id="dayNavNext" onclick="dayModalNav(1)">›</button>
-      <button class="entry-modal-close" onclick="closeDayModal()">✕</button>
+      <button class="day-nav-btn" id="dayNavNext" onclick="dayModalNav(1)" aria-label="Наступний день">›</button>
+      <button class="entry-modal-close" onclick="closeDayModal()" aria-label="Закрити деталі дня">✕</button>
     </div>
     <div class="day-modal-body" id="dayModalBody"></div>
   </div>
@@ -1576,7 +1640,7 @@
   <div class="entry-modal-box" style="max-width:460px">
     <div class="entry-modal-header">
       <div class="entry-modal-title">☁️ Google Drive</div>
-      <button class="entry-modal-close" onclick="closeDriveModal()">✕</button>
+      <button class="entry-modal-close" onclick="closeDriveModal()" aria-label="Закрити резервне копіювання">✕</button>
     </div>
     <div style="padding:16px 18px 24px">
       <div id="driveStatusBanner" style="display:none;border-radius:var(--radius-sm);padding:10px 14px;font-size:13px;margin-bottom:16px"></div>
@@ -1622,7 +1686,7 @@
 <script>
 // ── DATA LAYER ──────────────────────────────────────────────────────────────
 const DB_KEY        = 'health_entries_v2';
-const APP_VERSION   = '2.07';
+const APP_VERSION   = '2.08';
 const REMINDER_KEY  = 'health_reminders';
 
 // ── Constants (U) ────────────────────────────────────────────────────────────
@@ -1727,17 +1791,27 @@ async function logout() {
 function openPrivacyModal()  { document.getElementById('privacyModal').classList.add('open'); }
 function closePrivacyModal() { document.getElementById('privacyModal').classList.remove('open'); }
 
-async function confirmDeleteAccount() {
-  const confirmed = confirm(
-    'Видалити акаунт?\n\nУсі ваші дані (записи, налаштування) будуть видалені безповоротно.'
-  );
-  if (!confirmed) return;
+function confirmDeleteAccount() {
+  const input = document.getElementById('deleteConfirmInput');
+  if (input) input.value = '';
+  const btn = document.getElementById('btnConfirmDelete');
+  if (btn) btn.disabled = true;
+  document.getElementById('deleteAccountModal').classList.add('open');
+}
+
+function closeDeleteAccountModal() {
+  document.getElementById('deleteAccountModal').classList.remove('open');
+}
+
+async function executeDeleteAccount() {
+  if (document.getElementById('deleteConfirmInput')?.value !== 'DELETE') return;
+  closeDeleteAccountModal();
   showLoading('Видалення акаунту…');
   try {
     const r = await fetch('/api/users/me', { method: 'DELETE' });
     hideLoading();
     if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'Помилка');
-    window.location.href = '/';
+    window.location.href = '/?deleted=1';
   } catch (err) {
     hideLoading();
     showToast('⚠️ ' + err.message, 'var(--warn)');
@@ -4006,12 +4080,27 @@ function closeAboutModal() {
 // ── SERVICE WORKER ───────────────────────────────────────────────────────────
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(() => {});
+  // Show update banner when a new SW takes over (only if one was already active)
+  const hadController = !!navigator.serviceWorker.controller;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    // Don't reload if user is in the middle of data entry
-    if (!document.querySelector('.modal-overlay.open')) window.location.reload();
+    if (hadController) {
+      const banner = document.getElementById('swUpdateBanner');
+      if (banner) banner.style.display = 'flex';
+    }
   });
 }
 </script>
+
+<!-- ══ SW UPDATE BANNER ══ -->
+<div id="swUpdateBanner" role="status" aria-live="polite">
+  <span style="font-size:20px">🔄</span>
+  <div style="flex:1;font-size:13px;line-height:1.4">
+    <div style="font-weight:600">Доступна нова версія</div>
+    <div style="color:var(--muted);font-size:11px">Оновіть, щоб отримати останні зміни</div>
+  </div>
+  <button onclick="window.location.reload()" style="background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap">Оновити</button>
+  <button onclick="this.parentElement.style.display='none'" style="background:transparent;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:0 2px;line-height:1" aria-label="Закрити">×</button>
+</div>
 
 <!-- ══ PWA INSTALL BANNER ══ -->
 <div id="installBanner" style="display:none;position:fixed;bottom:72px;left:12px;right:12px;background:#1f3060;border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;z-index:150;align-items:center;gap:10px;box-shadow:0 4px 20px rgba(0,0,0,.4)">
@@ -4021,7 +4110,7 @@ if ('serviceWorker' in navigator) {
     <div style="color:var(--muted);font-size:11px">Працює як нативний застосунок, без браузера</div>
   </div>
   <button onclick="triggerInstall()" style="background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap">Встановити</button>
-  <button onclick="dismissInstallBanner()" style="background:transparent;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:0 2px;line-height:1">×</button>
+  <button onclick="dismissInstallBanner()" style="background:transparent;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:0 2px;line-height:1" aria-label="Закрити">×</button>
 </div>
 
 </body>

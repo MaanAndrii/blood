@@ -148,6 +148,11 @@
 </head>
 <body>
 
+  <!-- Account deleted banner (shown after DELETE /api/users/me redirect) -->
+  <div id="deletedBanner" style="display:none;background:#1a2744;border:1px solid rgba(239,68,68,.4);border-radius:14px;padding:14px 18px;margin:20px auto 0;max-width:440px;font-size:13px;color:#e8edf8;line-height:1.5;text-align:center">
+    ✅ <strong>Акаунт видалено.</strong> Усі ваші дані були безповоротно видалені з сервера.
+  </div>
+
   <div class="hero">
     <img class="logo-icon" src="/icons/icon-192.png" alt="BP &amp; BMI" />
     <div class="logo-name">BP &amp; BMI</div>
@@ -271,6 +276,10 @@
     // Handle error/success params from OAuth redirects
     (function () {
       const params = new URLSearchParams(window.location.search);
+      if (params.get('deleted') === '1') {
+        document.getElementById('deletedBanner').style.display = 'block';
+        history.replaceState({}, '', '/');
+      }
       const err = params.get('error');
       if (err === 'access_denied') {
         showError('Вхід через Google скасовано. Спробуйте ще раз або скористайтесь реєстрацією через email.');

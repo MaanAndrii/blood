@@ -1717,7 +1717,7 @@
 <script>
 // ── DATA LAYER ──────────────────────────────────────────────────────────────
 const DB_KEY        = 'health_entries_v2';
-const APP_VERSION   = '2.10';
+const APP_VERSION   = '2.11';
 const REMINDER_KEY  = 'health_reminders';
 
 // ── Constants (U) ────────────────────────────────────────────────────────────
@@ -1907,18 +1907,20 @@ async function initApp() {
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('drive_connected') === '1') {
       history.replaceState({}, '', window.location.pathname);
-      setTimeout(() => openDriveModal(), 300);
+      showToast('✅ Google Drive підключено!');
+      setTimeout(() => openDriveModal(true), 300);
     } else if (urlParams.get('error')?.startsWith('drive_')) {
       history.replaceState({}, '', window.location.pathname);
       const msgs = {
-        drive_no_callback_url: 'GOOGLE_DRIVE_CALLBACK_URL не додано в .env',
+        drive_no_callback_url: 'GOOGLE_DRIVE_CALLBACK_URL не налаштовано в .env',
         drive_no_client_id:    'GOOGLE_CLIENT_ID не налаштовано в .env',
-        drive_denied:          'Доступ відхилено',
-        drive_token_failed:    'Не вдалось отримати токен',
-        drive_callback_failed: 'Помилка callback',
+        drive_denied:          'Не вдалося підключити Drive — доступ відхилено. Спробуйте ще раз.',
+        drive_token_failed:    'Не вдалося підключити Drive — помилка отримання токена.',
+        drive_callback_failed: 'Не вдалося підключити Drive. Перевірте доступи Google і спробуйте ще раз.',
+        drive_bad_state:       'Помилка авторизації Drive. Спробуйте ще раз.',
       };
       const code = urlParams.get('error');
-      showToast('❌ Drive: ' + (msgs[code] || code), 'var(--warn)');
+      showToast('❌ ' + (msgs[code] || 'Помилка Drive: ' + code), 'var(--warn)');
     }
   } catch (err) {
     console.error('initApp error:', err);
@@ -3184,9 +3186,10 @@ function closeDayModal() {
 }
 
 // ── DRIVE BACKUP ────────────────────────────────────────────────────────────
-async function openDriveModal() {
+async function openDriveModal(showSuccess = false) {
   document.getElementById('driveModal').classList.add('open');
-  document.getElementById('driveStatusBanner').style.display = 'none';
+  const banner = document.getElementById('driveStatusBanner');
+  banner.style.display = 'none';
   document.getElementById('driveNotConnected').style.display = 'none';
   document.getElementById('driveConnected').style.display = 'none';
   document.getElementById('driveFileList').innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0">Завантаження…</div>';
@@ -3195,6 +3198,10 @@ async function openDriveModal() {
     const r = await fetch('/api/backup/drive/status');
     const { connected } = await r.json();
     if (connected) {
+      if (showSuccess) {
+        banner.style.cssText = 'display:block;background:rgba(52,211,153,.12);color:#34d399;border:1px solid rgba(52,211,153,.3);border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:14px';
+        banner.textContent = '✅ Google Drive успішно підключено!';
+      }
       document.getElementById('driveConnected').style.display = 'block';
       loadDriveFileList();
     } else {

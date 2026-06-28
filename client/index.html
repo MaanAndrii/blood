@@ -1279,13 +1279,13 @@
       <div id="bmiCardBody"></div>
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
       <div class="stat-card" id="minBpCard" style="margin:0">
-        <div class="stat-title">⬇️ Мінімальний тиск</div>
+        <div class="stat-title">⬇️ Мінімум</div>
         <div id="minBpCardBody"></div>
       </div>
       <div class="stat-card" id="maxBpCard" style="margin:0">
-        <div class="stat-title">⬆️ Максимальний тиск</div>
+        <div class="stat-title">⬆️ Максимум</div>
         <div id="maxBpCardBody"></div>
       </div>
     </div>
@@ -1752,7 +1752,7 @@
 <script>
 // ── DATA LAYER ──────────────────────────────────────────────────────────────
 const DB_KEY        = 'health_entries_v2';
-const APP_VERSION   = '2.17';
+const APP_VERSION   = '2.18';
 const REMINDER_KEY  = 'health_reminders';
 
 // ── Constants (U) ────────────────────────────────────────────────────────────
@@ -3768,32 +3768,39 @@ function renderCharts() {
 
   // ── Min/Max BP cards ─────────────────────────────────────────────────────
   (function renderMinMaxCards() {
-    function minOf(arr) { const a = arr.filter(x=>x!=null); return a.length ? Math.min(...a) : null; }
-    function maxOf(arr) { const a = arr.filter(x=>x!=null); return a.length ? Math.max(...a) : null; }
-    function cardRow(label, val, unit) {
-      return val != null
-        ? `<div class="stat-row"><span>${label}</span><span>${val} ${unit}</span></div>`
-        : '';
+    function minOf(arr) { const a = arr.filter(x => x != null); return a.length ? Math.min(...a) : null; }
+    function maxOf(arr) { const a = arr.filter(x => x != null); return a.length ? Math.max(...a) : null; }
+    function row(label, minV, maxV, unit) {
+      if (minV == null && maxV == null) return '';
+      const m = minV != null ? minV + ' ' + unit : '—';
+      const x = maxV != null ? maxV + ' ' + unit : '—';
+      return { label, min: m, max: x };
     }
-    const sysSrc = data.map(e => e.morning.sys_l ?? e.morning.sys_r);
-    const diaSrc = data.map(e => e.morning.dia_l ?? e.morning.dia_r);
-    const eSys   = data.map(e => e.evening.sys_l ?? e.evening.sys_r);
-    const eDia   = data.map(e => e.evening.dia_l ?? e.evening.dia_r);
-    const pulse  = data.map(e => e.morning.pulse ?? e.morning.pulse_l ?? e.morning.pulse_r);
-    const allSys = [...sysSrc, ...eSys];
-    const allDia = [...diaSrc, ...eDia];
 
-    const minSys = minOf(allSys), minDia = minOf(allDia), minP = minOf(pulse);
-    const maxSys = maxOf(allSys), maxDia = maxOf(allDia), maxP = maxOf(pulse);
+    // Each column is kept separate — no mixing of hands or periods
+    const cols = [
+      row('Сист. ранок Л',  minOf(data.map(e=>e.morning.sys_l)),  maxOf(data.map(e=>e.morning.sys_l)),  'мм'),
+      row('Сист. ранок П',  minOf(data.map(e=>e.morning.sys_r)),  maxOf(data.map(e=>e.morning.sys_r)),  'мм'),
+      row('Сист. вечір Л',  minOf(data.map(e=>e.evening.sys_l)),  maxOf(data.map(e=>e.evening.sys_l)),  'мм'),
+      row('Сист. вечір П',  minOf(data.map(e=>e.evening.sys_r)),  maxOf(data.map(e=>e.evening.sys_r)),  'мм'),
+      row('Діаст. ранок Л', minOf(data.map(e=>e.morning.dia_l)),  maxOf(data.map(e=>e.morning.dia_l)),  'мм'),
+      row('Діаст. ранок П', minOf(data.map(e=>e.morning.dia_r)),  maxOf(data.map(e=>e.morning.dia_r)),  'мм'),
+      row('Діаст. вечір Л', minOf(data.map(e=>e.evening.dia_l)),  maxOf(data.map(e=>e.evening.dia_l)),  'мм'),
+      row('Діаст. вечір П', minOf(data.map(e=>e.evening.dia_r)),  maxOf(data.map(e=>e.evening.dia_r)),  'мм'),
+      row('Пульс ранок',    minOf(data.map(e=>e.morning.pulse_l ?? e.morning.pulse)), maxOf(data.map(e=>e.morning.pulse_l ?? e.morning.pulse)), 'уд/хв'),
+      row('Пульс вечір',    minOf(data.map(e=>e.evening.pulse_l ?? e.evening.pulse)), maxOf(data.map(e=>e.evening.pulse_l ?? e.evening.pulse)), 'уд/хв'),
+    ].filter(Boolean);
 
     const noData = `<div style="color:var(--muted);font-size:12px;padding:6px 0">Немає даних</div>`;
+    const statRow = (label, val) =>
+      `<div class="stat-row"><span>${label}</span><span>${val}</span></div>`;
 
-    document.getElementById('minBpCardBody').innerHTML = (minSys || minDia || minP)
-      ? cardRow('Систолічний', minSys, 'мм') + cardRow('Діастолічний', minDia, 'мм') + cardRow('Пульс', minP, 'уд/хв')
+    document.getElementById('minBpCardBody').innerHTML = cols.length
+      ? cols.map(c => statRow(c.label, c.min)).join('')
       : noData;
 
-    document.getElementById('maxBpCardBody').innerHTML = (maxSys || maxDia || maxP)
-      ? cardRow('Систолічний', maxSys, 'мм') + cardRow('Діастолічний', maxDia, 'мм') + cardRow('Пульс', maxP, 'уд/хв')
+    document.getElementById('maxBpCardBody').innerHTML = cols.length
+      ? cols.map(c => statRow(c.label, c.max)).join('')
       : noData;
   })();
 

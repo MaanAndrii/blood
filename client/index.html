@@ -1295,6 +1295,8 @@
       <div id="mapCardBody"></div>
     </div>
 
+    <div id="whoEshCard"></div>
+
     <div class="stat-card" id="avgStats">
       <div class="stat-title">📊 Середні значення</div>
       <div id="avgStatsBody"></div>
@@ -1309,8 +1311,6 @@
       <div class="stat-title" title="r Пірсона: від −1 (обернена залежність) до +1 (пряма залежність). Значення ближче до 0 — зв'язок відсутній.">🔗 Кореляційний аналіз (r Пірсона) ℹ️</div>
       <div id="corrStatsBody"></div>
     </div>
-
-    <div id="whoEshCard" style="margin-bottom:10px"></div>
 
     <div style="font-size:11px;color:var(--muted);text-align:center;padding:4px 0 14px;line-height:1.5">
       Інсайти та аналіз — довідково. Це не медичний діагноз — зверніться до лікаря.
@@ -1759,7 +1759,7 @@
 <script>
 // ── DATA LAYER ──────────────────────────────────────────────────────────────
 const DB_KEY        = 'health_entries_v2';
-const APP_VERSION   = '2.20';
+const APP_VERSION   = '2.21';
 const REMINDER_KEY  = 'health_reminders';
 
 // ── Constants (U) ────────────────────────────────────────────────────────────
@@ -3826,13 +3826,16 @@ function renderCharts() {
     }
     const map = Math.round((avgS + 2 * avgD) / 3);
     let mapLabel, mapColor;
-    if      (map < 70)  { mapLabel = 'Знижений';            mapColor = '#60a5fa'; }
-    else if (map <= 100) { mapLabel = 'Норма';              mapColor = '#22c55e'; }
-    else if (map <= 110) { mapLabel = 'Підвищений';         mapColor = '#f97316'; }
-    else                 { mapLabel = 'Значно підвищений';  mapColor = '#ef4444'; }
+    if      (map < 70)   { mapLabel = 'Знижений';           mapColor = '#60a5fa'; }
+    else if (map <= 100) { mapLabel = 'Норма';               mapColor = '#22c55e'; }
+    else if (map <= 110) { mapLabel = 'Підвищений';          mapColor = '#f97316'; }
+    else                 { mapLabel = 'Значно підвищений';   mapColor = '#ef4444'; }
     el.innerHTML = `
-      <div style="font-size:26px;font-weight:700;color:${mapColor}">${map}<span style="font-size:14px;font-weight:400;margin-left:5px">мм рт.ст.</span></div>
-      <div style="font-size:13px;color:${mapColor};margin-top:4px">${mapLabel}</div>`;
+      <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
+        <span style="font-size:26px;font-weight:700;color:${mapColor}">${map}<span style="font-size:14px;font-weight:400;margin-left:4px">мм рт.ст.</span></span>
+        <span style="font-size:13px;font-weight:600;color:${mapColor}">${mapLabel}</span>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:5px">Відображає перфузійний тиск органів. Норма: 70–100 мм рт.ст.</div>`;
   })();
   const avgStats = [
     ['Сист. ранок — ліва', avgOf(data.map(e=>e.morning.sys_l)), 'мм', 'val-sys'],
@@ -3896,7 +3899,10 @@ function renderCharts() {
       const el = document.getElementById('whoEshCard');
       if (!cat) { el.style.display = 'none'; return; }
       el.style.display = '';
-      el.innerHTML = `<div style="padding:11px 16px;border-left:4px solid ${cat.color};background:color-mix(in srgb,${cat.color} 12%,transparent);border-radius:10px;font-size:14px;font-weight:600;color:${cat.color}">WHO/ESH 2023: ${cat.label}</div>`;
+      el.innerHTML = `<div class="stat-card" style="margin-bottom:10px;padding:12px 16px;border-left:4px solid ${cat.color};background:color-mix(in srgb,${cat.color} 10%,var(--card))">
+        <span style="font-size:14px;font-weight:700;color:${cat.color}">WHO/ESH 2023:</span>
+        <span style="font-size:14px;font-weight:600;color:${cat.color};margin-left:6px">${cat.label}</span>
+      </div>`;
     })();
 
     // — Correlation analysis (requires N≥10 for statistical reliability) —

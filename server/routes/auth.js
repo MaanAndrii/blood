@@ -7,6 +7,7 @@ const crypto = require('crypto');
 const { pool } = require('../db');
 const { getEffectiveTier } = require('../config/tiers');
 const { driveAuthUrl, exchangeCode } = require('../services/drive');
+const { sendResetEmail } = require('../services/email');
 const { requireAuth } = require('../middleware/auth');
 
 const router = express.Router();
@@ -233,6 +234,80 @@ router.post('/login', async (req, res) => {
   }
 });
 
+// ── Forgot password ───────────────────────────────────────────────────────────
+
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body ?? {};
+    if (!email) return res.status(400).json({ error: 'email required' });
+
+    const result = await pool.query(
+      'SELECT id, email FROM users WHERE email = $1',
+      [email.toLowerCase().trim()]
+    );
+
+    if (result.rows.length) {
+      const user = result.rows[0];
+      const rawToken = crypto.randomBytes(32).toString('hex');
+      const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+      await pool.query(
+        `INSERT INTO password_reset_tokens (user_id, token_hash, expires_at)
+         VALUES ($1, $2, $3)`,
+        [user.id, tokenHash, expiresAt]
+      );
+
+      const appUrl = process.env.APP_URL || 'https://bpbmi.pp.ua';
+      const resetLink = `${appUrl}/reset-password?token=${rawToken}`;
+      sendResetEmail(user.email, resetLink).catch(err =>
+        console.error('[email] sendResetEmail failed:', err.message)
+      );
+    }
+
+    // Always respond OK — never reveal whether email exists
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('POST /api/auth/forgot-password error:', err);
+    res.status(500).json({ error: 'Помилка сервера' });
+  }
+});
+
+// ── Reset password (from email token) ────────────────────────────────────────
+
+router.post('/reset-password', async (req, res) => {
+  try {
+    const { token, password } = req.body ?? {};
+    if (!token || !password) {
+      return res.status(400).json({ error: 'token and password required' });
+    }
+    if (password.length < 8) {
+      return res.status(400).json({ error: 'Пароль має містити мінімум 8 символів' });
+    }
+
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const result = await pool.query(
+      `SELECT id, user_id FROM password_reset_tokens
+       WHERE token_hash = $1 AND used_at IS NULL AND expires_at > NOW()`,
+      [tokenHash]
+    );
+    if (!result.rows.length) {
+      return res.status(400).json({ error: 'Посилання недійсне або вже використане' });
+    }
+
+    const { id: tokenId, user_id } = result.rows[0];
+    const hash = await bcrypt.hash(password, 10);
+
+    await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hash, user_id]);
+    await pool.query('UPDATE password_reset_tokens SET used_at = NOW() WHERE id = $1', [tokenId]);
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('POST /api/auth/reset-password error:', err);
+    res.status(500).json({ error: 'Помилка сервера' });
+  }
+});
+
 // ── Logout ────────────────────────────────────────────────────────────────────
 
 router.post('/logout', (req, res) => {
@@ -256,7 +331,8 @@ router.get('/me', async (req, res) => {
       `SELECT id, email, name, avatar_url, is_admin, date_of_birth, created_at,
               subscription_tier, subscription_expires_at,
               reminders_enabled, reminder_morning, reminder_evening,
-              height_cm, timezone
+              height_cm, timezone,
+              (password_hash IS NOT NULL) AS has_password
        FROM users WHERE id = $1`,
       [payload.id]
     );

@@ -1464,6 +1464,18 @@
     </div>
 
     <hr style="border:none;border-top:1px solid var(--border);margin:16px 0 14px" />
+
+    <!-- Change / set password -->
+    <div id="changePwSection" style="margin-bottom:14px">
+      <div style="font-size:13px;font-weight:600;margin-bottom:10px" id="changePwTitle">Змінити пароль</div>
+      <div id="changePwCurrentWrap" style="margin-bottom:10px">
+        <input type="password" id="changePwCurrent" class="profile-input" placeholder="Поточний пароль" autocomplete="current-password" />
+      </div>
+      <input type="password" id="changePwNew" class="profile-input" placeholder="Новий пароль (мін. 8 символів)" autocomplete="new-password" style="margin-bottom:8px" />
+      <button class="btn-save" style="width:100%;margin-top:0" id="btnChangePw" onclick="changePassword()">Зберегти новий пароль</button>
+    </div>
+
+    <hr style="border:none;border-top:1px solid var(--border);margin:16px 0 14px" />
     <div style="font-size:11px;color:var(--muted);margin-bottom:10px">
       Зона небезпеки · <a href="#" onclick="openPrivacyModal();return false" style="color:var(--accent);text-decoration:none">Політика конфіденційності</a>
     </div>
@@ -1717,7 +1729,7 @@
 <script>
 // ── DATA LAYER ──────────────────────────────────────────────────────────────
 const DB_KEY        = 'health_entries_v2';
-const APP_VERSION   = '2.11';
+const APP_VERSION   = '2.12';
 const REMINDER_KEY  = 'health_reminders';
 
 // ── Constants (U) ────────────────────────────────────────────────────────────
@@ -2057,12 +2069,44 @@ function openProfileModal() {
   heightInput.value = currentUser.height_cm || '';
   _updateProfileBmi();
   heightInput.addEventListener('input', _updateProfileBmi);
+
+  // Password section: show "Поточний пароль" only if user already has one
+  const hasPw = currentUser.has_password;
+  document.getElementById('changePwTitle').textContent = hasPw ? 'Змінити пароль' : 'Встановити пароль';
+  document.getElementById('changePwCurrentWrap').style.display = hasPw ? '' : 'none';
+  document.getElementById('changePwCurrent').value = '';
+  document.getElementById('changePwNew').value = '';
+
   document.getElementById('profileModal').classList.add('open');
 }
 
 function closeProfileModal() {
   document.getElementById('profileModal').classList.remove('open');
   document.getElementById('profileHeight').removeEventListener('input', _updateProfileBmi);
+}
+
+async function changePassword() {
+  const current_password = document.getElementById('changePwCurrent').value;
+  const new_password     = document.getElementById('changePwNew').value;
+  if (new_password.length < 8) { showToast('⚠️ Пароль має містити мінімум 8 символів', 'var(--warn)'); return; }
+  const btn = document.getElementById('btnChangePw');
+  btn.disabled = true;
+  try {
+    const r = await fetch('/api/users/me/change-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ current_password: current_password || undefined, new_password }),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) { showToast('⚠️ ' + (data.error || 'Помилка'), 'var(--warn)'); return; }
+    document.getElementById('changePwCurrent').value = '';
+    document.getElementById('changePwNew').value = '';
+    currentUser.has_password = true;
+    document.getElementById('changePwTitle').textContent = 'Змінити пароль';
+    document.getElementById('changePwCurrentWrap').style.display = '';
+    showToast('✅ Пароль змінено');
+  } catch { showToast('⚠️ Помилка мережі', 'var(--warn)'); }
+  finally { btn.disabled = false; }
 }
 
 async function saveProfile() {

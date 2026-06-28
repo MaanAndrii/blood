@@ -72,6 +72,20 @@ async function initDb() {
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS drive_refresh_token TEXT`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS drive_token_expires_at TIMESTAMPTZ`);
 
+  // Password reset tokens (email-based flow)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS password_reset_tokens (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      token_hash TEXT NOT NULL UNIQUE,
+      expires_at TIMESTAMPTZ NOT NULL,
+      used_at TIMESTAMPTZ
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_prt_token_hash ON password_reset_tokens(token_hash)
+  `);
+
   await pool.query(`
     CREATE INDEX IF NOT EXISTS idx_entries_user_date
     ON entries(user_id, date DESC)

@@ -159,29 +159,33 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
-// POST /api/users/:id/reset-password — admin only: set a new password for any user
-router.post('/:id/reset-password', requireAuth, requireAdmin, async (req, res) => {
+// POST /api/users/me/change-password — authenticated user changes their own password
+router.post('/me/change-password', requireAuth, async (req, res) => {
   try {
-    const userId = parseInt(req.params.id, 10);
-    if (isNaN(userId)) return res.status(400).json({ error: 'Invalid user id' });
+    const bcrypt = require('bcryptjs');
+    const { current_password, new_password } = req.body ?? {};
 
-    const { password } = req.body;
-    if (!password || password.length < 8) {
-      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    if (!new_password || new_password.length < 8) {
+      return res.status(400).json({ error: 'Новий пароль має містити мінімум 8 символів' });
     }
 
-    const bcrypt = require('bcryptjs');
-    const hash = await bcrypt.hash(password, 10);
+    const result = await pool.query('SELECT password_hash FROM users WHERE id = $1', [req.user.id]);
+    const user = result.rows[0];
 
-    const result = await pool.query(
-      'UPDATE users SET password_hash = $1 WHERE id = $2 RETURNING id',
-      [hash, userId]
-    );
-    if (!result.rows.length) return res.status(404).json({ error: 'User not found' });
+    if (user.password_hash) {
+      if (!current_password) {
+        return res.status(400).json({ error: 'Введіть поточний пароль' });
+      }
+      const valid = await bcrypt.compare(current_password, user.password_hash);
+      if (!valid) return res.status(401).json({ error: 'Невірний поточний пароль' });
+    }
+
+    const hash = await bcrypt.hash(new_password, 10);
+    await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hash, req.user.id]);
 
     res.json({ ok: true });
   } catch (err) {
-    console.error('POST /api/users/:id/reset-password error:', err);
+    console.error('POST /api/users/me/change-password error:', err);
     res.status(500).json({ error: 'Database error' });
   }
 });

@@ -223,22 +223,6 @@
   </div>
 </main>
 
-<!-- Password reset modal -->
-<div class="modal-overlay" id="adminPwModal" onclick="if(event.target===this)closeResetPwModal()">
-  <div class="modal-box">
-    <div class="modal-title" id="adminPwTitle">Скинути пароль</div>
-    <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Введіть новий пароль для цього користувача</div>
-    <input id="adminNewPw" type="password" placeholder="Новий пароль (мін. 8 символів)"
-      style="width:100%;padding:10px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:14px;font-family:var(--font);outline:none;transition:border-color .15s;margin-bottom:14px"
-      onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"
-      onkeydown="if(event.key==='Enter')saveResetPassword()" />
-    <div class="modal-actions">
-      <button class="btn btn-outline" style="flex:1" onclick="closeResetPwModal()">Скасувати</button>
-      <button class="btn btn-primary" style="flex:2" id="btnSavePw" onclick="saveResetPassword()">Зберегти пароль</button>
-    </div>
-  </div>
-</div>
-
 <!-- Tier modal -->
 <div class="modal-overlay" id="adminTierModal" onclick="if(event.target===this)closeAdminTierModal()">
   <div class="modal-box">
@@ -366,10 +350,7 @@ function renderAdminUsers() {
         <div><span class="user-tier-badge ${tierClass}">${tierLabel}</span>${expiryBadge}</div>
         <div class="admin-stats">Записів: ${u.entry_count||0} · Останній: ${lastEntry}<br>В системі з: ${joined}</div>
       </div>
-      <div style="display:flex;flex-direction:column;gap:6px;margin-top:2px">
-        <button class="btn btn-outline btn-sm" onclick="openAdminTierModal(${u.id})">Доступ</button>
-        <button class="btn btn-outline btn-sm" onclick="openResetPwModal(${u.id})">🔑 Пароль</button>
-      </div>
+      <button class="btn btn-outline btn-sm" style="margin-top:2px" onclick="openAdminTierModal(${u.id})">Доступ</button>
     </div>`;
   }).join('');
 }
@@ -426,43 +407,6 @@ async function saveTier() {
     showToast('✅ Доступ оновлено');
   } catch(err) {
     showToast('⚠️ '+err.message,'var(--warn)');
-  } finally {
-    btn.disabled = false;
-  }
-}
-
-// ── Password reset ────────────────────────────────────────────────────────────
-let _resetPwUserId = null;
-
-function openResetPwModal(userId) {
-  const user = _adminUsers.find(u => u.id === userId);
-  if (!user) return;
-  _resetPwUserId = userId;
-  document.getElementById('adminPwTitle').textContent = `Пароль: ${user.name || user.email}`;
-  document.getElementById('adminNewPw').value = '';
-  document.getElementById('adminPwModal').classList.add('open');
-  setTimeout(() => document.getElementById('adminNewPw').focus(), 100);
-}
-function closeResetPwModal() {
-  document.getElementById('adminPwModal').classList.remove('open');
-  _resetPwUserId = null;
-}
-async function saveResetPassword() {
-  const pw = document.getElementById('adminNewPw').value;
-  if (pw.length < 8) { showToast('⚠️ Мін. 8 символів', 'var(--warn)'); return; }
-  const btn = document.getElementById('btnSavePw');
-  btn.disabled = true;
-  try {
-    const r = await fetch(`/api/users/${_resetPwUserId}/reset-password`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password: pw }),
-    });
-    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'Помилка');
-    closeResetPwModal();
-    showToast('✅ Пароль змінено');
-  } catch (err) {
-    showToast('⚠️ ' + err.message, 'var(--warn)');
   } finally {
     btn.disabled = false;
   }

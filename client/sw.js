@@ -1,5 +1,5 @@
-const CACHE = 'health-v25';
-const API_CACHE = 'health-api-v25';
+const CACHE = 'health-v26';
+const API_CACHE = 'health-api-v26';
 
 const STATIC_SHELL = [
   '/manifest.json',

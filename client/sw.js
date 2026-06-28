@@ -1,7 +1,8 @@
-const CACHE = 'health-v29';
-const API_CACHE = 'health-api-v29';
+const CACHE = 'health-v30';
+const API_CACHE = 'health-api-v30';
 
 const STATIC_SHELL = [
+  '/offline.html',
   '/manifest.json',
   '/icons/favicon.svg',
   '/icons/icon-192.png',
@@ -63,8 +64,13 @@ self.addEventListener('fetch', e => {
   }
 
   // HTML navigation — bypass HTTP cache (content is auth-dependent)
+  // Fall back to offline page if server is unreachable
   if (request.mode === 'navigate') {
-    e.respondWith(fetch(request, { cache: 'no-store' }));
+    e.respondWith(
+      fetch(request, { cache: 'no-store' }).catch(() =>
+        caches.match('/offline.html')
+      )
+    );
     return;
   }
 

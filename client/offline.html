@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BP & BMI — Сервер недоступний</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f1729;
+      color: #e8edf8;
+      min-height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      background: #1a2744;
+      border: 1px solid #2a3f6f;
+      border-radius: 16px;
+      padding: 36px 28px;
+      max-width: 360px;
+      width: 100%;
+      text-align: center;
+    }
+    .icon { font-size: 48px; margin-bottom: 20px; }
+    .logo { font-size: 22px; font-weight: 800; color: #e85249; margin-bottom: 4px; }
+    .title { font-size: 16px; font-weight: 600; color: #e8edf8; margin-bottom: 10px; }
+    .desc { font-size: 13px; color: #7a8fb5; line-height: 1.6; margin-bottom: 28px; }
+    .btn {
+      background: #e85249;
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      padding: 13px 0;
+      width: 100%;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .btn:active { opacity: .8; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">📡</div>
+    <div class="logo">BP &amp; BMI</div>
+    <div class="title">Сервер тимчасово недоступний</div>
+    <div class="desc">Не вдалося підключитися до сервера.<br>Перевірте з'єднання і спробуйте ще раз.</div>
+    <button class="btn" onclick="location.reload()">Спробувати знову</button>
+  </div>
+</body>
+</html>

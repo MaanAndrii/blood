@@ -1759,7 +1759,7 @@
 <script>
 // ── DATA LAYER ──────────────────────────────────────────────────────────────
 const DB_KEY        = 'health_entries_v2';
-const APP_VERSION   = '2.21';
+const APP_VERSION   = '2.22';
 const REMINDER_KEY  = 'health_reminders';
 
 // ── Constants (U) ────────────────────────────────────────────────────────────
@@ -3837,24 +3837,32 @@ function renderCharts() {
       </div>
       <div style="font-size:11px;color:var(--muted);margin-top:5px">Відображає перфузійний тиск органів. Норма: 70–100 мм рт.ст.</div>`;
   })();
-  const avgStats = [
-    ['Сист. ранок — ліва', avgOf(data.map(e=>e.morning.sys_l)), 'мм', 'val-sys'],
-    ['Сист. ранок — права', avgOf(data.map(e=>e.morning.sys_r)), 'мм', 'val-sys'],
-    ['Діаст. ранок — ліва', avgOf(data.map(e=>e.morning.dia_l)), 'мм', 'val-dia'],
-    ['Діаст. ранок — права', avgOf(data.map(e=>e.morning.dia_r)), 'мм', 'val-dia'],
-    ['Сист. вечір — ліва', avgOf(data.map(e=>e.evening.sys_l)), 'мм', 'val-sys'],
-    ['Сист. вечір — права', avgOf(data.map(e=>e.evening.sys_r)), 'мм', 'val-sys'],
-    ['Діаст. вечір — ліва', avgOf(data.map(e=>e.evening.dia_l)), 'мм', 'val-dia'],
-    ['Діаст. вечір — права', avgOf(data.map(e=>e.evening.dia_r)), 'мм', 'val-dia'],
-    ['Пульс ранок', avgOf(data.map(e=>e.morning.pulse)), 'уд/хв', 'val-pulse'],
-    ['Пульс вечір', avgOf(data.map(e=>e.evening.pulse)), 'уд/хв', 'val-pulse'],
-  ];
-  document.getElementById('avgStatsBody').innerHTML = avgStats.map(([label, value, unit, cls]) =>
-    `<div class="stat-row">
-      <span>${label}</span>
-      <span class="${cls}">${value != null ? value + ' ' + unit : '—'}</span>
-    </div>`
-  ).join('');
+  function _hcolBp(sysArr, diaArr, color) {
+    const s = avgOf(sysArr), d = avgOf(diaArr);
+    return `<span style="color:${color}">${s ?? '—'}&thinsp;/&thinsp;${d ?? '—'}</span><span style="color:var(--muted);font-size:11px"> мм</span>`;
+  }
+  function _hcolPulse(arr) {
+    const v = avgOf(arr);
+    return `<span style="color:var(--accent2)">${v ?? '—'}</span><span style="color:var(--muted);font-size:11px"> уд/хв</span>`;
+  }
+  function _hcolRow(label, inner) {
+    return `<div class="hcol-row"><div class="hcol-row-label">${label}</div><div class="hcol-row-val">${inner}</div></div>`;
+  }
+  document.getElementById('avgStatsBody').innerHTML = `
+    <div class="history-body">
+      <div class="history-col">
+        <div class="history-col-title" style="color:var(--morning)">🌅 Ранок</div>
+        ${_hcolRow('Ліва рука', _hcolBp(data.map(e=>e.morning.sys_l), data.map(e=>e.morning.dia_l), 'var(--morning)'))}
+        ${_hcolRow('Права рука', _hcolBp(data.map(e=>e.morning.sys_r), data.map(e=>e.morning.dia_r), 'var(--morning)'))}
+        ${_hcolRow('Пульс', _hcolPulse(data.map(e=>e.morning.pulse)))}
+      </div>
+      <div class="history-col">
+        <div class="history-col-title" style="color:var(--evening)">🌙 Вечір</div>
+        ${_hcolRow('Ліва рука', _hcolBp(data.map(e=>e.evening.sys_l), data.map(e=>e.evening.dia_l), 'var(--evening)'))}
+        ${_hcolRow('Права рука', _hcolBp(data.map(e=>e.evening.sys_r), data.map(e=>e.evening.dia_r), 'var(--evening)'))}
+        ${_hcolRow('Пульс', _hcolPulse(data.map(e=>e.evening.pulse)))}
+      </div>
+    </div>`;
 
   // — Extended statistics —
   if (data.length >= 3) { // correlation guard uses its own threshold of 10 below
@@ -3875,18 +3883,29 @@ function renderCharts() {
     const dailyIdx = (avgMSys != null && avgESys != null && avgMSys > 0)
       ? Math.round((avgMSys - avgESys) / avgMSys * 100 * 10) / 10 : null;
 
-    const extRows = [
-      ['Медіана Сист. ранок Л / П', `${statMedian(mSysL) ?? '—'} / ${statMedian(mSysR) ?? '—'}`, 'мм'],
-      ['Медіана Сист. вечір Л / П', `${statMedian(eSysL) ?? '—'} / ${statMedian(eSysR) ?? '—'}`, 'мм'],
-      ['Медіана Діаст. ранок Л / П', `${statMedian(mDiaL) ?? '—'} / ${statMedian(mDiaR) ?? '—'}`, 'мм'],
-      ['Медіана Діаст. вечір Л / П', `${statMedian(eDiaL) ?? '—'} / ${statMedian(eDiaR) ?? '—'}`, 'мм'],
-      ['Ст. відхилення Сист. ранок Л', statStdDev(mSysL), 'мм'],
-      ['Ст. відхилення Сист. вечір Л', statStdDev(eSysL), 'мм'],
-      ['Денний індекс (ранок−вечір)/ранок', dailyIdx != null ? dailyIdx + ' %' : '—', ''],
-    ];
-    document.getElementById('extStatsBody').innerHTML = extRows.map(([label, value, unit]) =>
-      `<div class="stat-row"><span>${label}</span><span>${value != null ? value + (unit ? ' ' + unit : '') : '—'}</span></div>`
-    ).join('');
+    function _extVal(v, unit) { return `<span>${v ?? '—'}${unit ? `<span style="color:var(--muted);font-size:11px"> ${unit}</span>` : ''}</span>`; }
+    function _extPair(vL, vR, unit) {
+      return `<span style="font-family:var(--mono);font-size:13px;font-weight:500">${vL ?? '—'}&thinsp;/&thinsp;${vR ?? '—'}<span style="color:var(--muted);font-size:11px"> ${unit}</span></span>`;
+    }
+    document.getElementById('extStatsBody').innerHTML = `
+      <div class="history-body">
+        <div class="history-col">
+          <div class="history-col-title" style="color:var(--morning)">🌅 Ранок</div>
+          ${_hcolRow('Медіана Сист. Л / П', _extPair(statMedian(mSysL), statMedian(mSysR), 'мм'))}
+          ${_hcolRow('Медіана Діаст. Л / П', _extPair(statMedian(mDiaL), statMedian(mDiaR), 'мм'))}
+          ${_hcolRow('Ст. відхил. Сист. Л', _extVal(statStdDev(mSysL), 'мм'))}
+        </div>
+        <div class="history-col">
+          <div class="history-col-title" style="color:var(--evening)">🌙 Вечір</div>
+          ${_hcolRow('Медіана Сист. Л / П', _extPair(statMedian(eSysL), statMedian(eSysR), 'мм'))}
+          ${_hcolRow('Медіана Діаст. Л / П', _extPair(statMedian(eDiaL), statMedian(eDiaR), 'мм'))}
+          ${_hcolRow('Ст. відхил. Сист. Л', _extVal(statStdDev(eSysL), 'мм'))}
+        </div>
+      </div>
+      <div class="history-row" style="margin-top:8px">
+        <span class="history-row-label">Денний індекс (ранок−вечір)/ранок</span>
+        <span class="history-row-val">${dailyIdx != null ? dailyIdx + ' %' : '—'}</span>
+      </div>`;
 
     // — WHO/ESH 2023 card —
     (function renderWhoEshCard() {

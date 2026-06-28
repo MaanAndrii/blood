@@ -6,7 +6,7 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const { pool } = require('../db');
 const { getEffectiveTier } = require('../config/tiers');
-const { driveAuthUrl, exchangeCode } = require('../services/drive');
+const { driveAuthUrl, exchangeCode, verifyDriveState } = require('../services/drive');
 const { sendResetEmail } = require('../services/email');
 const { requireAuth } = require('../middleware/auth');
 
@@ -132,7 +132,7 @@ router.get('/google/drive/callback', async (req, res) => {
   if (error || !code || !state) return res.redirect('/?error=drive_denied');
 
   try {
-    const userId = parseInt(Buffer.from(state, 'base64').toString(), 10);
+    const userId = verifyDriveState(state);
     if (!userId) return res.redirect('/?error=drive_bad_state');
 
     const tokens = await exchangeCode(code);

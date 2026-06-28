@@ -2,6 +2,7 @@ const express = require('express');
 const { pool } = require('../db');
 const { requireAuth } = require('../middleware/auth');
 const { getEffectiveTier, getTierConfig } = require('../config/tiers');
+const { validateEntry } = require('../utils/validateEntry');
 
 const router = express.Router();
 
@@ -70,38 +71,8 @@ router.post('/', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD' });
     }
 
-    const inRange = (v, min, max) => v == null || (Number.isInteger(Number(v)) && v >= min && v <= max);
-    const bpFields = [
-      ['morning.sys_l', morning.sys_l, 70, 220], ['morning.dia_l', morning.dia_l, 50, 130],
-      ['morning.sys_r', morning.sys_r, 70, 220], ['morning.dia_r', morning.dia_r, 50, 130],
-      ['morning.pulse',   morning.pulse,   30, 200],
-      ['morning.pulse_l', morning.pulse_l, 30, 200],
-      ['morning.pulse_r', morning.pulse_r, 30, 200],
-      ['evening.sys_l', evening.sys_l, 70, 220], ['evening.dia_l', evening.dia_l, 50, 130],
-      ['evening.sys_r', evening.sys_r, 70, 220], ['evening.dia_r', evening.dia_r, 50, 130],
-      ['evening.pulse',   evening.pulse,   30, 200],
-      ['evening.pulse_l', evening.pulse_l, 30, 200],
-      ['evening.pulse_r', evening.pulse_r, 30, 200],
-    ];
-    for (const [name, val, min, max] of bpFields) {
-      if (!inRange(val, min, max)) {
-        return res.status(400).json({ error: `${name} must be between ${min} and ${max}` });
-      }
-    }
-    const bpPairs = [
-      ['morning.sys_l/dia_l', morning.sys_l, morning.dia_l],
-      ['morning.sys_r/dia_r', morning.sys_r, morning.dia_r],
-      ['evening.sys_l/dia_l', evening.sys_l, evening.dia_l],
-      ['evening.sys_r/dia_r', evening.sys_r, evening.dia_r],
-    ];
-    for (const [label, sys, dia] of bpPairs) {
-      if (sys != null && dia != null && sys <= dia) {
-        return res.status(400).json({ error: `${label}: systolic must be greater than diastolic` });
-      }
-    }
-    if (weight != null && (isNaN(weight) || weight < 20 || weight > 300)) {
-      return res.status(400).json({ error: 'weight must be between 20 and 300 kg' });
-    }
+    const validErr = validateEntry(morning, evening, weight);
+    if (validErr) return res.status(400).json({ error: validErr });
 
     const result = await pool.query(
       `INSERT INTO entries (

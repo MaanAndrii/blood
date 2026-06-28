@@ -54,6 +54,23 @@ app.use((req, res, next) => {
   next();
 });
 
+// CSRF: verify Origin/Referer on all state-changing API requests.
+// Google OAuth callbacks are GET and don't carry a cookie body — exempt.
+app.use('/api/', (req, res, next) => {
+  if (!['POST','PUT','PATCH','DELETE'].includes(req.method)) return next();
+  const origin = req.headers['origin'] || req.headers['referer'];
+  if (!origin) return next(); // server-to-server / curl — no browser cookie anyway
+  const appOrigin = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
+  try {
+    if (new URL(origin).origin !== new URL(appOrigin).origin) {
+      return res.status(403).json({ error: 'Invalid origin' });
+    }
+  } catch {
+    return res.status(403).json({ error: 'Invalid origin' });
+  }
+  next();
+});
+
 // ── Health check (no auth required — used by monitoring/Cloudflare) ─────────
 app.get('/api/health', async (req, res) => {
   try {

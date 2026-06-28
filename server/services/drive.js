@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const { pool } = require('../db');
 
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
@@ -5,8 +6,29 @@ const DRIVE_API = 'https://www.googleapis.com/drive/v3';
 const DRIVE_UPLOAD = 'https://www.googleapis.com/upload/drive/v3';
 const FOLDER_NAME = 'BP & BMI Backup';
 
+// Sign Drive OAuth state with HMAC-SHA256 so it can't be forged.
+// Payload: "<userId>.<nonce>.<expiresAt>", signed with JWT_SECRET.
+function signDriveState(userId) {
+  const nonce = crypto.randomBytes(16).toString('hex');
+  const exp   = Date.now() + 10 * 60 * 1000; // 10 min
+  const payload = `${userId}.${nonce}.${exp}`;
+  const sig = crypto.createHmac('sha256', process.env.JWT_SECRET).update(payload).digest('hex');
+  return `${payload}.${sig}`;
+}
+
+function verifyDriveState(state) {
+  const parts = (state || '').split('.');
+  if (parts.length !== 4) return null;
+  const [userId, nonce, exp, sig] = parts;
+  const payload = `${userId}.${nonce}.${exp}`;
+  const expected = crypto.createHmac('sha256', process.env.JWT_SECRET).update(payload).digest('hex');
+  if (!crypto.timingSafeEqual(Buffer.from(sig, 'hex'), Buffer.from(expected, 'hex'))) return null;
+  if (Date.now() > parseInt(exp, 10)) return null;
+  return parseInt(userId, 10) || null;
+}
+
 function driveAuthUrl(userId) {
-  const state = Buffer.from(String(userId)).toString('base64');
+  const state = signDriveState(userId);
   const params = new URLSearchParams({
     client_id:     process.env.GOOGLE_CLIENT_ID,
     redirect_uri:  process.env.GOOGLE_DRIVE_CALLBACK_URL,
@@ -18,6 +40,7 @@ function driveAuthUrl(userId) {
   });
   return `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
 }
+
 
 async function exchangeCode(code) {
   const r = await fetch(TOKEN_URL, {
@@ -174,4 +197,4 @@ async function deleteFile(userId, fileId) {
   if (!r.ok && r.status !== 204) throw new Error(`Drive delete failed: ${r.status}`);
 }
 
-module.exports = { driveAuthUrl, exchangeCode, uploadBackup, listBackups, downloadBackup, deleteFile };
+module.exports = { driveAuthUrl, verifyDriveState, exchangeCode, uploadBackup, listBackups, downloadBackup, deleteFile };

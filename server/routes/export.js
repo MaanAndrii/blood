@@ -2,6 +2,7 @@ const express = require('express');
 const { pool } = require('../db');
 const { requireAuth } = require('../middleware/auth');
 const { getTierConfig } = require('../config/tiers');
+const { validateEntry } = require('../utils/validateEntry');
 
 const router = express.Router();
 
@@ -35,8 +36,8 @@ router.get('/csv', requireAuth, tierGuard('export_csv'), async (req, res) => {
   try {
     const { rows } = await pool.query(
       `SELECT date,
-              m_sys_l, m_dia_l, m_sys_r, m_dia_r, m_pulse,
-              e_sys_l, e_dia_l, e_sys_r, e_dia_r, e_pulse,
+              m_sys_l, m_dia_l, m_sys_r, m_dia_r, m_pulse, m_pulse_l, m_pulse_r,
+              e_sys_l, e_dia_l, e_sys_r, e_dia_r, e_pulse, e_pulse_l, e_pulse_r,
               weight, notes
        FROM entries WHERE user_id=$1 ORDER BY date DESC`,
       [req.user.id]
@@ -44,15 +45,19 @@ router.get('/csv', requireAuth, tierGuard('export_csv'), async (req, res) => {
 
     const header = [
       'Дата',
-      'Ранок Сист. Л','Ранок Діаст. Л','Ранок Сист. П','Ранок Діаст. П','Ранок Пульс',
-      'Вечір Сист. Л','Вечір Діаст. Л','Вечір Сист. П','Вечір Діаст. П','Вечір Пульс',
+      'Ранок Сист. Л','Ранок Діаст. Л','Ранок Сист. П','Ранок Діаст. П',
+      'Ранок Пульс','Ранок Пульс Л','Ранок Пульс П',
+      'Вечір Сист. Л','Вечір Діаст. Л','Вечір Сист. П','Вечір Діаст. П',
+      'Вечір Пульс','Вечір Пульс Л','Вечір Пульс П',
       'Вага','Нотатки',
     ].join(',');
 
     const lines = rows.map(r => [
       String(r.date).slice(0, 10),
-      r.m_sys_l ?? '', r.m_dia_l ?? '', r.m_sys_r ?? '', r.m_dia_r ?? '', r.m_pulse ?? '',
-      r.e_sys_l ?? '', r.e_dia_l ?? '', r.e_sys_r ?? '', r.e_dia_r ?? '', r.e_pulse ?? '',
+      r.m_sys_l ?? '', r.m_dia_l ?? '', r.m_sys_r ?? '', r.m_dia_r ?? '',
+      r.m_pulse ?? '', r.m_pulse_l ?? '', r.m_pulse_r ?? '',
+      r.e_sys_l ?? '', r.e_dia_l ?? '', r.e_sys_r ?? '', r.e_dia_r ?? '',
+      r.e_pulse ?? '', r.e_pulse_l ?? '', r.e_pulse_r ?? '',
       r.weight ?? '', csvCell(r.notes),
     ].join(','));
 
@@ -114,6 +119,7 @@ router.post('/import', requireAuth, tierGuard('import_json'), async (req, res) =
       if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) { skipped++; continue; }
       const m = e.morning || {};
       const ev = e.evening || {};
+      if (validateEntry(m, ev, e.weight ?? null)) { skipped++; continue; }
       try {
         const r = await pool.query(
           `INSERT INTO entries

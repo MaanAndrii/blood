@@ -3,6 +3,7 @@ const { pool } = require('../db');
 const { requireAuth } = require('../middleware/auth');
 const { getTierConfig } = require('../config/tiers');
 const { uploadBackup, listBackups, downloadBackup, deleteFile } = require('../services/drive');
+const { validateEntry } = require('../utils/validateEntry');
 
 async function requireDriveTier(req, res, next) {
   const { rows } = await pool.query(
@@ -101,9 +102,11 @@ router.post('/drive/restore', requireAuth, requireDriveTier, async (req, res) =>
 
     let imported = 0, skipped = 0;
     for (const e of importEntries) {
-      const dateStr = String(e.date).slice(0, 10);
+      const dateStr = String(e.date ?? '').slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) { skipped++; continue; }
       const m = e.morning || {};
       const ev = e.evening || {};
+      if (validateEntry(m, ev, e.weight ?? null)) { skipped++; continue; }
       try {
         const r = await pool.query(
           `INSERT INTO entries

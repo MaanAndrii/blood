@@ -1764,7 +1764,7 @@
 <script>
 // ── DATA LAYER ──────────────────────────────────────────────────────────────
 const DB_KEY        = 'health_entries_v2';
-const APP_VERSION   = '2.23';
+const APP_VERSION   = '2.24';
 const REMINDER_KEY  = 'health_reminders';
 
 // ── Constants (U) ────────────────────────────────────────────────────────────
@@ -3937,9 +3937,9 @@ function renderCharts() {
       const el = document.getElementById('whoEshCard');
       if (!cat) { el.style.display = 'none'; return; }
       el.style.display = '';
-      el.innerHTML = `<div class="stat-card" style="margin-bottom:10px;padding:12px 16px;border-left:4px solid ${cat.color};background:color-mix(in srgb,${cat.color} 10%,var(--card))">
-        <span style="font-size:14px;font-weight:700;color:${cat.color}">WHO/ESH 2023:</span>
-        <span style="font-size:14px;font-weight:600;color:${cat.color};margin-left:6px">${cat.label}</span>
+      el.innerHTML = `<div class="stat-card" style="margin-bottom:10px">
+        <div class="stat-title">🩺 WHO/ESH 2023</div>
+        <div style="font-size:22px;font-weight:700;color:${cat.color}">${cat.label}</div>
       </div>`;
     })();
 

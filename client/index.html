@@ -1448,15 +1448,9 @@
 <div class="modal-overlay" id="pdfModal">
   <div class="modal-box">
     <div class="modal-title">📋 PDF Довідка для лікаря</div>
-    <div class="field" style="margin-bottom:12px">
-      <label>Дата від</label>
-      <input type="date" id="pdfDateFrom"
-        oninput="document.getElementById('pdfDateTo').min = this.value" />
-    </div>
     <div class="field" style="margin-bottom:14px">
-      <label>Дата до</label>
-      <input type="date" id="pdfDateTo"
-        oninput="document.getElementById('pdfDateFrom').max = this.value" />
+      <label>Діапазон дат</label>
+      <div id="pdfDatePicker" style="margin-top:6px"></div>
     </div>
     <div class="field" style="margin-bottom:6px">
       <label>Тип звіту</label>
@@ -1787,7 +1781,7 @@
 <script>
 // ── DATA LAYER ──────────────────────────────────────────────────────────────
 const DB_KEY        = 'health_entries_v2';
-const APP_VERSION   = '2.27';
+const APP_VERSION   = '2.28';
 const REMINDER_KEY  = 'health_reminders';
 
 // ── Constants (U) ────────────────────────────────────────────────────────────
@@ -3203,15 +3197,33 @@ function filterEntries(days) {
 }
 
 let _journalPicker = null;
+let _pdfPicker     = null;
+
+function _pickerMarkedDates() {
+  return new Set(entries.map(e => String(e.date).slice(0, 10)));
+}
+function _pickerMinDate() {
+  return entries.length ? String(entries[entries.length - 1].date).slice(0, 10) : null;
+}
 
 function _initJournalPicker() {
   if (_journalPicker) { _journalPicker.refresh(); return; }
   _journalPicker = new RangeDatePicker({
     container: 'journalDatePicker',
     onChange: () => { journalPage = 0; renderHistory(); },
-    getMarkedDates: () => new Set(entries.map(e => String(e.date).slice(0, 10))),
-    getMinDate: () => entries.length
-      ? String(entries[entries.length - 1].date).slice(0, 10) : null,
+    getMarkedDates: _pickerMarkedDates,
+    getMinDate: _pickerMinDate,
+    getMaxDate: () => todayStr(),
+  });
+}
+
+function _initPdfPicker() {
+  if (_pdfPicker) return;
+  _pdfPicker = new RangeDatePicker({
+    container: 'pdfDatePicker',
+    onChange: () => {},
+    getMarkedDates: _pickerMarkedDates,
+    getMinDate: _pickerMinDate,
     getMaxDate: () => todayStr(),
   });
 }
@@ -4173,17 +4185,14 @@ function setPdfMode(m) {
 }
 
 function openPdfModal() {
+  _initPdfPicker();
   const today = todayStr();
-  // Default: last 30 days
   const from = new Date();
   from.setDate(from.getDate() - 30);
-  const fromStr = from.toISOString().slice(0,10);
-
-  document.getElementById('pdfDateFrom').value = fromStr;
-  document.getElementById('pdfDateFrom').max   = today;
-  document.getElementById('pdfDateTo').value   = today;
-  document.getElementById('pdfDateTo').min     = fromStr;
-  document.getElementById('pdfDateTo').max     = today;
+  const fromStr = from.getFullYear() + '-'
+    + String(from.getMonth() + 1).padStart(2, '0') + '-'
+    + String(from.getDate()).padStart(2, '0');
+  _pdfPicker.setRange(fromStr, today);
   setPdfMode('short');
   document.getElementById('pdfModal').classList.add('open');
 }
@@ -4193,8 +4202,8 @@ function closePdfModal() {
 }
 
 async function exportPDF() {
-  const dateFrom = document.getElementById('pdfDateFrom').value;
-  const dateTo   = document.getElementById('pdfDateTo').value;
+  const dateFrom = _pdfPicker ? _pdfPicker.getFrom() : null;
+  const dateTo   = _pdfPicker ? _pdfPicker.getTo()   : null;
 
   if (!dateFrom || !dateTo) {
     showToast('⚠️ Вкажіть діапазон дат', 'var(--warn)');

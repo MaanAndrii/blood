@@ -18,7 +18,7 @@
   function fmt(str) {
     if (!str) return '—';
     const [y, m, d] = str.split('-');
-    return parseInt(d) + ' ' + MONTHS_SHORT[parseInt(m) - 1] + ' ' + y;
+    return parseInt(d) + ' ' + MONTHS_SHORT[parseInt(m) - 1] + ' ' + y;
   }
 
   const CSS = `
@@ -44,12 +44,12 @@
 }
 .rdp-clear:hover{color:var(--text,#e5e7eb);border-color:var(--text,#e5e7eb)}
 .rdp-pop{
-  position:absolute;top:calc(100% + 6px);left:0;z-index:9999;
+  position:fixed;z-index:9999;
   background:var(--card,#161f35);
   border:1px solid var(--border,#2d3748);
   border-radius:14px;padding:14px 14px 12px;
   box-shadow:0 8px 40px rgba(0,0,0,.65);
-  width:268px;user-select:none;
+  user-select:none;box-sizing:border-box;
 }
 .rdp-pop-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
 .rdp-nav{
@@ -85,8 +85,6 @@
   background:#22c55e;margin:1px auto 0;
 }
 .rdp-range{background:rgba(59,130,246,.13);border-radius:0}
-.rdp-range:first-child{border-radius:6px 0 0 6px}
-.rdp-range:last-child{border-radius:0 6px 6px 0}
 .rdp-sel{background:var(--accent,#3b82f6)!important;color:#fff!important;border-radius:6px!important}
 .rdp-hint{
   font-size:11px;color:var(--muted,#6b7280);
@@ -112,7 +110,7 @@
 
       this._from = null;
       this._to   = null;
-      this._sel  = 'from'; // which end we're picking next
+      this._sel  = 'from';
       this._vy   = new Date().getFullYear();
       this._vm   = new Date().getMonth();
       this._open = false;
@@ -159,6 +157,9 @@
       this._fromVal  = this._root.querySelector('.rdp-f-from .rdp-val');
       this._toVal    = this._root.querySelector('.rdp-f-to .rdp-val');
 
+      // Move popup to <body> so it's never clipped by overflow:hidden parents
+      document.body.appendChild(this._pop);
+
       this._root.querySelector('.rdp-bar').addEventListener('click', e => {
         const field = e.target.closest('.rdp-field');
         const target = field
@@ -193,8 +194,58 @@
       });
 
       document.addEventListener('click', e => {
-        if (this._open && !this._root.contains(e.target)) this._close();
+        if (this._open && !this._root.contains(e.target) && !this._pop.contains(e.target))
+          this._close();
       });
+
+      window.addEventListener('resize', () => {
+        if (this._open) this._positionPopup();
+      });
+    }
+
+    // Position the popup using fixed coords so it escapes any overflow:hidden parent.
+    // On mobile (<= 520px): full-width centered vertically.
+    // On desktop: below the trigger bar, aligned to its left edge.
+    _positionPopup() {
+      const bar  = this._root.querySelector('.rdp-bar');
+      const rect = bar.getBoundingClientRect();
+      const vw   = window.innerWidth;
+      const vh   = window.innerHeight;
+      const pop  = this._pop;
+
+      pop.style.width    = '';
+      pop.style.left     = '';
+      pop.style.right    = '';
+      pop.style.top      = '';
+      pop.style.bottom   = '';
+      pop.style.transform = '';
+
+      if (vw <= 520) {
+        // Mobile: stretch horizontally, center vertically
+        pop.style.left   = '12px';
+        pop.style.right  = '12px';
+        pop.style.width  = 'auto';
+        pop.style.top    = '50%';
+        pop.style.transform = 'translateY(-50%)';
+      } else {
+        // Desktop: below the bar
+        const popW = Math.max(rect.width, 280);
+        let left   = rect.left;
+        // Clamp to viewport
+        if (left + popW > vw - 8) left = vw - popW - 8;
+        if (left < 8) left = 8;
+
+        pop.style.width = popW + 'px';
+        pop.style.left  = left + 'px';
+
+        // Show below or above if not enough room below
+        const spaceBelow = vh - rect.bottom - 8;
+        if (spaceBelow >= 320) {
+          pop.style.top = (rect.bottom + 6) + 'px';
+        } else {
+          pop.style.bottom = (vh - rect.top + 6) + 'px';
+        }
+      }
     }
 
     _openFor(target) {
@@ -209,6 +260,7 @@
         this._vm = parseInt(t.slice(5, 7)) - 1;
       }
       this._renderGrid();
+      this._positionPopup();
       this._pop.style.display = 'block';
       this._open = true;
     }
@@ -260,11 +312,10 @@
       const max    = this._getMax();
       const t      = todayStr();
 
-      this._mthEl.textContent = MONTHS[this._vm] + ' ' + this._vy;
+      this._mthEl.textContent = MONTHS[this._vm] + ' ' + this._vy;
 
-      // nav limits
-      const prev = this._root.querySelector('.rdp-prev');
-      const next = this._root.querySelector('.rdp-next');
+      const prev = this._pop.querySelector('.rdp-prev');
+      const next = this._pop.querySelector('.rdp-next');
       if (min) {
         const my = parseInt(min.slice(0, 4)), mm = parseInt(min.slice(5, 7)) - 1;
         prev.disabled = this._vy < my || (this._vy === my && this._vm <= mm);
@@ -274,9 +325,9 @@
         next.disabled = this._vy > xy || (this._vy === xy && this._vm >= xm);
       } else next.disabled = false;
 
-      const first = new Date(this._vy, this._vm, 1);
-      const last  = new Date(this._vy, this._vm + 1, 0);
-      let offset  = first.getDay() - 1;
+      const first  = new Date(this._vy, this._vm, 1);
+      const last   = new Date(this._vy, this._vm + 1, 0);
+      let offset   = first.getDay() - 1;
       if (offset < 0) offset = 6;
 
       const cells = [];
@@ -285,16 +336,15 @@
       for (let day = 1; day <= last.getDate(); day++) {
         const ds  = p4(this._vy) + '-' + p2(this._vm + 1) + '-' + p2(day);
         const cls = ['rdp-cell'];
-        const isToday  = ds === t;
-        const isMark   = marked.has(ds);
-        const isSel    = ds === this._from || ds === this._to;
-        const inRange  = this._from && this._to && ds > this._from && ds < this._to;
+        const isToday = ds === t;
+        const isMark  = marked.has(ds);
+        const isSel   = ds === this._from || ds === this._to;
+        const inRange = this._from && this._to && ds > this._from && ds < this._to;
 
-        if (isToday)  cls.push('rdp-today');
-        if (inRange)  cls.push('rdp-range');
-        if (isSel)    cls.push('rdp-sel');
+        if (isToday) cls.push('rdp-today');
+        if (inRange) cls.push('rdp-range');
+        if (isSel)   cls.push('rdp-sel');
 
-        // dot: today gets accent dot, marked dates get green dot
         let dot = '';
         if (isToday && !isSel) dot = '<span class="rdp-today-dot"></span>';
         else if (isMark && !isSel) dot = '<span class="rdp-dot"></span>';

@@ -1,10 +1,25 @@
-const CACHE = 'health-v48';
-const API_CACHE = 'health-api-v48';
+const CACHE = 'health-v49';
+const API_CACHE = 'health-api-v49';
 
 const STATIC_SHELL = [
   '/offline.html',
   '/manifest.json',
+  '/app.css',
   '/datepicker.js',
+  '/js/state.js',
+  '/js/api.js',
+  '/js/queue.js',
+  '/js/auth.js',
+  '/js/ui.js',
+  '/js/rollers.js',
+  '/js/entries.js',
+  '/js/home.js',
+  '/js/journal.js',
+  '/js/drive.js',
+  '/js/charts.js',
+  '/js/export.js',
+  '/js/reminders.js',
+  '/js/init.js',
   '/icons/favicon.svg',
   '/icons/icon-192.png',
   '/icons/icon-512.png',

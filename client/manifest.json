@@ -1,4 +1,5 @@
 {
+  "id": "/",
   "name": "BP & BMI — Pulse & Pounds Under Analysis",
   "short_name": "BP & BMI",
   "description": "Blood Pressure & Body Mass Index — daily journal for blood pressure, pulse, weight and BMI",
@@ -38,6 +39,22 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/icons/screenshot-mobile.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Головна сторінка — щоденний огляд"
+    },
+    {
+      "src": "/icons/screenshot-desktop.png",
+      "sizes": "1280x800",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Статистика та графіки"
     }
   ],
   "categories": ["health", "medical"],

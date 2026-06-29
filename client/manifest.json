@@ -51,7 +51,7 @@
     },
     {
       "src": "/icons/screenshot-desktop.png",
-      "sizes": "1280x800",
+      "sizes": "1920x919",
       "type": "image/png",
       "form_factor": "wide",
       "label": "Статистика та графіки"

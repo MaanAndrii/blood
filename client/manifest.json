@@ -44,7 +44,7 @@
   "screenshots": [
     {
       "src": "/icons/screenshot-mobile.png",
-      "sizes": "390x844",
+      "sizes": "380x844",
       "type": "image/png",
       "form_factor": "narrow",
       "label": "Головна сторінка — щоденний огляд"

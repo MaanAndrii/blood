@@ -21,6 +21,7 @@
     return parseInt(d) + ' ' + MONTHS_SHORT[parseInt(m) - 1] + ' ' + y;
   }
 
+  const CSS_VER = '3'; // bump when CSS changes to force re-injection over stale cached style
   const CSS = `
 .rdp{position:relative;display:inline-flex;align-items:center;gap:6px;width:100%}
 .rdp-bar{
@@ -75,10 +76,8 @@
 .rdp-empty{cursor:default}
 .rdp-today{font-weight:700}
 .rdp-today-dot::after{
-  content:'';display:block;
-  width:4px;height:4px;border-radius:50%;
-  background:var(--accent,#3b82f6);
-  margin:1px auto 0;
+  content:'';display:block;width:4px;height:4px;border-radius:50%;
+  background:var(--accent,#3b82f6);margin:1px auto 0;
 }
 .rdp-dot{
   display:block;width:4px;height:4px;border-radius:50%;
@@ -91,32 +90,26 @@
   text-align:center;margin-top:10px;padding-top:8px;
   border-top:1px solid var(--border,#2d3748);
 }
-@media(max-width:520px){
-  .rdp-pop{
-    left:12px!important;
-    right:auto!important;
-    width:calc(100vw - 24px)!important;
-    top:50%!important;
-    bottom:auto!important;
-    transform:translateY(-50%)!important;
-  }
-}
 `;
 
+  // Always replace stale CSS from older cached versions
   function injectCSS() {
-    if (document.getElementById('rdp-css')) return;
+    const existing = document.getElementById('rdp-css');
+    if (existing && existing.dataset.ver === CSS_VER) return;
+    if (existing) existing.remove();
     const s = document.createElement('style');
     s.id = 'rdp-css';
+    s.dataset.ver = CSS_VER;
     s.textContent = CSS;
     document.head.appendChild(s);
   }
 
   class RangeDatePicker {
     constructor(opts) {
-      this._onChange     = opts.onChange       || (() => {});
-      this._getMarked    = opts.getMarkedDates || (() => new Set());
-      this._getMin       = opts.getMinDate     || (() => null);
-      this._getMax       = opts.getMaxDate     || (() => todayStr());
+      this._onChange  = opts.onChange       || (() => {});
+      this._getMarked = opts.getMarkedDates || (() => new Set());
+      this._getMin    = opts.getMinDate     || (() => null);
+      this._getMax    = opts.getMaxDate     || (() => todayStr());
 
       this._from = null;
       this._to   = null;
@@ -160,14 +153,14 @@
           <div class="rdp-hint"></div>
         </div>`;
 
-      this._pop      = this._root.querySelector('.rdp-pop');
-      this._grid     = this._root.querySelector('.rdp-grid');
-      this._mthEl    = this._root.querySelector('.rdp-mth');
-      this._hintEl   = this._root.querySelector('.rdp-hint');
-      this._fromVal  = this._root.querySelector('.rdp-f-from .rdp-val');
-      this._toVal    = this._root.querySelector('.rdp-f-to .rdp-val');
+      this._pop     = this._root.querySelector('.rdp-pop');
+      this._grid    = this._root.querySelector('.rdp-grid');
+      this._mthEl   = this._root.querySelector('.rdp-mth');
+      this._hintEl  = this._root.querySelector('.rdp-hint');
+      this._fromVal = this._root.querySelector('.rdp-f-from .rdp-val');
+      this._toVal   = this._root.querySelector('.rdp-f-to .rdp-val');
 
-      // Move popup to <body> so it's never clipped by overflow:hidden parents
+      // Move popup to <body> — escapes overflow:hidden/auto on any ancestor
       document.body.appendChild(this._pop);
 
       this._root.querySelector('.rdp-bar').addEventListener('click', e => {
@@ -184,6 +177,7 @@
         this._clear();
       });
 
+      // Use this._pop.querySelector — popup is now in <body>, not in this._root
       this._pop.querySelector('.rdp-prev').addEventListener('click', e => {
         e.stopPropagation();
         if (--this._vm < 0) { this._vm = 11; this._vy--; }
@@ -213,33 +207,44 @@
       });
     }
 
-    // Position the popup using fixed coords so it escapes any overflow:hidden parent.
-    // On mobile (<= 520px): full-width centered vertically.
-    // On desktop: below the trigger bar, aligned to its left edge.
     _positionPopup() {
       const pop = this._pop;
-      // Mobile layout handled entirely by CSS @media(max-width:520px)
-      if (window.innerWidth <= 520) {
-        pop.style.cssText = 'display:block';
-        return;
+      const vw  = window.innerWidth;
+      const vh  = window.innerHeight;
+
+      if (vw <= 520) {
+        // Mobile: use setProperty('important') — highest possible priority,
+        // overrides any CSS rule including !important in stylesheets
+        pop.style.setProperty('position',  'fixed',                    'important');
+        pop.style.setProperty('left',      '12px',                     'important');
+        pop.style.setProperty('right',     'auto',                     'important');
+        pop.style.setProperty('width',     (vw - 24) + 'px',           'important');
+        pop.style.setProperty('top',       '50%',                      'important');
+        pop.style.setProperty('bottom',    'auto',                     'important');
+        pop.style.setProperty('transform', 'translateY(-50%)',          'important');
+      } else {
+        const bar  = this._root.querySelector('.rdp-bar');
+        const rect = bar.getBoundingClientRect();
+        const popW = Math.max(rect.width, 280);
+        let left   = rect.left;
+        if (left + popW > vw - 8) left = vw - popW - 8;
+        if (left < 8) left = 8;
+
+        pop.style.removeProperty('transform');
+        pop.style.setProperty('position', 'fixed');
+        pop.style.setProperty('width',    popW + 'px');
+        pop.style.setProperty('left',     left + 'px');
+        pop.style.setProperty('right',    'auto');
+        pop.style.removeProperty('bottom');
+
+        const spaceBelow = vh - rect.bottom - 8;
+        if (spaceBelow >= 320) {
+          pop.style.setProperty('top',    (rect.bottom + 6) + 'px');
+        } else {
+          pop.style.setProperty('bottom', (vh - rect.top + 6) + 'px');
+          pop.style.removeProperty('top');
+        }
       }
-      // Desktop: position below (or above) the trigger bar
-      const bar  = this._root.querySelector('.rdp-bar');
-      const rect = bar.getBoundingClientRect();
-      const vw   = window.innerWidth;
-      const vh   = window.innerHeight;
-      const popW = Math.max(rect.width, 280);
-      let left   = rect.left;
-      if (left + popW > vw - 8) left = vw - popW - 8;
-      if (left < 8) left = 8;
-      const spaceBelow = vh - rect.bottom - 8;
-      const topVal = spaceBelow >= 320
-        ? (rect.bottom + 6) + 'px'
-        : '';
-      const bottomVal = spaceBelow < 320
-        ? (vh - rect.top + 6) + 'px'
-        : '';
-      pop.style.cssText = `display:block;width:${popW}px;left:${left}px;top:${topVal};bottom:${bottomVal}`;
     }
 
     _openFor(target) {
@@ -254,13 +259,13 @@
         this._vm = parseInt(t.slice(5, 7)) - 1;
       }
       this._renderGrid();
-      this._positionPopup();
-      this._pop.style.display = 'block';
+      this._pop.style.display = 'block'; // make visible BEFORE positioning
       this._open = true;
+      this._positionPopup();             // position AFTER display:block
     }
 
     _close() {
-      this._pop.style.cssText = 'display:none';
+      this._pop.style.display = 'none';
       this._open = false;
     }
 
@@ -319,9 +324,9 @@
         next.disabled = this._vy > xy || (this._vy === xy && this._vm >= xm);
       } else next.disabled = false;
 
-      const first  = new Date(this._vy, this._vm, 1);
-      const last   = new Date(this._vy, this._vm + 1, 0);
-      let offset   = first.getDay() - 1;
+      const first = new Date(this._vy, this._vm, 1);
+      const last  = new Date(this._vy, this._vm + 1, 0);
+      let offset  = first.getDay() - 1;
       if (offset < 0) offset = 6;
 
       const cells = [];
@@ -330,18 +335,14 @@
       for (let day = 1; day <= last.getDate(); day++) {
         const ds  = p4(this._vy) + '-' + p2(this._vm + 1) + '-' + p2(day);
         const cls = ['rdp-cell'];
-        const isToday = ds === t;
-        const isMark  = marked.has(ds);
-        const isSel   = ds === this._from || ds === this._to;
-        const inRange = this._from && this._to && ds > this._from && ds < this._to;
-
-        if (isToday) cls.push('rdp-today');
-        if (inRange) cls.push('rdp-range');
-        if (isSel)   cls.push('rdp-sel');
+        if (ds === t)                                              cls.push('rdp-today');
+        if (this._from && this._to && ds > this._from && ds < this._to) cls.push('rdp-range');
+        if (ds === this._from || ds === this._to)                 cls.push('rdp-sel');
 
         let dot = '';
-        if (isToday && !isSel) dot = '<span class="rdp-today-dot"></span>';
-        else if (isMark && !isSel) dot = '<span class="rdp-dot"></span>';
+        const isSel = ds === this._from || ds === this._to;
+        if (ds === t && !isSel)              dot = '<span class="rdp-today-dot"></span>';
+        else if (marked.has(ds) && !isSel)   dot = '<span class="rdp-dot"></span>';
 
         cells.push(`<span class="${cls.join(' ')}" data-d="${ds}">${day}${dot}</span>`);
       }

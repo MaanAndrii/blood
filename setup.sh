@@ -429,7 +429,7 @@ mkdir -p "/home/${SERVICE_USER}/backups"
 chown "${SERVICE_USER}:${SERVICE_USER}" "/home/${SERVICE_USER}/backups"
 
 CRON_CMD="0 3 * * * pg_dump -U health health > /home/${SERVICE_USER}/backups/health_\$(date +\\%Y\\%m\\%d).sql 2>/dev/null"
-(crontab -u "$SERVICE_USER" -l 2>/dev/null | grep -v "pg_dump.*health"; echo "$CRON_CMD") \
+(crontab -u "$SERVICE_USER" -l 2>/dev/null | grep -v "pg_dump.*health" || true; echo "$CRON_CMD") \
   | crontab -u "$SERVICE_USER" -
 ok "Бекап щодня о 03:00 → /home/${SERVICE_USER}/backups/"
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-#  Blood Health Monitor — автоматичне розгортання на Raspberry Pi
+#  Blood Health Monitor — автоматичне розгортання
 # =============================================================================
 set -euo pipefail
 
@@ -24,7 +24,7 @@ SERVICE_USER="${SUDO_USER:-pi}"
 # =============================================================================
 step "Перевірка"
 
-[[ "$(uname -m)" =~ ^(aarch64|armv7l)$ ]] || warn "Не ARM — продовжуємо але можуть бути проблеми"
+[[ "$(uname -m)" =~ ^(aarch64|armv7l|x86_64)$ ]] || warn "Незнайома архітектура — продовжуємо"
 [[ $EUID -eq 0 ]] || err "Запустіть з sudo: sudo bash setup.sh"
 
 ok "Запущено як root на $(uname -m)"
@@ -32,7 +32,7 @@ ok "Запущено як root на $(uname -m)"
 # =============================================================================
 #  Крок 1 — Системні пакети
 # =============================================================================
-step "Крок 1/9 — Системні пакети"
+step "Крок 1 — Системні пакети"
 
 info "Оновлення списку пакетів..."
 apt-get update -qq
@@ -53,7 +53,6 @@ systemctl start postgresql
 ok "PostgreSQL $(psql --version | awk '{print $3}')"
 
 info "Встановлення Chromium та залежностей Puppeteer..."
-# На RPi OS Bookworm пакет називається 'chromium', на старіших — 'chromium-browser'
 CHROMIUM_PKG="chromium"
 apt-get install -y "$CHROMIUM_PKG" \
   libgbm1 libxkbcommon0 libatk1.0-0 libatk-bridge2.0-0 \
@@ -62,16 +61,16 @@ apt-get install -y "$CHROMIUM_PKG" \
   | grep -E '(Err|error|cannot|already installed|upgraded|newly installed)' || true
 
 CHROMIUM_PATH=$(which chromium 2>/dev/null || which chromium-browser 2>/dev/null || echo "")
-[[ -n "$CHROMIUM_PATH" ]] || err "Chromium не знайдено після встановлення. Запустіть: sudo apt install chromium"
+[[ -n "$CHROMIUM_PATH" ]] || err "Chromium не знайдено. Запустіть: sudo apt install chromium"
 ok "Chromium → $CHROMIUM_PATH"
 
 # =============================================================================
 #  Крок 2 — npm залежності
 # =============================================================================
-step "Крок 2/9 — npm залежності"
+step "Крок 2 — npm залежності"
 
 cd "$APP_DIR"
-info "npm install (без завантаження Chromium)..."
+info "npm install..."
 PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=1 npm install
 ok "Залежності встановлено"
 
@@ -87,7 +86,7 @@ fi
 # =============================================================================
 #  Крок 3 — PostgreSQL: база даних
 # =============================================================================
-step "Крок 3/9 — База даних PostgreSQL"
+step "Крок 3 — База даних PostgreSQL"
 
 echo ""
 ask "Введіть пароль для PostgreSQL користувача 'health':"
@@ -109,43 +108,120 @@ ok "База даних готова"
 DATABASE_URL="postgresql://health:${DB_PASSWORD}@localhost:5432/health"
 
 # =============================================================================
-#  Крок 4 — Google OAuth
+#  Крок 4 — Режим доступу
 # =============================================================================
-step "Крок 4/9 — Google OAuth"
+step "Крок 4 — Режим доступу"
 
 echo ""
-echo -e "  Відкрийте: ${CYAN}https://console.cloud.google.com${NC}"
-echo    "  1. APIs & Services → Credentials → Create → OAuth 2.0 Client ID"
-echo    "  2. Тип: Web application"
-echo    ""
-ask "Введіть GOOGLE_CLIENT_ID:"
-read -r GOOGLE_CLIENT_ID
-ask "Введіть GOOGLE_CLIENT_SECRET:"
-read -r -s GOOGLE_CLIENT_SECRET
+echo -e "  Оберіть спосіб доступу до застосунку:\n"
+echo -e "  ${BOLD}1)${NC} По IP-адресі          — локальна мережа, HTTP, без домену"
+echo -e "                             Для тестування. Push-нотифікації не працюють (HTTP)."
 echo ""
-ask "Введіть ваш домен (наприклад: health.example.com):"
-read -r APP_DOMAIN
-
-[[ -n "$GOOGLE_CLIENT_ID" && -n "$GOOGLE_CLIENT_SECRET" && -n "$APP_DOMAIN" ]] \
-  || err "Всі поля обов'язкові"
-
-CALLBACK_URL="https://${APP_DOMAIN}/api/auth/google/callback"
-BASE_URL="https://${APP_DOMAIN}"
-
+echo -e "  ${BOLD}2)${NC} Cloudflare Quick Tunnel — тимчасовий HTTPS без домену"
+echo -e "                             URL вигляду *.trycloudflare.com, змінюється при рестарті."
 echo ""
-warn "Переконайтесь що в Google Console вказані:"
-echo  "  Authorized origins:      https://${APP_DOMAIN}"
-echo  "  Authorized redirect URI: ${CALLBACK_URL}"
+echo -e "  ${BOLD}3)${NC} Cloudflare Tunnel + домен — постійний HTTPS, виробництво"
+echo -e "                             Потрібен власний домен, підключений до Cloudflare."
 echo ""
-ask "Натисніть Enter коли готово..."
-read -r
+ask "Ваш вибір [1/2/3]:"
+read -r ACCESS_MODE
 
-ok "Google OAuth налаштовано"
+case "$ACCESS_MODE" in
+  1)
+    LOCAL_IP=$(hostname -I | awk '{print $1}')
+    BASE_URL="http://${LOCAL_IP}:3000"
+    USE_TUNNEL=false
+    QUICK_TUNNEL=false
+    APP_DOMAIN="${LOCAL_IP}:3000"
+    PROTOCOL="http"
+    ok "Режим: По IP → ${BASE_URL}"
+    warn "Google OAuth та Push-нотифікації потребують HTTPS — в цьому режимі недоступні"
+    ;;
+  2)
+    BASE_URL=""   # визначиться після запуску cloudflared
+    USE_TUNNEL=true
+    QUICK_TUNNEL=true
+    APP_DOMAIN=""
+    PROTOCOL="https"
+    ok "Режим: Cloudflare Quick Tunnel (тимчасовий URL)"
+    warn "URL змінюється при кожному рестарті сервісу"
+    warn "Google OAuth потрібно переналаштовувати при кожній зміні URL"
+    ;;
+  3)
+    USE_TUNNEL=true
+    QUICK_TUNNEL=false
+    echo ""
+    ask "Введіть ваш домен (наприклад: health.example.com):"
+    read -r APP_DOMAIN
+    [[ -n "$APP_DOMAIN" ]] || err "Домен не може бути порожнім"
+    BASE_URL="https://${APP_DOMAIN}"
+    PROTOCOL="https"
+    ok "Режим: Cloudflare Tunnel → ${BASE_URL}"
+    ;;
+  *)
+    err "Невірний вибір. Запустіть скрипт знову та оберіть 1, 2 або 3"
+    ;;
+esac
 
 # =============================================================================
-#  Крок 5 — VAPID ключі
+#  Крок 5 — Google OAuth
 # =============================================================================
-step "Крок 5/9 — VAPID ключі для Web Push"
+step "Крок 5 — Google OAuth"
+
+if [[ "$PROTOCOL" == "http" ]]; then
+  echo ""
+  warn "Google OAuth вимагає HTTPS. В режимі по IP він не буде працювати."
+  warn "Авторизація через локальний email/пароль залишається доступною."
+  echo ""
+  ask "Все одно налаштувати Google OAuth? (для майбутнього переходу на HTTPS) [y/N]:"
+  read -r SETUP_OAUTH
+  SETUP_OAUTH="${SETUP_OAUTH,,}"
+else
+  SETUP_OAUTH="y"
+fi
+
+if [[ "$SETUP_OAUTH" == "y" ]]; then
+  echo ""
+  if [[ "$QUICK_TUNNEL" == "true" ]]; then
+    warn "Quick Tunnel змінює URL при рестарті — OAuth потрібно буде переналаштовувати."
+    warn "Після першого запуску знайдіть URL: journalctl -u cloudflared | grep trycloudflare"
+    warn "І вкажіть його в Google Console як Authorized origin та redirect URI"
+    echo ""
+    CALLBACK_PLACEHOLDER="https://YOUR-SUBDOMAIN.trycloudflare.com/api/auth/google/callback"
+    echo -e "  ${CYAN}https://console.cloud.google.com${NC} → Credentials → OAuth 2.0 Client ID"
+    echo    "  Authorized origins:      https://YOUR-SUBDOMAIN.trycloudflare.com"
+    echo    "  Authorized redirect URI: ${CALLBACK_PLACEHOLDER}"
+  else
+    echo -e "  Відкрийте: ${CYAN}https://console.cloud.google.com${NC}"
+    echo    "  APIs & Services → Credentials → Create → OAuth 2.0 Client ID → Web application"
+    echo    "  Authorized origins:      ${BASE_URL}"
+    echo    "  Authorized redirect URI: ${BASE_URL}/api/auth/google/callback"
+  fi
+  echo ""
+  ask "Введіть GOOGLE_CLIENT_ID:"
+  read -r GOOGLE_CLIENT_ID
+  ask "Введіть GOOGLE_CLIENT_SECRET:"
+  read -r -s GOOGLE_CLIENT_SECRET
+  echo ""
+  [[ -n "$GOOGLE_CLIENT_ID" && -n "$GOOGLE_CLIENT_SECRET" ]] || err "Обидва поля обов'язкові"
+  ok "Google OAuth налаштовано"
+else
+  GOOGLE_CLIENT_ID="REPLACE_ME"
+  GOOGLE_CLIENT_SECRET="REPLACE_ME"
+  warn "Google OAuth пропущено. Відредагуйте .env пізніше при переході на HTTPS"
+fi
+
+CALLBACK_URL="${BASE_URL}/api/auth/google/callback"
+
+# =============================================================================
+#  Крок 6 — VAPID ключі
+# =============================================================================
+step "Крок 6 — VAPID ключі для Web Push"
+
+if [[ "$PROTOCOL" == "http" ]]; then
+  warn "Push-нотифікації потребують HTTPS — в режимі по IP не будуть працювати"
+  warn "Ключі згенеруємо зараз, щоб не повторювати при переході на HTTPS"
+fi
 
 ask "Введіть ваш email (для VAPID):"
 read -r VAPID_EMAIL
@@ -157,34 +233,44 @@ VAPID_PRIVATE_KEY="${VAPID_KEYS#*|}"
 ok "VAPID ключі згенеровано"
 
 # =============================================================================
-#  Крок 6 — JWT Secret + .env
+#  Крок 7 — Файл .env
 # =============================================================================
-step "Крок 6/9 — Файл .env"
+step "Крок 7 — Файл .env"
 
 JWT_SECRET=$(node -e "console.log(require('crypto').randomBytes(48).toString('hex'))")
+
+# Для Quick Tunnel BASE_URL поки невідомий — ставимо заглушку
+EFFECTIVE_BASE_URL="${BASE_URL:-https://YOUR-SUBDOMAIN.trycloudflare.com}"
+EFFECTIVE_CALLBACK="${EFFECTIVE_BASE_URL}/api/auth/google/callback"
 
 cat > "$ENV_FILE" <<EOF
 DATABASE_URL=${DATABASE_URL}
 GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
 GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
-GOOGLE_CALLBACK_URL=${CALLBACK_URL}
+GOOGLE_CALLBACK_URL=${EFFECTIVE_CALLBACK}
 JWT_SECRET=${JWT_SECRET}
 VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY}
 VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY}
 VAPID_EMAIL=mailto:${VAPID_EMAIL}
 NODE_ENV=production
 PORT=3000
-BASE_URL=${BASE_URL}
+BASE_URL=${EFFECTIVE_BASE_URL}
 EOF
 
 chmod 600 "$ENV_FILE"
 chown "${SERVICE_USER}:${SERVICE_USER}" "$ENV_FILE"
-ok ".env створено (права 600, власник ${SERVICE_USER})"
+ok ".env створено (права 600)"
+
+if [[ "$QUICK_TUNNEL" == "true" ]]; then
+  warn "Після отримання URL Quick Tunnel оновіть BASE_URL та GOOGLE_CALLBACK_URL в .env:"
+  warn "  sudo nano ${ENV_FILE}"
+  warn "  sudo systemctl restart blood"
+fi
 
 # =============================================================================
-#  Крок 7 — systemd сервіс
+#  Крок 8 — systemd сервіс
 # =============================================================================
-step "Крок 7/9 — systemd сервіс"
+step "Крок 8 — systemd сервіс"
 
 cat > /etc/systemd/system/blood.service <<EOF
 [Unit]
@@ -215,43 +301,98 @@ systemctl is-active blood &>/dev/null && ok "Сервіс blood запущено
   || err "Сервіс не запустився. Перевірте: journalctl -u blood -n 30"
 
 # =============================================================================
-#  Крок 8 — Cloudflare Tunnel
+#  Крок 9 — Cloudflare Tunnel (за потребою)
 # =============================================================================
-step "Крок 8/9 — Cloudflare Tunnel"
+if [[ "$USE_TUNNEL" == "true" ]]; then
+  step "Крок 9 — Cloudflare Tunnel"
 
-if ! command -v cloudflared &>/dev/null; then
-  info "Встановлення cloudflared..."
-  curl -sL "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm64" \
-    -o /usr/local/bin/cloudflared
-  chmod +x /usr/local/bin/cloudflared
-fi
-ok "cloudflared $(cloudflared --version | head -1)"
+  # Встановлення cloudflared
+  if ! command -v cloudflared &>/dev/null; then
+    info "Встановлення cloudflared..."
+    ARCH=$(uname -m)
+    case "$ARCH" in
+      aarch64) CF_ARCH="arm64" ;;
+      armv7l)  CF_ARCH="arm"   ;;
+      x86_64)  CF_ARCH="amd64" ;;
+      *)        CF_ARCH="amd64" ;;
+    esac
+    curl -sL "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-${CF_ARCH}" \
+      -o /usr/local/bin/cloudflared
+    chmod +x /usr/local/bin/cloudflared
+  fi
+  ok "cloudflared $(cloudflared --version | head -1)"
 
-echo ""
-info "Авторизація в Cloudflare (відкриється посилання)..."
-sudo -u "$SERVICE_USER" cloudflared tunnel login
+  if [[ "$QUICK_TUNNEL" == "true" ]]; then
+    # ── Quick Tunnel: без акаунту, без домену ─────────────────────────────────
+    info "Налаштування Quick Tunnel (без авторизації)..."
 
-info "Створення тунелю 'blood-health'..."
-TUNNEL_OUTPUT=$(sudo -u "$SERVICE_USER" cloudflared tunnel create blood-health 2>&1) || true
-TUNNEL_ID=$(echo "$TUNNEL_OUTPUT" | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' | head -1)
+    cat > /etc/systemd/system/cloudflared.service <<EOF
+[Unit]
+Description=Cloudflare Quick Tunnel
+After=network.target blood.service
+Wants=blood.service
 
-if [[ -z "$TUNNEL_ID" ]]; then
-  TUNNEL_ID=$(sudo -u "$SERVICE_USER" cloudflared tunnel list 2>/dev/null \
-    | awk '/blood-health/{print $1}')
-fi
+[Service]
+Type=simple
+User=${SERVICE_USER}
+ExecStart=/usr/local/bin/cloudflared tunnel --url http://localhost:3000 --no-autoupdate
+Restart=on-failure
+RestartSec=10
 
-[[ -n "$TUNNEL_ID" ]] || err "Не вдалось отримати UUID тунелю"
-ok "Тунель ID: $TUNNEL_ID"
+[Install]
+WantedBy=multi-user.target
+EOF
 
-info "DNS запис для ${APP_DOMAIN}..."
-sudo -u "$SERVICE_USER" cloudflared tunnel route dns blood-health "$APP_DOMAIN" 2>/dev/null \
-  && ok "DNS запис створено" \
-  || warn "DNS запис вже існує або помилка — перевірте вручну"
+    systemctl daemon-reload
+    systemctl enable cloudflared &>/dev/null
+    systemctl start cloudflared
 
-CRED_FILE="/home/${SERVICE_USER}/.cloudflared/${TUNNEL_ID}.json"
-CONFIG_DIR="/home/${SERVICE_USER}/.cloudflared"
+    echo ""
+    info "Чекаємо на отримання URL (до 15 сек)..."
+    sleep 10
 
-cat > "${CONFIG_DIR}/config.yml" <<EOF
+    QUICK_URL=$(journalctl -u cloudflared -n 50 --no-pager 2>/dev/null \
+      | grep -oE 'https://[a-z0-9-]+\.trycloudflare\.com' | tail -1 || echo "")
+
+    if [[ -n "$QUICK_URL" ]]; then
+      ok "Quick Tunnel URL: ${QUICK_URL}"
+      # Оновити .env з реальним URL
+      sed -i "s|^BASE_URL=.*|BASE_URL=${QUICK_URL}|" "$ENV_FILE"
+      sed -i "s|^GOOGLE_CALLBACK_URL=.*|GOOGLE_CALLBACK_URL=${QUICK_URL}/api/auth/google/callback|" "$ENV_FILE"
+      systemctl restart blood
+      ok ".env оновлено з реальним URL"
+    else
+      warn "URL ще не з'явився. Знайдіть його вручну:"
+      warn "  journalctl -u cloudflared -n 50 | grep trycloudflare"
+      warn "  Потім оновіть .env: sudo nano ${ENV_FILE}"
+    fi
+
+  else
+    # ── Повний Tunnel з доменом ───────────────────────────────────────────────
+    echo ""
+    info "Авторизація в Cloudflare (відкриється посилання)..."
+    sudo -u "$SERVICE_USER" cloudflared tunnel login
+
+    info "Створення тунелю 'blood-health'..."
+    TUNNEL_OUTPUT=$(sudo -u "$SERVICE_USER" cloudflared tunnel create blood-health 2>&1) || true
+    TUNNEL_ID=$(echo "$TUNNEL_OUTPUT" | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' | head -1)
+
+    if [[ -z "$TUNNEL_ID" ]]; then
+      TUNNEL_ID=$(sudo -u "$SERVICE_USER" cloudflared tunnel list 2>/dev/null \
+        | awk '/blood-health/{print $1}')
+    fi
+    [[ -n "$TUNNEL_ID" ]] || err "Не вдалось отримати UUID тунелю"
+    ok "Тунель ID: $TUNNEL_ID"
+
+    info "DNS запис для ${APP_DOMAIN}..."
+    sudo -u "$SERVICE_USER" cloudflared tunnel route dns blood-health "$APP_DOMAIN" 2>/dev/null \
+      && ok "DNS запис створено" \
+      || warn "DNS запис вже існує або помилка — перевірте вручну"
+
+    CRED_FILE="/home/${SERVICE_USER}/.cloudflared/${TUNNEL_ID}.json"
+    CONFIG_DIR="/home/${SERVICE_USER}/.cloudflared"
+
+    cat > "${CONFIG_DIR}/config.yml" <<EOF
 tunnel: blood-health
 credentials-file: ${CRED_FILE}
 
@@ -261,51 +402,81 @@ ingress:
   - service: http_status:404
 EOF
 
-chown "${SERVICE_USER}:${SERVICE_USER}" "${CONFIG_DIR}/config.yml"
-ok "config.yml створено"
+    chown "${SERVICE_USER}:${SERVICE_USER}" "${CONFIG_DIR}/config.yml"
+    ok "config.yml створено"
 
-info "Встановлення cloudflared як сервісу..."
-# Потрібно вказати конфіг явно — sudo змінює HOME на /root і cloudflared не знаходить config.yml
-cloudflared --config "${CONFIG_DIR}/config.yml" service install
-systemctl enable cloudflared &>/dev/null
-systemctl restart cloudflared
+    cloudflared --config "${CONFIG_DIR}/config.yml" service install
+    systemctl enable cloudflared &>/dev/null
+    systemctl restart cloudflared
 
-sleep 3
-systemctl is-active cloudflared &>/dev/null && ok "Cloudflare Tunnel запущено" \
-  || warn "Тунель не запустився. Перевірте: journalctl -u cloudflared -n 30"
+    sleep 3
+    systemctl is-active cloudflared &>/dev/null && ok "Cloudflare Tunnel запущено" \
+      || warn "Тунель не запустився. Перевірте: journalctl -u cloudflared -n 30"
+  fi
+
+else
+  step "Крок 9 — Cloudflare Tunnel"
+  info "Пропущено (обрано режим по IP)"
+  ok "Застосунок доступний в локальній мережі: ${BASE_URL}"
+fi
 
 # =============================================================================
-#  Крок 9 — Бекап бази даних
+#  Крок 10 — Автоматичний бекап БД
 # =============================================================================
-step "Крок 9/9 — Автоматичний бекап БД"
+step "Крок 10 — Автоматичний бекап БД"
 
-mkdir -p /home/"$SERVICE_USER"/backups
-chown "${SERVICE_USER}:${SERVICE_USER}" /home/"$SERVICE_USER"/backups
+mkdir -p "/home/${SERVICE_USER}/backups"
+chown "${SERVICE_USER}:${SERVICE_USER}" "/home/${SERVICE_USER}/backups"
 
 CRON_CMD="0 3 * * * pg_dump -U health health > /home/${SERVICE_USER}/backups/health_\$(date +\\%Y\\%m\\%d).sql 2>/dev/null"
-(crontab -u "$SERVICE_USER" -l 2>/dev/null | grep -v "pg_dump.*health"; echo "$CRON_CMD") \
+(crontab -u "$SERVICE_USER" -l 2>/dev/null | grep -v "pg_dump.*health" || true; echo "$CRON_CMD") \
   | crontab -u "$SERVICE_USER" -
 ok "Бекап щодня о 03:00 → /home/${SERVICE_USER}/backups/"
 
 # =============================================================================
-#  Готово
+#  Підсумок
 # =============================================================================
 echo ""
 echo -e "${BOLD}${GREEN}════════════════════════════════════════${NC}"
 echo -e "${BOLD}${GREEN}  Розгортання завершено успішно!${NC}"
 echo -e "${BOLD}${GREEN}════════════════════════════════════════${NC}"
 echo ""
-echo -e "  ${BOLD}Застосунок:${NC}  ${CYAN}https://${APP_DOMAIN}${NC}"
+
+case "$ACCESS_MODE" in
+  1)
+    echo -e "  ${BOLD}Застосунок:${NC}  ${CYAN}${BASE_URL}${NC}"
+    echo ""
+    echo -e "  ${YELLOW}Відкрийте цей URL в браузері на будь-якому${NC}"
+    echo -e "  ${YELLOW}пристрої в тій самій мережі Wi-Fi.${NC}"
+    ;;
+  2)
+    if [[ -n "${QUICK_URL:-}" ]]; then
+      echo -e "  ${BOLD}Застосунок:${NC}  ${CYAN}${QUICK_URL}${NC}"
+    else
+      echo -e "  ${BOLD}Застосунок:${NC}  знайдіть URL:"
+      echo -e "  ${CYAN}journalctl -u cloudflared -n 50 | grep trycloudflare${NC}"
+    fi
+    echo ""
+    warn "URL зміниться при рестарті cloudflared"
+    ;;
+  3)
+    echo -e "  ${BOLD}Застосунок:${NC}  ${CYAN}${BASE_URL}${NC}"
+    ;;
+esac
+
 echo ""
 echo -e "  ${BOLD}Статус сервісів:${NC}"
 echo -e "  blood:       $(systemctl is-active blood)"
-echo -e "  cloudflared: $(systemctl is-active cloudflared)"
+[[ "$USE_TUNNEL" == "true" ]] && \
+  echo -e "  cloudflared: $(systemctl is-active cloudflared)"
 echo -e "  postgresql:  $(systemctl is-active postgresql)"
 echo ""
 echo -e "  ${BOLD}Корисні команди:${NC}"
-echo -e "  Логи застосунку: ${CYAN}journalctl -u blood -f${NC}"
-echo -e "  Логи тунелю:     ${CYAN}journalctl -u cloudflared -f${NC}"
-echo -e "  Перезапуск:      ${CYAN}sudo systemctl restart blood${NC}"
+echo -e "  Логи застосунку:  ${CYAN}journalctl -u blood -f${NC}"
+[[ "$USE_TUNNEL" == "true" ]] && \
+  echo -e "  Логи тунелю:      ${CYAN}journalctl -u cloudflared -f${NC}"
+echo -e "  Перезапуск:       ${CYAN}sudo systemctl restart blood${NC}"
+echo -e "  Редагувати .env:  ${CYAN}sudo nano ${ENV_FILE}${NC}"
 echo ""
-warn "Перший хто увійде через Google — стає адміністратором."
+warn "Перший хто увійде через Google або реєстрацію — стає адміністратором."
 echo ""

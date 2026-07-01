@@ -296,7 +296,7 @@ function renderHomeChart() {
           borderWidth: 2, tension: .35, pointRadius: 4,
           pointBackgroundColor: morningData.map((v, i) => {
             const d = new Date(); d.setDate(d.getDate() - (6 - i));
-            return d.toISOString().slice(0,10) === today ? '#fbbf24' : '#fbbf2488';
+            return _localDateStr(d) === today ? '#fbbf24' : '#fbbf2488';
           }),
           fill: false,
         },
@@ -306,7 +306,7 @@ function renderHomeChart() {
           borderWidth: 2, tension: .35, pointRadius: 4,
           pointBackgroundColor: eveningData.map((v, i) => {
             const d = new Date(); d.setDate(d.getDate() - (6 - i));
-            return d.toISOString().slice(0,10) === today ? '#818cf8' : '#818cf888';
+            return _localDateStr(d) === today ? '#818cf8' : '#818cf888';
           }),
           fill: false,
         },

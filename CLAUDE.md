@@ -3,14 +3,14 @@
 ## Versioning rule
 
 **При кожній зміні коду** збільшувати версію програми на +0.01:
-- `client/index.html` → `const APP_VERSION = 'X.XX'`
+- `client/js/state.js` → `const APP_VERSION = 'X.XX'`
 - `client/sw.js` → `const CACHE = 'health-vN'` і `const API_CACHE = 'health-api-vN'` (N — ціле, збільшувати на 1)
 
-Поточна версія: **3.02** (SW: health-v51).
+Поточна версія: **3.03** (SW: health-v52).
 
 ## Stack
 
-- **Backend**: Node.js 20 + Express, PostgreSQL (`pg`), bcryptjs, JWT (httpOnly cookie, 30d)
+- **Backend**: Node.js 20 + Express, PostgreSQL (`pg`), bcryptjs, JWT (httpOnly cookie, 7d)
 - **Auth**: Google OAuth 2.0 (Passport.js) + local email/password (bcrypt 10 rounds)
 - **Push**: Web Push API + VAPID + node-cron (server-side scheduled reminders)
 - **Frontend**: Vanilla JS SPA, Chart.js (CDN), CSS scroll-snap drum rollers (iOS-style)
@@ -25,18 +25,31 @@ server/
   db.js                 — pg pool, initDb() migrations (ALTER TABLE IF NOT EXISTS)
   middleware/auth.js    — requireAuth / requireAdmin (JWT cookie)
   config/tiers.js       — getEffectiveTier(), getTierConfig()
+  utils/validateEntry.js — shared validation for entry payloads
   routes/
-    auth.js             — Google OAuth, Google Drive OAuth, local register/login, /me
+    auth.js             — Google OAuth, Google Drive OAuth, local register/login,
+                           forgot/reset password, /me
     entries.js          — GET/POST/DELETE /api/entries
-    users.js            — PUT/DELETE /api/users/me, admin CRUD
+    users.js            — PUT/DELETE /api/users/me, admin CRUD (list/invite/update/delete)
     pdf.js              — POST /api/pdf (Puppeteer)
     push.js             — VAPID key, push subscription
     backup.js           — Drive backup/restore (status, create, list, restore, disconnect)
+    export.js           — CSV/JSON export, JSON import (tier-gated via tierGuard)
   services/
     drive.js            — Google Drive API (token refresh, folder, upload, list, download)
+    pdf.js              — Puppeteer PDF report generation
+    push.js             — VAPID/web-push send + node-cron reminder scheduling
+    email.js            — Resend API password-reset email (no-op log if RESEND_API_KEY unset)
 client/
-  index.html            — entire SPA (HTML + CSS + JS inline)
-  sw.js                 — Service Worker (offline mode: app shell + API GET cache)
+  index.html            — SPA shell (HTML + CSS); JS split into client/js/*.js modules
+  js/                    — state.js, api.js, queue.js, auth.js, ui.js, rollers.js,
+                            entries.js, home.js, journal.js, drive.js, charts.js,
+                            export.js, reminders.js, init.js (loaded in this order)
+  sw.js                  — Service Worker (offline mode: app shell + API GET cache)
+  landing.html           — public landing page + embedded login/register form
+  admin.html             — admin panel (user list, tier changes, invite)
+  reset-password.html    — password-reset form (consumes /api/auth/reset-password token)
+  privacy.html / terms.html / offline.html
 logs/app.log            — file-based error log
 ```
 
@@ -44,16 +57,18 @@ logs/app.log            — file-based error log
 
 - `pg.types.setTypeParser(1082, val => val)` — DATE columns return plain strings, not Date objects
 - `entries` table columns: `m_sys_l`, `m_dia_l`, `m_sys_r`, `m_dia_r`, `m_pulse`, `m_pulse_l`, `m_pulse_r` (and `e_` equivalents)
-- `subscription_tier`: `'premium'` | `'demo'` (all new users get `'premium'`; legacy `'free'` migrated → `'premium'` on startup)
-- `rollerFormData` object holds all roller values; `_loadPending` counter prevents race condition between programmatic scroll (rAF) and `_saveRollerToFormData`
+- `subscription_tier`: `'admin'` | `'premium'` | `'demo'` | `'free'` (all new users get `'premium'`; legacy `'free'` migrated → `'premium'` on startup). `'demo'` has full access for `DEMO_DAYS` (7 days from `created_at`, see `server/config/tiers.js`) then auto-downgrades to `'free'` (restricted: `max_history_days=30`, exports/Drive backup disabled). `'free'` is otherwise a legacy value kept for the post-demo/post-expiry state, not assigned at signup.
+- `rollerFormData` object holds all roller values; `rollerTouched` (a `Set` of `"period-hand"` keys) tracks which roller combinations have real data, preventing untouched rollers from being saved
 - `selectedWeekDate`: `null` = show today on home; otherwise shows selected past date
-- `openEntryModal(date, allowEdit)`: editing only via Journal tab; `openSmartEntryModal()` opens modal first then fills data via double-rAF
-- `todayStr()` / `_localDateStr(d)` — always use local year/month/day (never `toISOString()` for date strings — it returns UTC which breaks around midnight in UTC+N)
+- `openEntryModal(date, allowEdit)`: editing only via Journal tab, fills data via single rAF after the modal opens; `openSmartEntryModal()` opens modal first then fills data via double-rAF (fixes fake data on period switch)
+- `todayStr()` / `_localDateStr(d)` (defined in `client/js/ui.js`) — always use local year/month/day (never `toISOString()` for date strings — it returns UTC which breaks around midnight in UTC+N)
 - Google Drive tokens stored per-user: `drive_access_token`, `drive_refresh_token`, `drive_token_expires_at`; auto-refreshed before each request in `server/services/drive.js`
+- `APP_URL` env var must be set equal to `BASE_URL` — used for the CSRF Origin check (`server/index.js`) and to build password-reset email links (`server/routes/auth.js`); if unset, both fall back to defaults that are wrong for anyone other than the original deployment
+- Password reset emails go through Resend (`server/services/email.js`); without `RESEND_API_KEY` set, the reset link is only logged to `logs/app.log`, not emailed
 
 ## Active branch
 
-`claude/gallant-brown-xfe3zt`
+Development happens on short-lived `claude/*` feature branches merged into `main` via PR — there is no single long-lived active branch to track here. Always branch from and update docs against `main`.
 
 ---
 
@@ -66,13 +81,13 @@ logs/app.log            — file-based error log
 - [x] Home page: 7-day week strip, single-day summary card, systolic trend chart
 - [x] Smart FAB: detects missing period (morning/evening) and pre-selects it
 - [x] Editing restricted to Journal tab only (week strip clicks = view only)
-- [x] Race condition fix: `_loadPending` counter prevents `_saveRollerToFormData` reading stale DOM
+- [x] Race condition fix: `rollerTouched` Set + double-rAF sequencing prevent `_saveRollerToFormData` reading stale/untouched roller DOM
 - [x] Entry modal opens first, data fills via double-rAF (fixes fake data on period switch)
 - [x] Date picker hidden in edit modal; date shown in title instead
 - [x] Push notification settings persist across reloads (synced from server on `initApp`)
 - [x] Google OAuth 2.0 login
 - [x] **Local email/password registration + login** (bcryptjs, 10 rounds)
-- [x] **Two user tiers: Demo / Premium** (all new users = Premium; tier badge in user chip)
+- [x] **User tiers: Admin / Premium / Demo / Free** (all new users = Premium; Demo auto-downgrades to Free after 7 days; tier badge in user chip)
 - [x] PDF report (Puppeteer)
 - [x] CSV + JSON export / import (CSV includes `notes` column; JSON capped at 5 MB)
 - [x] Web Push reminders (VAPID, node-cron)
@@ -95,6 +110,9 @@ logs/app.log            — file-based error log
 - [x] **Google OAuth → `/app` redirect**: after OAuth callback, server redirects to `/app` (not `/`) to bypass SW cache of landing page; SPA normalizes URL to `/` via `history.replaceState`
 - [x] **Cloudflare trust proxy**: `app.set('trust proxy', 1)` so rate limiter uses real client IP (not Cloudflare IP)
 - [x] **Dead code removed**: `avg()`, `bpStatus()`, `armDiffWarning()` JS functions; `.range-bar`, `.range-ok`, `.range-high`, `.range-low` CSS
+- [x] **Frontend split into modules**: `client/index.html` is now shell-only; JS lives in `client/js/*.js` (see File structure)
+- [x] **Local password reset**: `forgot-password` / `reset-password` endpoints (hashed, 1h-expiry, single-use tokens) + Resend email (`server/services/email.js`), `client/reset-password.html`
+- [x] **Admin panel**: `client/admin.html` — list users with activity stats, invite by email, change tier/expiry, delete user (guards against removing the last admin)
 
 ### 🔲 Pending / Known issues
 
@@ -104,6 +122,5 @@ logs/app.log            — file-based error log
 
 ### 🔲 Future / Deferred
 
-- [ ] Admin panel rework (add/remove users, change tier)
 - [ ] Automatic scheduled Drive backup (node-cron daily)
 - [ ] Timezone selector in Settings tab

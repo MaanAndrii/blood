@@ -3,7 +3,7 @@ function filterEntries(days) {
   if (days === 'all') return entries;
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - Number(days));
-  const cutStr = cutoff.toISOString().slice(0,10);
+  const cutStr = _localDateStr(cutoff);
   return entries.filter(e => String(e.date).slice(0,10) >= cutStr);
 }
 

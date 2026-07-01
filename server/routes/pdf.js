@@ -14,7 +14,8 @@ router.post('/', requireAuth, async (req, res) => {
 
     // Only admins can generate reports for other users
     if (userId && userId !== req.user.id) {
-      if (!req.user.is_admin) {
+      const requesterRes = await pool.query('SELECT subscription_tier FROM users WHERE id = $1', [req.user.id]);
+      if (requesterRes.rows[0]?.subscription_tier !== 'admin') {
         return res.status(403).json({ error: 'Admin access required to generate reports for other users' });
       }
     } else {

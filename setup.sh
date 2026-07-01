@@ -214,6 +214,33 @@ fi
 CALLBACK_URL="${BASE_URL}/api/auth/google/callback"
 
 # =============================================================================
+#  Крок 5b — Email для відновлення пароля (Resend, опційно)
+# =============================================================================
+step "Крок 5b — Email для відновлення пароля (опційно)"
+
+echo ""
+info "Для надсилання листів «Відновлення пароля» використовується Resend (https://resend.com)."
+warn "Без цього кроку посилання для відновлення пароля лише пишеться в лог сервера,"
+warn "а не надсилається користувачу поштою."
+echo ""
+ask "Налаштувати Resend зараз? [y/N]:"
+read -r SETUP_RESEND
+SETUP_RESEND="${SETUP_RESEND,,}"
+
+if [[ "$SETUP_RESEND" == "y" ]]; then
+  ask "Введіть RESEND_API_KEY:"
+  read -r -s RESEND_API_KEY
+  echo ""
+  ask "Введіть адресу відправника (наприклад: BP & BMI <no-reply@ваш-домен>):"
+  read -r RESEND_FROM
+  ok "Resend налаштовано"
+else
+  RESEND_API_KEY=""
+  RESEND_FROM=""
+  warn "Resend пропущено. Листи відновлення пароля лише логуватимуться на сервері"
+fi
+
+# =============================================================================
 #  Крок 6 — VAPID ключі
 # =============================================================================
 step "Крок 6 — VAPID ключі для Web Push"
@@ -242,12 +269,14 @@ JWT_SECRET=$(node -e "console.log(require('crypto').randomBytes(48).toString('he
 # Для Quick Tunnel BASE_URL поки невідомий — ставимо заглушку
 EFFECTIVE_BASE_URL="${BASE_URL:-https://YOUR-SUBDOMAIN.trycloudflare.com}"
 EFFECTIVE_CALLBACK="${EFFECTIVE_BASE_URL}/api/auth/google/callback"
+EFFECTIVE_DRIVE_CALLBACK="${EFFECTIVE_BASE_URL}/api/auth/google/drive/callback"
 
 cat > "$ENV_FILE" <<EOF
 DATABASE_URL=${DATABASE_URL}
 GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
 GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
 GOOGLE_CALLBACK_URL=${EFFECTIVE_CALLBACK}
+GOOGLE_DRIVE_CALLBACK_URL=${EFFECTIVE_DRIVE_CALLBACK}
 JWT_SECRET=${JWT_SECRET}
 VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY}
 VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY}
@@ -255,6 +284,9 @@ VAPID_EMAIL=mailto:${VAPID_EMAIL}
 NODE_ENV=production
 PORT=3000
 BASE_URL=${EFFECTIVE_BASE_URL}
+APP_URL=${EFFECTIVE_BASE_URL}
+RESEND_API_KEY=${RESEND_API_KEY}
+RESEND_FROM=${RESEND_FROM}
 EOF
 
 chmod 600 "$ENV_FILE"
@@ -262,7 +294,8 @@ chown "${SERVICE_USER}:${SERVICE_USER}" "$ENV_FILE"
 ok ".env створено (права 600)"
 
 if [[ "$QUICK_TUNNEL" == "true" ]]; then
-  warn "Після отримання URL Quick Tunnel оновіть BASE_URL та GOOGLE_CALLBACK_URL в .env:"
+  warn "Після отримання URL Quick Tunnel оновіть BASE_URL, APP_URL,"
+  warn "GOOGLE_CALLBACK_URL та GOOGLE_DRIVE_CALLBACK_URL в .env:"
   warn "  sudo nano ${ENV_FILE}"
   warn "  sudo systemctl restart blood"
 fi
@@ -358,7 +391,9 @@ EOF
       ok "Quick Tunnel URL: ${QUICK_URL}"
       # Оновити .env з реальним URL
       sed -i "s|^BASE_URL=.*|BASE_URL=${QUICK_URL}|" "$ENV_FILE"
+      sed -i "s|^APP_URL=.*|APP_URL=${QUICK_URL}|" "$ENV_FILE"
       sed -i "s|^GOOGLE_CALLBACK_URL=.*|GOOGLE_CALLBACK_URL=${QUICK_URL}/api/auth/google/callback|" "$ENV_FILE"
+      sed -i "s|^GOOGLE_DRIVE_CALLBACK_URL=.*|GOOGLE_DRIVE_CALLBACK_URL=${QUICK_URL}/api/auth/google/drive/callback|" "$ENV_FILE"
       systemctl restart blood
       ok ".env оновлено з реальним URL"
     else

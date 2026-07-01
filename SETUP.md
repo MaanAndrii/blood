@@ -15,11 +15,10 @@
 ```bash
 git clone https://github.com/MaanAndrii/blood.git
 cd blood
-git checkout claude/gallant-brown-xfe3zt
 sudo bash setup.sh
 ```
 
-Візард проведе через усі 9 кроків інтерактивно. Якщо щось пішло не так — читайте ручне встановлення нижче.
+Візард проведе через всі кроки інтерактивно (системні пакети, БД, режим доступу, Google OAuth, email для відновлення пароля, VAPID, `.env`, systemd, Cloudflare Tunnel, автоматичний бекап). Якщо щось пішло не так — читайте ручне встановлення нижче.
 
 ---
 
@@ -89,7 +88,6 @@ which chromium
 cd ~
 git clone https://github.com/MaanAndrii/blood.git
 cd blood
-git checkout claude/gallant-brown-xfe3zt
 ```
 
 ---
@@ -144,6 +142,7 @@ DATABASE_URL=postgresql://health:ВАШ_НАДІЙНИЙ_ПАРОЛЬ@localhost:
 GOOGLE_CLIENT_ID=          # з кроку 9
 GOOGLE_CLIENT_SECRET=      # з кроку 9
 GOOGLE_CALLBACK_URL=https://ВАШ_ДОМЕН/api/auth/google/callback
+GOOGLE_DRIVE_CALLBACK_URL=https://ВАШ_ДОМЕН/api/auth/google/drive/callback
 JWT_SECRET=                # генерується нижче
 VAPID_PUBLIC_KEY=          # з кроку 7
 VAPID_PRIVATE_KEY=         # з кроку 7
@@ -151,7 +150,12 @@ VAPID_EMAIL=mailto:ваш@email.com
 NODE_ENV=production
 PORT=3000
 BASE_URL=https://ВАШ_ДОМЕН
+APP_URL=https://ВАШ_ДОМЕН   # має збігатися з BASE_URL; використовується для CSRF-перевірки та посилань у листах відновлення пароля
+RESEND_API_KEY=            # опційно, https://resend.com — без нього лист відновлення пароля лише пишеться в лог сервера
+RESEND_FROM=BP & BMI <no-reply@ВАШ_ДОМЕН>
 ```
+
+> **Важливо:** Якщо `APP_URL` не задано, сервер підставляє запасний домен за замовчуванням — посилання у листах відновлення пароля вестимуть на чужий домен. Завжди явно задавайте `APP_URL` рівним `BASE_URL`.
 
 Генерація JWT_SECRET:
 
@@ -371,7 +375,7 @@ curl -s http://localhost:3000/api/auth/me
 
 ```bash
 cd ~/blood
-git pull origin claude/gallant-brown-xfe3zt
+git pull origin main
 PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=1 npm install
 sudo systemctl restart blood
 ```
@@ -461,5 +465,21 @@ sudo systemctl restart blood
 ```bash
 node -e "const wp=require('web-push'); const k=wp.generateVAPIDKeys(); console.log('Public: '+k.publicKey+'\nPrivate: '+k.privateKey)"
 # Оновити VAPID_PUBLIC_KEY і VAPID_PRIVATE_KEY в .env
+sudo systemctl restart blood
+```
+
+**Лист «Відновлення пароля» не приходить**
+```bash
+# Без RESEND_API_KEY посилання лише пишеться в лог, не надсилається поштою:
+grep "email.*not sent" ~/blood/logs/app.log
+# Додайте RESEND_API_KEY і RESEND_FROM у .env (https://resend.com), потім:
+sudo systemctl restart blood
+```
+
+**Посилання відновлення пароля веде на чужий домен**
+```bash
+# APP_URL не задано — сервер підставив запасний домен за замовчуванням
+grep "^APP_URL=" ~/blood/.env || echo "APP_URL відсутній у .env"
+# Додати рядок APP_URL=https://ВАШ_ДОМЕН (має збігатися з BASE_URL)
 sudo systemctl restart blood
 ```

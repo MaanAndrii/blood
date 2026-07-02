@@ -107,6 +107,62 @@ function bpCategoryLabel(sys, dia) {
   return 'Оптимальний';
 }
 
+// ── "Annotated" report mode: status/badge classification ───────────────────
+// Maps WHO/ESH category labels (from bpCategoryLabel) onto a 4-level status
+// scale used for color coding + a short print-safe text code.
+const BP_STATUS_BY_CATEGORY = {
+  'Оптимальний':       { status: 'good',     code: 'ОПТ'  },
+  'Нормальний':        { status: 'good',     code: 'НОРМ' },
+  'Висок. нормальний': { status: 'warning',  code: 'ВН'   },
+  'Гіпертензія 1 ст.':  { status: 'warning',  code: 'Г1'   },
+  'Ізол. сист. АГ':     { status: 'serious',  code: 'ІСАГ' },
+  'Ізол. діаст. АГ':    { status: 'serious',  code: 'ІДАГ' },
+  'Гіпертензія 2 ст.':  { status: 'serious',  code: 'Г2'   },
+  'Гіпертензія 3 ст.':  { status: 'critical', code: 'Г3'   },
+};
+const STATUS_RANK = { good: 0, warning: 1, serious: 2, critical: 3 };
+const ARM_DIFF_THRESHOLD = 10;
+
+function bpStatus(sys, dia) {
+  if (sys == null || dia == null) return null;
+  return BP_STATUS_BY_CATEGORY[bpCategoryLabel(sys, dia)] || null;
+}
+
+function pulseStatus(p) {
+  if (p == null) return null;
+  const n = Number(p);
+  if (n < 50 || n > 120) return { status: 'serious', code: n < 50 ? 'БРАД' : 'ТАХІ' };
+  if (n < 60 || n > 100) return { status: 'warning', code: n < 60 ? 'БРАД' : 'ТАХІ' };
+  return null;
+}
+
+function armDiffVal(sysL, sysR) {
+  return (sysL != null && sysR != null) ? Math.abs(sysL - sysR) : null;
+}
+
+// BP reading cell: value + colored wrapper/badge if elevated and/or arm-diff flagged
+function bpCellA(sys, dia, diff) {
+  if (sys == null && dia == null) return '—';
+  const val = `${sys}/${dia}`;
+  const info = bpStatus(sys, dia);
+  const bpFlag = info && info.status !== 'good';
+  const diffFlag = diff != null && diff > ARM_DIFF_THRESHOLD;
+  if (!bpFlag && !diffFlag) return val;
+  const wrapStatus = bpFlag ? info.status : 'diff';
+  let html = `<span class="bp-val bp-${wrapStatus}">${val}`;
+  if (bpFlag) html += `<span class="bp-tag bp-tag-${info.status}">${info.code}</span>`;
+  if (diffFlag) html += `<span class="bp-tag bp-tag-diff">Δ${diff}</span>`;
+  html += `</span>`;
+  return html;
+}
+
+function pulseCellA(p) {
+  if (p == null) return '—';
+  const info = pulseStatus(p);
+  if (!info) return String(p);
+  return `<span class="bp-val bp-${info.status}">${p}<span class="bp-tag bp-tag-${info.status}">${info.code}</span></span>`;
+}
+
 const _iconPath = path.join(__dirname, '..', '..', 'client', 'icons', 'icon-192.svg');
 const _iconSvgRaw = fs.readFileSync(_iconPath, 'utf8');
 const LOGO_SVG = _iconSvgRaw
@@ -147,6 +203,25 @@ function buildHtml(user, entries, dateFrom, dateTo, mode = 'short') {
       <td>${e.weight != null ? parseFloat(e.weight).toFixed(1) : '—'}</td>
       ${hasNotes ? `<td style="text-align:left;font-size:9px">${escHtml(e.notes) || ''}</td>` : ''}
     </tr>`).join('');
+
+  // "Annotated" mode: same columns, cells colored/badged by WHO/ESH status,
+  // arm-difference and pulse anomalies flagged inline (see bpCellA/pulseCellA).
+  const rowsAnnotated = filtered.map(e => {
+    const mDiff = armDiffVal(e.m_sys_l, e.m_sys_r);
+    const eDiff = armDiffVal(e.e_sys_l, e.e_sys_r);
+    return `
+    <tr>
+      <td>${fmtDateUk(String(e.date).slice(0,10))}</td>
+      <td>${bpCellA(e.m_sys_l, e.m_dia_l, null)}</td>
+      <td>${bpCellA(e.m_sys_r, e.m_dia_r, mDiff)}</td>
+      <td>${pulseCellA(e.m_pulse)}</td>
+      <td>${bpCellA(e.e_sys_l, e.e_dia_l, null)}</td>
+      <td>${bpCellA(e.e_sys_r, e.e_dia_r, eDiff)}</td>
+      <td>${pulseCellA(e.e_pulse)}</td>
+      <td>${e.weight != null ? parseFloat(e.weight).toFixed(1) : '—'}</td>
+      ${hasNotes ? `<td style="text-align:left;font-size:9px">${escHtml(e.notes) || ''}</td>` : ''}
+    </tr>`;
+  }).join('');
 
   const avgRow = `
     <tr class="avg-row">
@@ -215,6 +290,22 @@ function buildHtml(user, entries, dateFrom, dateTo, mode = 'short') {
       if (Math.abs(e.e_sys_l - e.e_sys_r) > 10) armDiffCount++;
     }
   });
+
+  // Per-day worst status (for the "annotated" mode summary panel)
+  let dayGoodCount = 0, dayWarningCount = 0, daySeriousCount = 0, dayCriticalCount = 0;
+  filtered.forEach(e => {
+    const readings = [
+      bpStatus(e.m_sys_l, e.m_dia_l), bpStatus(e.m_sys_r, e.m_dia_r),
+      bpStatus(e.e_sys_l, e.e_dia_l), bpStatus(e.e_sys_r, e.e_dia_r),
+    ].filter(Boolean);
+    if (!readings.length) return;
+    const worst = readings.reduce((a, b) => STATUS_RANK[b.status] > STATUS_RANK[a.status] ? b : a);
+    if (worst.status === 'good') dayGoodCount++;
+    else if (worst.status === 'warning') dayWarningCount++;
+    else if (worst.status === 'serious') daySeriousCount++;
+    else dayCriticalCount++;
+  });
+  const pulseAnomalyCount = [...mPulse, ...ePulse].filter(p => pulseStatus(p) != null).length;
 
   // Daily index
   const avgMSys = avg(mSysL.map((v, i) => v ?? mSysR[i]));
@@ -334,6 +425,29 @@ function buildHtml(user, entries, dateFrom, dateTo, mode = 'short') {
 
   const notesColspan = hasNotes ? 9 : 8;
 
+  const summaryPanel = mode === 'annotated' ? `
+  <div class="summary-panel">
+    <div class="summary-item summary-good"><span class="summary-num">${dayGoodCount}</span><span class="summary-label">днів у нормі</span></div>
+    <div class="summary-item summary-warning"><span class="summary-num">${dayWarningCount}</span><span class="summary-label">днів підвищений тиск</span></div>
+    <div class="summary-item summary-serious"><span class="summary-num">${daySeriousCount}</span><span class="summary-label">днів значно підвищений</span></div>
+    <div class="summary-item summary-critical"><span class="summary-num">${dayCriticalCount}</span><span class="summary-label">днів критичний</span></div>
+    <div class="summary-item summary-diff"><span class="summary-num">${armDiffCount}</span><span class="summary-label">вимірів з різницею рук &gt;10 мм</span></div>
+    <div class="summary-item summary-pulse"><span class="summary-num">${pulseAnomalyCount}</span><span class="summary-label">вимірів пульсу поза нормою</span></div>
+  </div>` : '';
+
+  const legendSection = mode === 'annotated' ? `
+  <div class="section-title">🔎 Розшифровка позначень</div>
+  <div class="legend-grid">
+    <div class="legend-item"><span class="legend-swatch sw-good"></span>Без кольору — оптимальний/нормальний тиск</div>
+    <div class="legend-item"><span class="legend-swatch sw-warning"></span>ВН / Г1 — високий нормальний / гіпертензія 1 ст.</div>
+    <div class="legend-item"><span class="legend-swatch sw-serious"></span>ІСАГ / ІДАГ / Г2 — ізольована АГ / гіпертензія 2 ст.</div>
+    <div class="legend-item"><span class="legend-swatch sw-critical"></span>Г3 — гіпертензія 3 ст. (потребує уваги лікаря)</div>
+    <div class="legend-item"><span class="legend-swatch sw-diff"></span>Δ — різниця систолічного тиску між руками &gt;10 мм рт.ст.</div>
+    <div class="legend-item"><span class="legend-swatch sw-warning"></span>БРАД / ТАХІ (жовтий) — пульс 50–59 або 101–120 уд/хв</div>
+    <div class="legend-item"><span class="legend-swatch sw-serious"></span>БРАД / ТАХІ (оранжевий) — пульс &lt;50 або &gt;120 уд/хв</div>
+  </div>
+  <div class="legend-note">Класифікація за WHO/ESH 2023. Кожна позначка кольору дублюється текстовим кодом — коректно читається і при чорно-білому друку.</div>` : '';
+
   return `<!DOCTYPE html>
 <html lang="uk">
 <head>
@@ -374,6 +488,39 @@ function buildHtml(user, entries, dateFrom, dateTo, mode = 'short') {
 
     .footer { margin-top: 20px; font-size: 10px; color: #888; text-align: right; border-top: 1px solid #ddd; padding-top: 8px; }
 
+    /* ── Annotated mode: status badges + summary panel + legend ── */
+    .bp-val { display: inline-flex; align-items: center; gap: 3px; padding: 1px 4px; border-radius: 3px; white-space: nowrap; }
+    .bp-warning  { background: #fab21930; border-left: 2px solid #fab219; }
+    .bp-serious  { background: #ec835a30; border-left: 2px solid #ec835a; }
+    .bp-critical { background: #d03b3b30; border-left: 2px solid #d03b3b; font-weight: 700; }
+    .bp-diff     { background: #4a3aa730; border-left: 2px solid #4a3aa7; }
+    .bp-tag { font-size: 7px; font-weight: 700; padding: 0 2px; border-radius: 2px; color: #fff; line-height: 1.4; }
+    .bp-tag-warning  { background: #c98500; }
+    .bp-tag-serious  { background: #ec835a; }
+    .bp-tag-critical { background: #d03b3b; }
+    .bp-tag-diff     { background: #4a3aa7; }
+
+    .summary-panel { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 14px 0 18px; }
+    .summary-item { border: 1px solid #ddd; border-radius: 6px; padding: 8px 10px; text-align: center; }
+    .summary-item .summary-num { display: block; font-size: 20px; font-weight: 700; }
+    .summary-item .summary-label { display: block; font-size: 8.5px; color: #666; margin-top: 2px; }
+    .summary-good     .summary-num { color: #0ca30c; }
+    .summary-warning  .summary-num { color: #c98500; }
+    .summary-serious  .summary-num { color: #ec835a; }
+    .summary-critical .summary-num { color: #d03b3b; }
+    .summary-diff      .summary-num { color: #4a3aa7; }
+    .summary-pulse      .summary-num { color: #1a2744; }
+
+    .legend-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; font-size: 10px; margin-bottom: 8px; }
+    .legend-item { display: flex; align-items: center; gap: 6px; }
+    .legend-swatch { display: inline-block; width: 12px; height: 12px; border-radius: 2px; flex-shrink: 0; }
+    .sw-good     { background: #cde2fb; border: 1px solid #ccc; }
+    .sw-warning  { background: #fab219; }
+    .sw-serious  { background: #ec835a; }
+    .sw-critical { background: #d03b3b; }
+    .sw-diff     { background: #4a3aa7; }
+    .legend-note { font-size: 9px; color: #888; font-style: italic; }
+
     @media print {
       body { padding: 10mm; }
       thead { display: table-header-group; }
@@ -387,7 +534,11 @@ function buildHtml(user, entries, dateFrom, dateTo, mode = 'short') {
     ${LOGO_SVG}
     <div class="report-header-text">
       <div class="report-title">ЖУРНАЛ АРТЕРІАЛЬНОГО ТИСКУ</div>
-      <div class="report-subtitle">BP &amp; BMI — ${mode === 'extended' ? 'Розширений звіт з аналітикою' : 'Таблиця показників для лікаря'}</div>
+      <div class="report-subtitle">BP &amp; BMI — ${
+        mode === 'extended' ? 'Розширений звіт з аналітикою'
+        : mode === 'annotated' ? 'Кольоровий звіт з розшифровкою показників'
+        : 'Таблиця показників для лікаря'
+      }</div>
     </div>
   </div>
 
@@ -398,6 +549,8 @@ function buildHtml(user, entries, dateFrom, dateTo, mode = 'short') {
     <tr><td>Сформовано:</td><td>${today}</td></tr>
     <tr><td>Всього записів:</td><td>${filtered.length}</td></tr>
   </table>
+
+  ${summaryPanel}
 
   <table class="data">
     <thead>
@@ -418,12 +571,14 @@ function buildHtml(user, entries, dateFrom, dateTo, mode = 'short') {
       </tr>
     </thead>
     <tbody>
-      ${rows || `<tr><td colspan="${notesColspan}" style="text-align:center;padding:20px;color:#888">Немає даних за вказаний період</td></tr>`}
+      ${(mode === 'annotated' ? rowsAnnotated : rows) || `<tr><td colspan="${notesColspan}" style="text-align:center;padding:20px;color:#888">Немає даних за вказаний період</td></tr>`}
       ${filtered.length > 0 ? avgRow : ''}
     </tbody>
   </table>
 
   ${statsSection}
+
+  ${legendSection}
 
   <div class="footer">
     Документ сформовано автоматично системою моніторингу здоров'я &bull; ${today} &bull; WHO/ESH 2023

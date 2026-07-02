@@ -95,8 +95,10 @@ function setPdfMode(m) {
   _pdfMode = m;
   document.getElementById('pdfModeShort').classList.toggle('active', m === 'short');
   document.getElementById('pdfModeExtended').classList.toggle('active', m === 'extended');
-  document.getElementById('pdfModeHint').textContent = m === 'extended'
-    ? 'Таблиця показників + статистика та аналітика (WHO/ESH 2023)'
+  document.getElementById('pdfModeAnnotated').classList.toggle('active', m === 'annotated');
+  document.getElementById('pdfModeHint').textContent =
+      m === 'extended'  ? 'Таблиця показників + статистика та аналітика (WHO/ESH 2023)'
+    : m === 'annotated' ? 'Таблиця з кольоровим кодуванням тиску, позначками різниці рук і пульсу, зведеною панеллю та розшифровкою'
     : 'Таблиця показників за вибраний період';
 }
 

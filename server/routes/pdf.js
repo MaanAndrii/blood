@@ -10,7 +10,7 @@ const router = express.Router();
 router.post('/', requireAuth, async (req, res) => {
   try {
     let { userId, dateFrom, dateTo, mode } = req.body;
-    if (mode !== 'extended') mode = 'short';
+    if (!['extended', 'annotated'].includes(mode)) mode = 'short';
 
     // Only admins can generate reports for other users
     if (userId && userId !== req.user.id) {

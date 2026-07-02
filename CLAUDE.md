@@ -6,7 +6,7 @@
 - `client/js/state.js` → `const APP_VERSION = 'X.XX'`
 - `client/sw.js` → `const CACHE = 'health-vN'` і `const API_CACHE = 'health-api-vN'` (N — ціле, збільшувати на 1)
 
-Поточна версія: **3.03** (SW: health-v52).
+Поточна версія: **3.04** (SW: health-v53).
 
 ## Stack
 
@@ -88,7 +88,7 @@ Development happens on short-lived `claude/*` feature branches merged into `main
 - [x] Google OAuth 2.0 login
 - [x] **Local email/password registration + login** (bcryptjs, 10 rounds)
 - [x] **User tiers: Admin / Premium / Demo / Free** (all new users = Premium; Demo auto-downgrades to Free after 7 days; tier badge in user chip)
-- [x] PDF report (Puppeteer)
+- [x] PDF report (Puppeteer), 3 modes: short / extended (stats & analytics) / **annotated** (WHO/ESH color-coded cells + arm-diff & pulse-anomaly badges + summary panel + legend, all print-safe via icon+text codes, not color alone)
 - [x] CSV + JSON export / import (CSV includes `notes` column; JSON capped at 5 MB)
 - [x] Web Push reminders (VAPID, node-cron)
 - [x] User profile (name, date of birth, height)

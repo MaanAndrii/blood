@@ -432,8 +432,9 @@ function renderCharts() {
       </div>`;
     })();
 
-    // — Cardiovascular risk card (after WHO/ESH) —
+    // — Cardiovascular risk + lab-results cards (after WHO/ESH) —
     renderRiskCard();
+    renderLabsCard();
 
     // — Trends (linear regression over selected period) —
     (function renderTrends() {

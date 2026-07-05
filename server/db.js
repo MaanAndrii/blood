@@ -85,6 +85,35 @@ async function initDb() {
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS drive_refresh_token TEXT`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS drive_token_expires_at TIMESTAMPTZ`);
 
+  // Lab results — dated blood-work panels (lipids + HbA1c). One row per day.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS lab_results (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      date DATE NOT NULL,
+      hba1c NUMERIC(4,2),           -- glycated hemoglobin, %
+      total_chol NUMERIC(4,2),      -- total cholesterol, mmol/L
+      hdl NUMERIC(4,2),             -- HDL cholesterol, mmol/L
+      ldl NUMERIC(4,2),             -- LDL cholesterol, mmol/L
+      triglycerides NUMERIC(4,2),   -- mmol/L
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(user_id, date)
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_lab_results_user_date ON lab_results(user_id, date DESC)
+  `);
+  // One-time seed: migrate legacy per-user cholesterol snapshot into a dated lab row
+  await pool.query(`
+    INSERT INTO lab_results (user_id, date, total_chol, hdl)
+    SELECT u.id, COALESCE(u.cholesterol_updated_at::date, CURRENT_DATE),
+           u.total_cholesterol, u.hdl_cholesterol
+    FROM users u
+    WHERE (u.total_cholesterol IS NOT NULL OR u.hdl_cholesterol IS NOT NULL)
+      AND NOT EXISTS (SELECT 1 FROM lab_results lr WHERE lr.user_id = u.id)
+  `);
+
   // Password reset tokens (email-based flow)
   await pool.query(`
     CREATE TABLE IF NOT EXISTS password_reset_tokens (

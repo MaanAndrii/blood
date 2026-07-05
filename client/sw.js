@@ -1,5 +1,5 @@
-const CACHE = 'health-v54';
-const API_CACHE = 'health-api-v54';
+const CACHE = 'health-v55';
+const API_CACHE = 'health-api-v55';
 
 const STATIC_SHELL = [
   '/offline.html',
@@ -15,6 +15,7 @@ const STATIC_SHELL = [
   '/js/entries.js',
   '/js/home.js',
   '/js/risk.js',
+  '/js/labs.js',
   '/js/journal.js',
   '/js/drive.js',
   '/js/charts.js',
@@ -30,7 +31,7 @@ const STATIC_SHELL = [
 
 // API GET routes to cache for offline reading
 // /api/auth/me excluded — auth state must never be served from cache
-const CACHED_API = ['/api/entries'];
+const CACHED_API = ['/api/entries', '/api/labs'];
 
 self.addEventListener('install', e => {
   e.waitUntil(

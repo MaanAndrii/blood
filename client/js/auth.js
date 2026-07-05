@@ -60,6 +60,7 @@ async function initApp() {
     applyTierRestrictions();
 
     await fetchEntries();
+    await fetchLabs();
     showApp();
     _initJournalPicker();
     initRollers();
@@ -271,8 +272,6 @@ function openProfileModal() {
   document.getElementById('profileSmoker').checked   = currentUser.smoker === true;
   document.getElementById('profileDiabetic').checked = currentUser.diabetic === true;
   document.getElementById('profileOnBpMeds').checked = currentUser.on_bp_meds === true;
-  document.getElementById('profileTotalChol').value  = currentUser.total_cholesterol ?? '';
-  document.getElementById('profileHdl').value        = currentUser.hdl_cholesterol ?? '';
 
   // Password section: show "Поточний пароль" only if user already has one
   const hasPw = currentUser.has_password;
@@ -323,10 +322,6 @@ async function saveProfile() {
   const smoker        = document.getElementById('profileSmoker').checked;
   const diabetic      = document.getElementById('profileDiabetic').checked;
   const on_bp_meds    = document.getElementById('profileOnBpMeds').checked;
-  const cholRaw       = document.getElementById('profileTotalChol').value;
-  const hdlRaw        = document.getElementById('profileHdl').value;
-  const total_cholesterol = cholRaw !== '' ? parseFloat(cholRaw) : null;
-  const hdl_cholesterol   = hdlRaw  !== '' ? parseFloat(hdlRaw)  : null;
 
   showLoading('Збереження профілю…');
   try {
@@ -336,7 +331,6 @@ async function saveProfile() {
       body: JSON.stringify({
         name: name || null, date_of_birth, height_cm,
         sex, smoker, diabetic, on_bp_meds,
-        total_cholesterol, hdl_cholesterol,
       }),
     });
     hideLoading();
@@ -347,6 +341,7 @@ async function saveProfile() {
     closeProfileModal();
     renderTodaySummary();
     renderRiskCard();
+    renderLabsCard();
     showToast('✅ Профіль збережено');
   } catch (err) {
     hideLoading();

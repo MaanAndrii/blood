@@ -148,6 +148,19 @@ function score2Category(pct, age) {
   return                { label: 'Високий',  color: '#ef4444' };
 }
 
+// Newest lab panel (API returns newest first), or null.
+function latestLab() {
+  return (Array.isArray(labResults) && labResults.length) ? labResults[0] : null;
+}
+
+// Diabetes status for risk models: derived from the latest HbA1c (≥6.5% = diabetes)
+// when available, otherwise the manual profile flag.
+function isDiabetic() {
+  const lab = latestLab();
+  if (lab && lab.hba1c != null) return lab.hba1c >= 6.5;
+  return !!(currentUser && currentUser.diabetic);
+}
+
 // ── Card rendering ────────────────────────────────────────────────────────────
 function renderRiskCard() {
   const el = document.getElementById('riskCard');
@@ -158,8 +171,10 @@ function renderRiskCard() {
   const sbpInfo = recentSystolic(30);
   const lastWeight = entries.find(e => e.weight != null)?.weight;
   const bmi = lastWeight && u.height_cm ? calcBmi(Number(lastWeight), u.height_cm) : null;
-  const totalChol = u.total_cholesterol != null ? Number(u.total_cholesterol) : null;
-  const hdl = u.hdl_cholesterol != null ? Number(u.hdl_cholesterol) : null;
+  const lab = latestLab();
+  const totalChol = lab && lab.total_chol != null ? lab.total_chol : null;
+  const hdl = lab && lab.hdl != null ? lab.hdl : null;
+  const diabetic = isDiabetic();
 
   // Prompt if the essentials (sex + DOB) are missing.
   if (!u.sex || age == null) {
@@ -188,11 +203,11 @@ function renderRiskCard() {
   const treated = !!u.on_bp_meds;
   const fr = framinghamNonLab({
     sex: u.sex, age, bmi, sbp: sbpInfo.mean,
-    treated, smoker: u.smoker, diabetic: u.diabetic,
+    treated, smoker: u.smoker, diabetic,
   });
   const sc = score2VeryHigh({
     sex: u.sex, age, sbp: sbpInfo.mean,
-    smoker: u.smoker, diabetic: u.diabetic, totalChol, hdl,
+    smoker: u.smoker, diabetic, totalChol, hdl,
   });
 
   const gauge = (pct, cat) => `
@@ -225,7 +240,7 @@ function renderRiskCard() {
     </div>`;
   } else {
     const need = (totalChol == null || hdl == null)
-      ? 'загальний і HDL холестерин у профілі'
+      ? 'загальний і HDL холестерин у розділі «Лабораторні показники»'
       : (age < 40 ? 'вік ≥ 40 років' : 'дані');
     body += `<div style="font-size:11px;color:var(--muted);margin-bottom:6px;padding-top:8px;border-top:1px solid var(--border)">SCORE2: додайте ${need}.</div>`;
   }

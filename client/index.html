@@ -75,6 +75,10 @@
       <div style="position:relative;height:140px"><canvas id="chartHome"></canvas></div>
     </div>
 
+    <!-- Cardiovascular risk -->
+    <div class="section-label" style="margin-top:16px">Оцінка ризику</div>
+    <div id="riskCard" style="margin-bottom:12px"></div>
+
     <!-- FAB -->
     <button class="fab" id="fabEntry" onclick="openSmartEntryModal()">
       ➕ Внести показники
@@ -333,6 +337,34 @@
       <input type="number" id="profileHeight" class="profile-input" min="50" max="250" placeholder="напр. 170" />
       <div id="profileBmiDisplay" style="font-size:11px;color:var(--muted);margin-top:4px"></div>
     </div>
+
+    <hr class="profile-divider" />
+    <div style="font-weight:600;font-size:13px;margin-bottom:4px">Оцінка серцево-судинного ризику</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:12px">Необов'язково. Використовується для розрахунку 10-річного ризику (Framingham і SCORE2).</div>
+
+    <div style="margin-bottom:14px">
+      <label class="profile-field-label">Стать</label>
+      <div style="display:flex;gap:8px">
+        <label class="sex-opt"><input type="radio" name="profileSex" value="male" /> Чоловіча</label>
+        <label class="sex-opt"><input type="radio" name="profileSex" value="female" /> Жіноча</label>
+      </div>
+    </div>
+
+    <label class="risk-check"><input type="checkbox" id="profileSmoker" /> <span>Курю</span></label>
+    <label class="risk-check"><input type="checkbox" id="profileDiabetic" /> <span>Цукровий діабет</span></label>
+    <label class="risk-check"><input type="checkbox" id="profileOnBpMeds" /> <span>Приймаю ліки від тиску</span></label>
+
+    <div style="display:flex;gap:10px;margin-top:12px">
+      <div style="flex:1">
+        <label for="profileTotalChol" class="profile-field-label">Заг. холестерин</label>
+        <input type="number" id="profileTotalChol" class="profile-input" min="1" max="20" step="0.1" placeholder="ммоль/л" />
+      </div>
+      <div style="flex:1">
+        <label for="profileHdl" class="profile-field-label">HDL холестерин</label>
+        <input type="number" id="profileHdl" class="profile-input" min="0.3" max="5" step="0.1" placeholder="ммоль/л" />
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-top:4px">Значення з аналізу крові (ммоль/л) — потрібні для SCORE2.</div>
 
     <div class="modal-actions">
       <button class="btn-outline" style="flex:1" onclick="closeProfileModal()">Скасувати</button>
@@ -612,6 +644,7 @@
 <script src="/js/rollers.js"></script>
 <script src="/js/entries.js"></script>
 <script src="/js/home.js"></script>
+<script src="/js/risk.js"></script>
 <script src="/js/journal.js"></script>
 <script src="/js/drive.js"></script>
 <script src="/js/charts.js"></script>

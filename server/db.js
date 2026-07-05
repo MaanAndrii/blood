@@ -71,6 +71,15 @@ async function initDb() {
   await pool.query(`UPDATE users SET subscription_tier = 'demo', subscription_expires_at = NULL WHERE subscription_tier = 'premium' AND subscription_expires_at IS NOT NULL AND (subscription_expires_at - created_at) <= interval '8 days'`);
   // User timezone for reminder scheduling
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS timezone TEXT DEFAULT 'Europe/Kyiv'`);
+
+  // Cardiovascular risk profile fields (Framingham non-lab + SCORE2/OP)
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS sex TEXT`);              // 'male' | 'female'
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS smoker BOOLEAN`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS diabetic BOOLEAN`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS on_bp_meds BOOLEAN`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS total_cholesterol NUMERIC(4,2)`); // mmol/L
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS hdl_cholesterol NUMERIC(4,2)`);   // mmol/L
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS cholesterol_updated_at TIMESTAMPTZ`);
   // Google Drive backup tokens
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS drive_access_token TEXT`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS drive_refresh_token TEXT`);

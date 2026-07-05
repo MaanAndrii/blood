@@ -1,5 +1,5 @@
-const CACHE = 'health-v52';
-const API_CACHE = 'health-api-v52';
+const CACHE = 'health-v53';
+const API_CACHE = 'health-api-v53';
 
 const STATIC_SHELL = [
   '/offline.html',
@@ -14,6 +14,7 @@ const STATIC_SHELL = [
   '/js/rollers.js',
   '/js/entries.js',
   '/js/home.js',
+  '/js/risk.js',
   '/js/journal.js',
   '/js/drive.js',
   '/js/charts.js',

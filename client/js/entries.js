@@ -106,6 +106,7 @@ async function saveEntry() {
   showDayOnHome(todayStr());
   renderWeekStrip();
   renderHomeChart();
+  renderRiskCard();
   updateFabLabel();
 }
 

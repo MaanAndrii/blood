@@ -155,26 +155,34 @@ function _labHistoryHtml() {
 
 // ── Add / edit modal ──────────────────────────────────────────────────────────
 let _labPicker = null;
+let _labSelectedDate = null;
 
 function openLabModal(date) {
   const existing = date ? labResults.find(l => l.date === date) : null;
   document.getElementById('labModalTitle').textContent = existing ? 'Редагувати аналіз' : 'Новий аналіз';
-  if (!_labPicker) {
-    _labPicker = new RangeDatePicker({
-      container: 'labDatePicker',
-      single: true,
-      label: 'Дата аналізу',
-      getMarkedDates: () => new Set(labResults.map(l => l.date)),
-      getMaxDate: () => todayStr(),
-    });
-  }
-  _labPicker.setDate(date || todayStr());
   document.getElementById('labHba1c').value = existing?.hba1c ?? '';
   document.getElementById('labTotalChol').value = existing?.total_chol ?? '';
   document.getElementById('labHdl').value = existing?.hdl ?? '';
   document.getElementById('labLdl').value = existing?.ldl ?? '';
   document.getElementById('labTg').value = existing?.triglycerides ?? '';
+  // Open the modal FIRST so a date-picker hiccup can never make the button dead.
   document.getElementById('labModal').classList.add('open');
+  _labSelectedDate = date || todayStr();
+  try {
+    if (!_labPicker && typeof RangeDatePicker === 'function') {
+      _labPicker = new RangeDatePicker({
+        container: 'labDatePicker',
+        single: true,
+        label: 'Дата аналізу',
+        getMarkedDates: () => new Set(labResults.map(l => l.date)),
+        getMaxDate: () => todayStr(),
+        onChange: d => { _labSelectedDate = d; },
+      });
+    }
+    if (_labPicker && typeof _labPicker.setDate === 'function') _labPicker.setDate(_labSelectedDate);
+  } catch (err) {
+    console.error('lab date picker init failed:', err);
+  }
 }
 
 function closeLabModal() {
@@ -186,8 +194,10 @@ async function saveLab() {
     const raw = document.getElementById(id).value;
     return raw === '' ? null : parseFloat(raw);
   };
+  const pickedDate = (_labPicker && typeof _labPicker.getDate === 'function' && _labPicker.getDate())
+    || _labSelectedDate || todayStr();
   const payload = {
-    date:          _labPicker ? _labPicker.getDate() : todayStr(),
+    date:          pickedDate,
     hba1c:         val('labHba1c'),
     total_chol:    val('labTotalChol'),
     hdl:           val('labHdl'),

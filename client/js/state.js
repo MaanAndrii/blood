@@ -1,6 +1,6 @@
 // ── DATA LAYER ──────────────────────────────────────────────────────────────
 const DB_KEY        = 'health_entries_v2';
-const APP_VERSION   = '3.11';
+const APP_VERSION   = '3.12';
 const REMINDER_KEY  = 'health_reminders';
 
 // ── Constants (U) ────────────────────────────────────────────────────────────

@@ -154,10 +154,21 @@ function _labHistoryHtml() {
 }
 
 // ── Add / edit modal ──────────────────────────────────────────────────────────
+let _labPicker = null;
+
 function openLabModal(date) {
   const existing = date ? labResults.find(l => l.date === date) : null;
   document.getElementById('labModalTitle').textContent = existing ? 'Редагувати аналіз' : 'Новий аналіз';
-  document.getElementById('labDate').value = date || todayStr();
+  if (!_labPicker) {
+    _labPicker = new RangeDatePicker({
+      container: 'labDatePicker',
+      single: true,
+      label: 'Дата аналізу',
+      getMarkedDates: () => new Set(labResults.map(l => l.date)),
+      getMaxDate: () => todayStr(),
+    });
+  }
+  _labPicker.setDate(date || todayStr());
   document.getElementById('labHba1c').value = existing?.hba1c ?? '';
   document.getElementById('labTotalChol').value = existing?.total_chol ?? '';
   document.getElementById('labHdl').value = existing?.hdl ?? '';
@@ -176,7 +187,7 @@ async function saveLab() {
     return raw === '' ? null : parseFloat(raw);
   };
   const payload = {
-    date:          document.getElementById('labDate').value,
+    date:          _labPicker ? _labPicker.getDate() : todayStr(),
     hba1c:         val('labHba1c'),
     total_chol:    val('labTotalChol'),
     hdl:           val('labHdl'),

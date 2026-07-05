@@ -124,6 +124,8 @@
       this._getMarked = opts.getMarkedDates || (() => new Set());
       this._getMin    = opts.getMinDate     || (() => null);
       this._getMax    = opts.getMaxDate     || (() => todayStr());
+      this._single    = !!opts.single;      // single-date mode (no range)
+      this._label     = opts.label || null;
 
       this._from = null;
       this._to   = null;
@@ -143,7 +145,16 @@
 
     _build() {
       this._root.className = 'rdp';
-      this._root.innerHTML = `
+      this._root.innerHTML = this._single
+        ? `
+        <div class="rdp-bar">
+          <div class="rdp-field rdp-f-from">
+            <span class="rdp-label">${this._label || 'дата'}</span>
+            <span class="rdp-val">—</span>
+          </div>
+          <span class="rdp-arrow">📅</span>
+        </div>`
+        : `
         <div class="rdp-bar">
           <div class="rdp-field rdp-f-from">
             <span class="rdp-label">від</span>
@@ -184,6 +195,10 @@
       this._hintEl = this._pop.querySelector('.rdp-hint');
 
       this._root.querySelector('.rdp-bar').addEventListener('click', e => {
+        if (this._single) {
+          if (this._open) this._close(); else this._openFor('from');
+          return;
+        }
         const field  = e.target.closest('.rdp-field');
         const target = field
           ? (field.classList.contains('rdp-f-from') ? 'from' : 'to')
@@ -192,7 +207,8 @@
         else this._openFor(target);
       });
 
-      this._root.querySelector('.rdp-clear').addEventListener('click', e => {
+      const clearBtn = this._root.querySelector('.rdp-clear');
+      if (clearBtn) clearBtn.addEventListener('click', e => {
         e.stopPropagation();
         this._clear();
       });
@@ -289,6 +305,13 @@
     }
 
     _pick(d) {
+      if (this._single) {
+        this._from = d;
+        this._updateDisplay();
+        this._close();
+        this._onChange(d);
+        return;
+      }
       if (this._sel === 'from') {
         this._from = d;
         if (this._to && this._to < this._from) this._to = null;
@@ -319,9 +342,11 @@
 
     _updateDisplay() {
       this._fromVal.textContent = fmt(this._from);
-      this._toVal.textContent   = fmt(this._to);
       this._fromVal.classList.toggle('rdp-filled', !!this._from);
-      this._toVal.classList.toggle('rdp-filled',   !!this._to);
+      if (this._toVal) {
+        this._toVal.textContent = fmt(this._to);
+        this._toVal.classList.toggle('rdp-filled', !!this._to);
+      }
     }
 
     _renderGrid() {
@@ -368,8 +393,8 @@
       }
 
       this._grid.innerHTML     = cells.join('');
-      this._hintEl.textContent = this._sel === 'from'
-        ? 'Оберіть початкову дату' : 'Оберіть кінцеву дату';
+      this._hintEl.textContent = this._single ? 'Оберіть дату'
+        : (this._sel === 'from' ? 'Оберіть початкову дату' : 'Оберіть кінцеву дату');
     }
 
     // Public API
@@ -380,6 +405,9 @@
     }
     getFrom()  { return this._from; }
     getTo()    { return this._to; }
+    // Single-date convenience API
+    setDate(d) { this._from = d || null; this._updateDisplay(); }
+    getDate()  { return this._from; }
     refresh()  { if (this._open) this._renderGrid(); }
   }
 

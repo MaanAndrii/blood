@@ -6,7 +6,7 @@
 - `client/js/state.js` → `const APP_VERSION = 'X.XX'`
 - `client/sw.js` → `const CACHE = 'health-vN'` і `const API_CACHE = 'health-api-vN'` (N — ціле, збільшувати на 1)
 
-Поточна версія: **3.03** (SW: health-v52).
+Поточна версія: **3.04** (SW: health-v53).
 
 ## Stack
 
@@ -43,7 +43,7 @@ server/
 client/
   index.html            — SPA shell (HTML + CSS); JS split into client/js/*.js modules
   js/                    — state.js, api.js, queue.js, auth.js, ui.js, rollers.js,
-                            entries.js, home.js, journal.js, drive.js, charts.js,
+                            entries.js, home.js, risk.js, journal.js, drive.js, charts.js,
                             export.js, reminders.js, init.js (loaded in this order)
   sw.js                  — Service Worker (offline mode: app shell + API GET cache)
   landing.html           — public landing page + embedded login/register form
@@ -93,6 +93,7 @@ Development happens on short-lived `claude/*` feature branches merged into `main
 - [x] Web Push reminders (VAPID, node-cron)
 - [x] User profile (name, date of birth, height)
 - [x] **WHO/ESH 2023 BP classification** (8 categories: Optimal → Grade 3 + Isolated Systolic/Diastolic)
+- [x] **Cardiovascular risk estimation** (`client/js/risk.js`): 10-year CVD risk on home page via two models — Framingham non-laboratory/BMI (D'Agostino 2008) and SCORE2/SCORE2-OP (ESC 2021, «very high risk» region for Ukraine). New profile fields: `sex`, `smoker`, `diabetic`, `on_bp_meds`, `total_cholesterol`, `hdl_cholesterol` (mmol/L). SBP taken from mean of home readings over last 30 days; card shows disclaimer (orientation only, home-BP calibration caveat)
 - [x] **BMI calculation** (`calcBmi`/`bmiCategory`): shown in summary card + profile modal preview; stored as `height_cm` in users table
 - [x] **GDPR compliance**: consent at registration (`consented_at`), Privacy Policy modal, delete account (`DELETE /api/users/me`)
 - [x] XSS-safe rendering (`escHtml`)

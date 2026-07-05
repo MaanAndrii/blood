@@ -338,6 +338,8 @@ router.get('/me', async (req, res) => {
               subscription_tier, subscription_expires_at,
               reminders_enabled, reminder_morning, reminder_evening,
               height_cm, timezone,
+              sex, smoker, diabetic, on_bp_meds,
+              total_cholesterol, hdl_cholesterol, cholesterol_updated_at,
               (password_hash IS NOT NULL) AS has_password
        FROM users WHERE id = $1`,
       [payload.id]

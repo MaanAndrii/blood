@@ -1061,6 +1061,20 @@
     }
     .profile-input:focus { border-color: var(--accent); }
 
+    /* Risk-profile inputs */
+    .sex-opt {
+      flex: 1; display: flex; align-items: center; gap: 6px;
+      background: var(--surface); border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm); padding: 9px 12px;
+      font-size: 13px; color: var(--text); cursor: pointer;
+    }
+    .sex-opt input { accent-color: var(--accent); }
+    .risk-check {
+      display: flex; align-items: center; gap: 9px;
+      padding: 8px 2px; font-size: 13px; color: var(--text); cursor: pointer;
+    }
+    .risk-check input { width: 18px; height: 18px; accent-color: var(--accent); }
+
     /* ── FAB / ADD BUTTON ── */
     .fab {
       display: flex;

@@ -74,6 +74,7 @@ async function initApp() {
     showDayOnHome(todayStr());
     renderWeekStrip();
     renderHomeChart();
+    renderRiskCard();
     updateFabLabel();
 
     // Sync reminder settings from server if localStorage is missing/empty
@@ -264,6 +265,16 @@ function openProfileModal() {
   _updateProfileBmi();
   heightInput.addEventListener('input', _updateProfileBmi);
 
+  // Cardiovascular risk profile fields
+  document.querySelectorAll('input[name="profileSex"]').forEach(r => {
+    r.checked = r.value === currentUser.sex;
+  });
+  document.getElementById('profileSmoker').checked   = currentUser.smoker === true;
+  document.getElementById('profileDiabetic').checked = currentUser.diabetic === true;
+  document.getElementById('profileOnBpMeds').checked = currentUser.on_bp_meds === true;
+  document.getElementById('profileTotalChol').value  = currentUser.total_cholesterol ?? '';
+  document.getElementById('profileHdl').value        = currentUser.hdl_cholesterol ?? '';
+
   // Password section: show "Поточний пароль" only if user already has one
   const hasPw = currentUser.has_password;
   document.getElementById('changePwTitle').textContent = hasPw ? 'Змінити пароль' : 'Встановити пароль';
@@ -308,12 +319,26 @@ async function saveProfile() {
   const date_of_birth = document.getElementById('profileDob').value || null;
   const heightRaw     = document.getElementById('profileHeight').value;
   const height_cm     = heightRaw ? parseInt(heightRaw, 10) : null;
+
+  const sex           = document.querySelector('input[name="profileSex"]:checked')?.value || null;
+  const smoker        = document.getElementById('profileSmoker').checked;
+  const diabetic      = document.getElementById('profileDiabetic').checked;
+  const on_bp_meds    = document.getElementById('profileOnBpMeds').checked;
+  const cholRaw       = document.getElementById('profileTotalChol').value;
+  const hdlRaw        = document.getElementById('profileHdl').value;
+  const total_cholesterol = cholRaw !== '' ? parseFloat(cholRaw) : null;
+  const hdl_cholesterol   = hdlRaw  !== '' ? parseFloat(hdlRaw)  : null;
+
   showLoading('Збереження профілю…');
   try {
     const r = await fetch('/api/users/me', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: name || null, date_of_birth, height_cm }),
+      body: JSON.stringify({
+        name: name || null, date_of_birth, height_cm,
+        sex, smoker, diabetic, on_bp_meds,
+        total_cholesterol, hdl_cholesterol,
+      }),
     });
     hideLoading();
     if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'Помилка');
@@ -322,6 +347,7 @@ async function saveProfile() {
     renderUserChip();
     closeProfileModal();
     renderTodaySummary();
+    renderRiskCard();
     showToast('✅ Профіль збережено');
   } catch (err) {
     hideLoading();

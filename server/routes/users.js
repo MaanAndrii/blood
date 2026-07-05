@@ -7,7 +7,11 @@ const router = express.Router();
 // PUT /api/users/me — update own profile (name, date_of_birth)
 router.put('/me', requireAuth, async (req, res) => {
   try {
-    const { name, date_of_birth, height_cm } = req.body;
+    const {
+      name, date_of_birth, height_cm,
+      sex, smoker, diabetic, on_bp_meds,
+      total_cholesterol, hdl_cholesterol,
+    } = req.body;
     const sets = [], vals = [];
     let idx = 1;
     if (name !== undefined) {
@@ -31,10 +35,49 @@ router.put('/me', requireAuth, async (req, res) => {
       sets.push(`height_cm = $${idx++}`);
       vals.push(h);
     }
+    if (sex !== undefined) {
+      if (sex !== null && sex !== 'male' && sex !== 'female') {
+        return res.status(400).json({ error: 'sex must be male, female or null' });
+      }
+      sets.push(`sex = $${idx++}`);
+      vals.push(sex || null);
+    }
+    for (const [key, val] of [['smoker', smoker], ['diabetic', diabetic], ['on_bp_meds', on_bp_meds]]) {
+      if (val === undefined) continue;
+      if (val !== null && typeof val !== 'boolean') {
+        return res.status(400).json({ error: `${key} must be a boolean or null` });
+      }
+      sets.push(`${key} = $${idx++}`);
+      vals.push(val);
+    }
+    // Cholesterol (mmol/L). Update the measurement timestamp whenever either value changes.
+    let cholTouched = false;
+    if (total_cholesterol !== undefined) {
+      const c = total_cholesterol == null || total_cholesterol === '' ? null : Number(total_cholesterol);
+      if (c !== null && (isNaN(c) || c < 1 || c > 20)) {
+        return res.status(400).json({ error: 'total_cholesterol must be between 1 and 20 mmol/L' });
+      }
+      sets.push(`total_cholesterol = $${idx++}`);
+      vals.push(c);
+      cholTouched = true;
+    }
+    if (hdl_cholesterol !== undefined) {
+      const c = hdl_cholesterol == null || hdl_cholesterol === '' ? null : Number(hdl_cholesterol);
+      if (c !== null && (isNaN(c) || c < 0.3 || c > 5)) {
+        return res.status(400).json({ error: 'hdl_cholesterol must be between 0.3 and 5 mmol/L' });
+      }
+      sets.push(`hdl_cholesterol = $${idx++}`);
+      vals.push(c);
+      cholTouched = true;
+    }
+    if (cholTouched) sets.push(`cholesterol_updated_at = NOW()`);
     if (!sets.length) return res.status(400).json({ error: 'Nothing to update' });
     vals.push(req.user.id);
     const result = await pool.query(
-      `UPDATE users SET ${sets.join(', ')} WHERE id = $${idx} RETURNING id, name, date_of_birth, email, avatar_url, height_cm`,
+      `UPDATE users SET ${sets.join(', ')} WHERE id = $${idx}
+       RETURNING id, name, date_of_birth, email, avatar_url, height_cm,
+                 sex, smoker, diabetic, on_bp_meds,
+                 total_cholesterol, hdl_cholesterol, cholesterol_updated_at`,
       vals
     );
     res.json(result.rows[0]);

@@ -1,5 +1,5 @@
-const CACHE = 'health-v55';
-const API_CACHE = 'health-api-v55';
+const CACHE = 'health-v56';
+const API_CACHE = 'health-api-v56';
 
 const STATIC_SHELL = [
   '/offline.html',
@@ -92,8 +92,25 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  // Static assets — cache-first, fetch and cache on miss (GET only)
   if (request.method !== 'GET') return;
+
+  // App code (JS/CSS) — network-first so a freshly-loaded index.html is never
+  // paired with stale cached scripts (which crashes on removed/renamed globals).
+  // Falls back to cache only when offline.
+  if (/\.(?:js|css)$/.test(url.pathname)) {
+    e.respondWith(
+      fetch(request).then(res => {
+        if (res.ok) {
+          const clone = res.clone();
+          caches.open(CACHE).then(c => c.put(request, clone));
+        }
+        return res;
+      }).catch(() => caches.match(request))
+    );
+    return;
+  }
+
+  // Other static assets (icons, images) — cache-first, fetch and cache on miss
   e.respondWith(
     caches.match(request).then(cached => {
       if (cached) return cached;

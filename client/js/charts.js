@@ -433,8 +433,9 @@ function renderCharts() {
     })();
 
     // — Cardiovascular risk + lab-results cards (after WHO/ESH) —
-    renderRiskCard();
-    renderLabsCard();
+    // Guarded so a failure in one card never blanks the rest of the tab.
+    try { renderRiskCard(); } catch (err) { console.error('renderRiskCard failed:', err); }
+    try { renderLabsCard(); } catch (err) { console.error('renderLabsCard failed:', err); }
 
     // — Trends (linear regression over selected period) —
     (function renderTrends() {

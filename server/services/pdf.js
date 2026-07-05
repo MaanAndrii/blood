@@ -182,6 +182,29 @@ function labEvalText(key, v, sex) {
   }
 }
 
+// Lab value → severity status (reuses the BP status palette)
+function labStatus(key, v, sex) {
+  if (v == null) return null;
+  switch (key) {
+    case 'hba1c':         return v < 5.7 ? 'good' : v < 6.5 ? 'warning' : 'critical';
+    case 'total_chol':    return v < 5.0 ? 'good' : v < 6.2 ? 'warning' : 'serious';
+    case 'hdl':           return v >= (sex === 'female' ? 1.2 : 1.0) ? 'good' : 'warning';
+    case 'triglycerides': return v < 1.7 ? 'good' : v < 2.3 ? 'warning' : 'serious';
+    case 'ldl':           return v < 1.4 ? 'good' : v < 1.8 ? 'warning' : 'critical';
+    case 'nonhdl':        return v < 2.2 ? 'good' : v < 3.4 ? 'warning' : 'serious';
+    default:              return null;
+  }
+}
+
+// Coloured <td> for a lab value
+function labCell(key, v, sex) {
+  const txt = fmtLab(v);
+  const st = labStatus(key, v, sex);
+  if (!st) return `<td>${txt}</td>`;
+  const s = BP_STATUS_STYLE[st];
+  return `<td style="background:${s.bg};color:${s.fg};font-weight:600">${txt}</td>`;
+}
+
 const _iconPath = path.join(__dirname, '..', '..', 'client', 'icons', 'icon-192.svg');
 const _iconSvgRaw = fs.readFileSync(_iconPath, 'utf8');
 const LOGO_SVG = _iconSvgRaw
@@ -426,12 +449,12 @@ function buildHtml(user, entries, labs, dateFrom, dateTo, mode = 'short') {
     const nonHdl = (t != null && h != null) ? +(t - h).toFixed(2) : null;
     return `<tr>
       <td>${fmtDateUk(String(l.date).slice(0,10))}</td>
-      <td>${fmtLab(l.hba1c)}</td>
-      <td>${fmtLab(l.total_chol)}</td>
-      <td>${fmtLab(l.hdl)}</td>
-      <td>${fmtLab(l.ldl)}</td>
-      <td>${fmtLab(l.triglycerides)}</td>
-      <td>${nonHdl != null ? nonHdl : '—'}</td>
+      ${labCell('hba1c', labNum(l.hba1c), sex)}
+      ${labCell('total_chol', t, sex)}
+      ${labCell('hdl', h, sex)}
+      ${labCell('ldl', labNum(l.ldl), sex)}
+      ${labCell('triglycerides', labNum(l.triglycerides), sex)}
+      ${labCell('nonhdl', nonHdl, sex)}
     </tr>`;
   }).join('');
 

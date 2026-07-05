@@ -102,6 +102,12 @@ function renderInsights(data) {
 function renderCharts() {
   const data = filterEntries(statsFilter).slice().reverse();
   const labels = data.map(e => fmtDate(String(e.date).slice(0,10)));
+
+  // Risk + lab cards first, guarded, so a later chart-building error can never
+  // stop them from rendering (they don't depend on the charts below).
+  try { renderRiskCard(); } catch (err) { console.error('renderRiskCard failed:', err); }
+  try { renderLabsCard(); } catch (err) { console.error('renderLabsCard failed:', err); }
+
   renderInsights(data);
 
   buildChart('chartSys', labels, [
@@ -431,10 +437,6 @@ function renderCharts() {
         </div>
       </div>`;
     })();
-
-    // — Cardiovascular risk card (after WHO/ESH) —
-    // Guarded so a failure never blanks the rest of the tab.
-    try { renderRiskCard(); } catch (err) { console.error('renderRiskCard failed:', err); }
 
     // — Trends (linear regression over selected period) —
     (function renderTrends() {

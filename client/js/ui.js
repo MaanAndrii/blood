@@ -33,7 +33,7 @@ function showPage(name) {
   document.getElementById('page-' + name)?.classList.add('active');
   document.querySelector(`.tab[data-page="${name}"]`)?.classList.add('active');
   window.scrollTo(0, 0);
-  if (name === 'home')    { showDayOnHome(selectedWeekDate || todayStr()); renderWeekStrip(); renderHomeChart(); renderLabsCard(); updateFabLabel(); }
+  if (name === 'home')    { showDayOnHome(selectedWeekDate || todayStr()); renderWeekStrip(); renderHomeChart(); updateFabLabel(); }
   if (name === 'history') renderHistory();
   if (name === 'stats')   renderCharts();
   if (name === 'export')  { renderExportStats(); renderRemindersUI(); }

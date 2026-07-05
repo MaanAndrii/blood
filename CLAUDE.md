@@ -6,7 +6,7 @@
 - `client/js/state.js` → `const APP_VERSION = 'X.XX'`
 - `client/sw.js` → `const CACHE = 'health-vN'` і `const API_CACHE = 'health-api-vN'` (N — ціле, збільшувати на 1)
 
-Поточна версія: **3.08** (SW: health-v57).
+Поточна версія: **3.09** (SW: health-v58).
 
 ## Stack
 
@@ -95,7 +95,7 @@ Development happens on short-lived `claude/*` feature branches merged into `main
 - [x] User profile (name, date of birth, height)
 - [x] **WHO/ESH 2023 BP classification** (8 categories: Optimal → Grade 3 + Isolated Systolic/Diastolic)
 - [x] **Cardiovascular risk estimation** (`client/js/risk.js`): 10-year CVD risk in the «Аналіз» tab (after the WHO/ESH card; rendered from `renderCharts()`) via two models — Framingham non-laboratory/BMI (D'Agostino 2008) and SCORE2/SCORE2-OP (ESC 2021, «very high risk» region for Ukraine). Profile risk fields: `sex`, `smoker`, `diabetic` (fallback), `on_bp_meds`. SBP taken from mean of home readings over last 30 days; total/HDL cholesterol come from the latest lab panel; diabetes status derived from latest HbA1c (≥6.5%) with the profile flag as fallback. Card shows disclaimer (orientation only, home-BP calibration caveat)
-- [x] **Lab results** (`lab_results` table, `client/js/labs.js`): dated blood-work panels (HbA1c %, total/HDL/LDL cholesterol, triglycerides in mmol/L), one row per date, newest feeds the risk models. «Лабораторні показники» card in the «Аналіз» tab: per-value evaluation vs ESC very-high-risk targets (LDL <1.4, non-HDL <2.2), computed non-HDL & TG/HDL, Friedewald cross-check, add/edit/delete modal + history. Legacy `users.total_cholesterol`/`hdl_cholesterol` migrated into a seed lab row on startup
+- [x] **Lab results** (`lab_results` table, `client/js/labs.js`): dated blood-work panels (HbA1c %, total/HDL/LDL cholesterol, triglycerides in mmol/L), one row per date, newest feeds the risk models. «Лабораторні показники» card lives in the «Аналіз» tab (rendered early in `renderCharts()` so a later chart error can't block it); the home page has only a «🧪 Додати аналіз крові» quick-add button. Card shows per-value evaluation vs ESC very-high-risk targets (LDL <1.4, non-HDL <2.2), computed non-HDL & TG/HDL, Friedewald cross-check, add/edit/delete modal + history. Latest panel also appears in the extended PDF report. Legacy `users.total_cholesterol`/`hdl_cholesterol` migrated into a seed lab row on startup
 - [x] **BMI calculation** (`calcBmi`/`bmiCategory`): shown in summary card + profile modal preview; stored as `height_cm` in users table
 - [x] **GDPR compliance**: consent at registration (`consented_at`), Privacy Policy modal, delete account (`DELETE /api/users/me`)
 - [x] XSS-safe rendering (`escHtml`)

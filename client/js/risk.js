@@ -164,9 +164,9 @@ function renderRiskCard() {
   // Prompt if the essentials (sex + DOB) are missing.
   if (!u.sex || age == null) {
     el.innerHTML = `
-      <div class="card" style="padding:14px">
-        <div style="font-weight:600;margin-bottom:6px">❤️ Серцево-судинний ризик</div>
-        <div style="font-size:12px;color:var(--muted);margin-bottom:10px">
+      <div class="stat-card" style="margin-bottom:10px">
+        <div class="stat-title">❤️ Серцево-судинний ризик</div>
+        <div style="font-size:12px;color:var(--muted);margin:6px 0 10px">
           Вкажіть стать і дату народження у профілі, щоб оцінити 10-річний ризик серцево-судинних подій.
         </div>
         <button class="btn-outline" style="width:100%" onclick="openProfileModal()">Заповнити профіль</button>
@@ -176,9 +176,9 @@ function renderRiskCard() {
 
   if (!sbpInfo) {
     el.innerHTML = `
-      <div class="card" style="padding:14px">
-        <div style="font-weight:600;margin-bottom:6px">❤️ Серцево-судинний ризик</div>
-        <div style="font-size:12px;color:var(--muted)">
+      <div class="stat-card" style="margin-bottom:10px">
+        <div class="stat-title">❤️ Серцево-судинний ризик</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:6px">
           Немає вимірювань тиску за останні 30 днів — внесіть показники, щоб розрахувати ризик.
         </div>
       </div>`;
@@ -231,8 +231,8 @@ function renderRiskCard() {
   }
 
   el.innerHTML = `
-    <div class="card" style="padding:14px">
-      <div style="font-weight:600;margin-bottom:10px">❤️ Серцево-судинний ризик</div>
+    <div class="stat-card" style="margin-bottom:10px">
+      <div class="stat-title" style="margin-bottom:10px">❤️ Серцево-судинний ризик</div>
       ${body}
       <div style="font-size:10px;color:var(--muted);margin-top:8px;line-height:1.4">
         Розрахунок за середнім систолічним тиском ${sbpInfo.mean} мм рт. ст. (${sbpInfo.n} вимір.

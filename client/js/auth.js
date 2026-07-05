@@ -74,7 +74,6 @@ async function initApp() {
     showDayOnHome(todayStr());
     renderWeekStrip();
     renderHomeChart();
-    renderRiskCard();
     updateFabLabel();
 
     // Sync reminder settings from server if localStorage is missing/empty

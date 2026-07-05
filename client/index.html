@@ -47,7 +47,7 @@
 <nav>
   <div class="tab active" data-page="home"    onclick="showPage('home')"><span class="tab-icon">🏠</span>Головна</div>
   <div class="tab"        data-page="history" onclick="showPage('history')"><span class="tab-icon">📋</span>Журнал</div>
-  <div class="tab"        data-page="stats"   onclick="showPage('stats')"><span class="tab-icon">📊</span>Статистика</div>
+  <div class="tab"        data-page="stats"   onclick="showPage('stats')"><span class="tab-icon">📊</span>Аналіз</div>
   <div class="tab"        data-page="export"  onclick="showPage('export')"><span class="tab-icon">🗄️</span>Дані</div>
 </nav>
 
@@ -74,10 +74,6 @@
     <div class="card" style="padding:12px;margin-bottom:12px">
       <div style="position:relative;height:140px"><canvas id="chartHome"></canvas></div>
     </div>
-
-    <!-- Cardiovascular risk -->
-    <div class="section-label" style="margin-top:16px">Оцінка ризику</div>
-    <div id="riskCard" style="margin-bottom:12px"></div>
 
     <!-- FAB -->
     <button class="fab" id="fabEntry" onclick="openSmartEntryModal()">
@@ -147,6 +143,8 @@
     </div>
 
     <div id="whoEshCard"></div>
+
+    <div id="riskCard" style="margin-bottom:10px"></div>
 
     <div class="stat-card" id="avgStats">
       <div class="stat-title">📊 Середні значення</div>

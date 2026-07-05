@@ -432,6 +432,9 @@ function renderCharts() {
       </div>`;
     })();
 
+    // — Cardiovascular risk card (after WHO/ESH) —
+    renderRiskCard();
+
     // — Trends (linear regression over selected period) —
     (function renderTrends() {
       const avgSysArr  = data.map(e => { const v = [e.morning.sys_l, e.morning.sys_r, e.evening.sys_l, e.evening.sys_r].filter(x=>x!=null); return v.length ? Math.round(v.reduce((a,b)=>a+b,0)/v.length) : null; });

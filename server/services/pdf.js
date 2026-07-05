@@ -107,13 +107,30 @@ function bpCategoryLabel(sys, dia) {
   return 'Оптимальний';
 }
 
+// ── Lab-result helpers (ESC very-high-risk targets) ──────────────────────────
+function labNum(v) { return v != null ? Number(v) : null; }
+function fmtLab(v) { return v != null ? String(+Number(v).toFixed(2)) : '—'; }
+
+function labEvalText(key, v, sex) {
+  if (v == null) return '';
+  switch (key) {
+    case 'hba1c':         return v < 5.7 ? 'норма' : v < 6.5 ? 'предіабет' : 'діабет';
+    case 'total_chol':    return v < 5.0 ? 'оптимально' : v < 6.2 ? 'погранично' : 'підвищено';
+    case 'hdl':           return v >= (sex === 'female' ? 1.2 : 1.0) ? 'захисний' : 'низький';
+    case 'triglycerides': return v < 1.7 ? 'норма' : v < 2.3 ? 'погранично' : 'підвищено';
+    case 'ldl':           return v < 1.4 ? 'ціль ✓' : v < 1.8 ? 'близько до цілі' : 'вище цілі';
+    default:              return '';
+  }
+}
+
 const _iconPath = path.join(__dirname, '..', '..', 'client', 'icons', 'icon-192.svg');
 const _iconSvgRaw = fs.readFileSync(_iconPath, 'utf8');
 const LOGO_SVG = _iconSvgRaw
   .replace(/<\?xml[^?]*\?>/, '')
   .replace(/<svg /, '<svg width="56" height="56" ');
 
-function buildHtml(user, entries, dateFrom, dateTo, mode = 'short') {
+function buildHtml(user, entries, labs, dateFrom, dateTo, mode = 'short') {
+  labs = Array.isArray(labs) ? labs : [];
   const today = fmtDateUk(new Date().toISOString().slice(0, 10));
   const dob = user.date_of_birth ? fmtDateUk(user.date_of_birth) : '—';
   let age = '—';
@@ -332,6 +349,72 @@ function buildHtml(user, entries, dateFrom, dateTo, mode = 'short') {
     </div>
   </div>` : '';
 
+  // ── Lab results section (extended only) ───────────────────────────────────
+  const sex = user.sex || null;
+  const labsSorted = labs.slice().sort((a, b) =>
+    String(a.date).slice(0, 10).localeCompare(String(b.date).slice(0, 10)));
+  const labsInPeriod = labsSorted.filter(l => {
+    const d = String(l.date).slice(0, 10);
+    return (!dateFrom || d >= dateFrom) && (!dateTo || d <= dateTo);
+  });
+  const labsShown = labsInPeriod.length ? labsInPeriod
+    : (labsSorted.length ? [labsSorted[labsSorted.length - 1]] : []);
+  const latestLab = labsShown.length ? labsShown[labsShown.length - 1] : null;
+  const outOfPeriodNote = (!labsInPeriod.length && latestLab) ? ' (останній доступний, поза періодом)' : '';
+
+  const labRows = labsShown.map(l => {
+    const t = labNum(l.total_chol), h = labNum(l.hdl);
+    const nonHdl = (t != null && h != null) ? +(t - h).toFixed(2) : null;
+    return `<tr>
+      <td>${fmtDateUk(String(l.date).slice(0,10))}</td>
+      <td>${fmtLab(l.hba1c)}</td>
+      <td>${fmtLab(l.total_chol)}</td>
+      <td>${fmtLab(l.hdl)}</td>
+      <td>${fmtLab(l.ldl)}</td>
+      <td>${fmtLab(l.triglycerides)}</td>
+      <td>${nonHdl != null ? nonHdl : '—'}</td>
+    </tr>`;
+  }).join('');
+
+  let labEvalBlock = '';
+  if (latestLab) {
+    const t = labNum(latestLab.total_chol), h = labNum(latestLab.hdl);
+    const ldl = labNum(latestLab.ldl), tg = labNum(latestLab.triglycerides), a1c = labNum(latestLab.hba1c);
+    const nonHdl = (t != null && h != null) ? +(t - h).toFixed(2) : null;
+    const nonHdlNote = nonHdl == null ? '—'
+      : nonHdl + ' ммоль/л (' + (nonHdl < 2.2 ? 'ціль ✓' : nonHdl < 3.4 ? 'близько до цілі' : 'вище цілі') + ', ціль <2.2)';
+    labEvalBlock = `
+  <div class="stats-grid">
+    <div class="stats-block">
+      <div class="stats-block-title">Оцінка останнього аналізу (${fmtDateUk(String(latestLab.date).slice(0,10))}) — цілі ESC, дуже високий ризик</div>
+      <table class="stats-table">
+        ${sr('HbA1c', a1c != null ? fmtLab(a1c) + ' % (' + labEvalText('hba1c', a1c, sex) + ')' : '—')}
+        ${sr('ЛПНЩ (LDL)', ldl != null ? fmtLab(ldl) + ' ммоль/л (' + labEvalText('ldl', ldl, sex) + ', ціль <1.4)' : '—')}
+        ${sr('non-HDL (розрах.)', nonHdlNote)}
+        ${sr('Тригліцериди', tg != null ? fmtLab(tg) + ' ммоль/л (' + labEvalText('triglycerides', tg, sex) + ')' : '—')}
+      </table>
+    </div>
+  </div>`;
+  }
+
+  const labSection = (mode === 'extended' && labsShown.length) ? `
+  <div class="section-title">🧪 Лабораторні показники${outOfPeriodNote}</div>
+  <table class="data">
+    <thead>
+      <tr>
+        <th>Дата</th>
+        <th>HbA1c<br/>%</th>
+        <th>Загальний<br/>ммоль/л</th>
+        <th>ЛПВЩ<br/>ммоль/л</th>
+        <th>ЛПНЩ<br/>ммоль/л</th>
+        <th>Тригліц.<br/>ммоль/л</th>
+        <th>non-HDL<br/>ммоль/л</th>
+      </tr>
+    </thead>
+    <tbody>${labRows}</tbody>
+  </table>
+  ${labEvalBlock}` : '';
+
   const notesColspan = hasNotes ? 9 : 8;
 
   return `<!DOCTYPE html>
@@ -425,6 +508,8 @@ function buildHtml(user, entries, dateFrom, dateTo, mode = 'short') {
 
   ${statsSection}
 
+  ${labSection}
+
   <div class="footer">
     Документ сформовано автоматично системою моніторингу здоров'я &bull; ${today} &bull; WHO/ESH 2023
   </div>
@@ -432,8 +517,8 @@ function buildHtml(user, entries, dateFrom, dateTo, mode = 'short') {
 </html>`;
 }
 
-async function generatePdf(user, entries, dateFrom, dateTo, mode = 'short') {
-  const html = buildHtml(user, entries, dateFrom, dateTo, mode);
+async function generatePdf(user, entries, labs, dateFrom, dateTo, mode = 'short') {
+  const html = buildHtml(user, entries, labs, dateFrom, dateTo, mode);
   const browser = await puppeteer.launch({
     headless: 'new',
     executablePath: process.env.CHROMIUM_PATH || '/usr/bin/chromium',

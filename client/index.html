@@ -47,7 +47,7 @@
 <nav>
   <div class="tab active" data-page="home"    onclick="showPage('home')"><span class="tab-icon">🏠</span>Головна</div>
   <div class="tab"        data-page="history" onclick="showPage('history')"><span class="tab-icon">📋</span>Журнал</div>
-  <div class="tab"        data-page="stats"   onclick="showPage('stats')"><span class="tab-icon">📊</span>Статистика</div>
+  <div class="tab"        data-page="stats"   onclick="showPage('stats')"><span class="tab-icon">📊</span>Аналіз</div>
   <div class="tab"        data-page="export"  onclick="showPage('export')"><span class="tab-icon">🗄️</span>Дані</div>
 </nav>
 
@@ -75,13 +75,15 @@
       <div style="position:relative;height:140px"><canvas id="chartHome"></canvas></div>
     </div>
 
-    <!-- Cardiovascular risk -->
-    <div class="section-label" style="margin-top:16px">Оцінка ризику</div>
-    <div id="riskCard" style="margin-bottom:12px"></div>
-
     <!-- FAB -->
     <button class="fab" id="fabEntry" onclick="openSmartEntryModal()">
       ➕ Внести показники
+    </button>
+
+    <!-- Quick lab-entry button (full panel + analysis live on the «Аналіз» tab) -->
+    <button class="fab" id="fabAddLab" onclick="openLabModal()"
+      style="margin-top:12px;background:var(--surface);color:var(--text);border:1px solid var(--border);font-size:15px">
+      🧪 Додати аналіз крові
     </button>
   </div>
 
@@ -147,6 +149,10 @@
     </div>
 
     <div id="whoEshCard"></div>
+
+    <div id="riskCard" style="margin-bottom:10px"></div>
+
+    <div id="labsCard" style="margin-bottom:10px"></div>
 
     <div class="stat-card" id="avgStats">
       <div class="stat-title">📊 Середні значення</div>
@@ -351,20 +357,9 @@
     </div>
 
     <label class="risk-check"><input type="checkbox" id="profileSmoker" /> <span>Курю</span></label>
-    <label class="risk-check"><input type="checkbox" id="profileDiabetic" /> <span>Цукровий діабет</span></label>
+    <label class="risk-check"><input type="checkbox" id="profileDiabetic" /> <span>Цукровий діабет <span style="font-size:11px;color:var(--muted)">(якщо немає HbA1c в аналізах)</span></span></label>
     <label class="risk-check"><input type="checkbox" id="profileOnBpMeds" /> <span>Приймаю ліки від тиску</span></label>
-
-    <div style="display:flex;gap:10px;margin-top:12px">
-      <div style="flex:1">
-        <label for="profileTotalChol" class="profile-field-label">Заг. холестерин</label>
-        <input type="number" id="profileTotalChol" class="profile-input" min="1" max="20" step="0.1" placeholder="ммоль/л" />
-      </div>
-      <div style="flex:1">
-        <label for="profileHdl" class="profile-field-label">HDL холестерин</label>
-        <input type="number" id="profileHdl" class="profile-input" min="0.3" max="5" step="0.1" placeholder="ммоль/л" />
-      </div>
-    </div>
-    <div style="font-size:11px;color:var(--muted);margin-top:4px">Значення з аналізу крові (ммоль/л) — потрібні для SCORE2.</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:8px">Холестерин, HbA1c та інші аналізи вносяться у розділі «Лабораторні показники» (вкладка «Аналіз»).</div>
 
     <div class="modal-actions">
       <button class="btn-outline" style="flex:1" onclick="closeProfileModal()">Скасувати</button>
@@ -496,6 +491,54 @@
       <button id="btnConfirmDelete" class="btn-danger" style="flex:2;padding:10px" disabled onclick="executeDeleteAccount()">
         Видалити назавжди
       </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ LAB RESULTS MODAL ══ -->
+<div class="modal-overlay" id="labModal" onclick="if(event.target===this)closeLabModal()">
+  <div class="modal-box" style="max-width:400px;width:92%">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div class="modal-title" id="labModalTitle" style="margin:0">Новий аналіз</div>
+      <button onclick="closeLabModal()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;line-height:1;padding:0" aria-label="Закрити">✕</button>
+    </div>
+
+    <div style="margin-bottom:14px">
+      <label class="profile-field-label">Дата аналізу</label>
+      <div id="labDatePicker"></div>
+    </div>
+
+    <div style="margin-bottom:14px">
+      <label for="labHba1c" class="profile-field-label">Глікований гемоглобін (HbA1c), %</label>
+      <input type="number" id="labHba1c" class="profile-input" min="3" max="20" step="0.1" placeholder="напр. 5.4" />
+    </div>
+
+    <div style="display:flex;gap:10px;margin-bottom:14px">
+      <div style="flex:1">
+        <label for="labTotalChol" class="profile-field-label">Загальний, ммоль/л</label>
+        <input type="number" id="labTotalChol" class="profile-input" min="1" max="20" step="0.1" placeholder="напр. 5.2" />
+      </div>
+      <div style="flex:1">
+        <label for="labHdl" class="profile-field-label">ЛПВЩ (HDL)</label>
+        <input type="number" id="labHdl" class="profile-input" min="0.3" max="5" step="0.1" placeholder="напр. 1.3" />
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-bottom:6px">
+      <div style="flex:1">
+        <label for="labLdl" class="profile-field-label">ЛПНЩ (LDL)</label>
+        <input type="number" id="labLdl" class="profile-input" min="0.3" max="15" step="0.1" placeholder="напр. 2.6" />
+      </div>
+      <div style="flex:1">
+        <label for="labTg" class="profile-field-label">Тригліцериди</label>
+        <input type="number" id="labTg" class="profile-input" min="0.2" max="30" step="0.1" placeholder="напр. 1.1" />
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:16px">Заповніть ті значення, що є в аналізі. Ліпіди — у ммоль/л.</div>
+
+    <div class="modal-actions">
+      <button class="btn-outline" style="flex:1" onclick="closeLabModal()">Скасувати</button>
+      <button class="btn-save" style="flex:2;margin-top:0" onclick="saveLab()">Зберегти</button>
     </div>
   </div>
 </div>
@@ -645,6 +688,7 @@
 <script src="/js/entries.js"></script>
 <script src="/js/home.js"></script>
 <script src="/js/risk.js"></script>
+<script src="/js/labs.js"></script>
 <script src="/js/journal.js"></script>
 <script src="/js/drive.js"></script>
 <script src="/js/charts.js"></script>

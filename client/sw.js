@@ -1,5 +1,5 @@
-const CACHE = 'health-v53';
-const API_CACHE = 'health-api-v53';
+const CACHE = 'health-v62';
+const API_CACHE = 'health-api-v62';
 
 const STATIC_SHELL = [
   '/offline.html',
@@ -15,6 +15,7 @@ const STATIC_SHELL = [
   '/js/entries.js',
   '/js/home.js',
   '/js/risk.js',
+  '/js/labs.js',
   '/js/journal.js',
   '/js/drive.js',
   '/js/charts.js',
@@ -30,7 +31,7 @@ const STATIC_SHELL = [
 
 // API GET routes to cache for offline reading
 // /api/auth/me excluded — auth state must never be served from cache
-const CACHED_API = ['/api/entries'];
+const CACHED_API = ['/api/entries', '/api/labs'];
 
 self.addEventListener('install', e => {
   e.waitUntil(
@@ -91,8 +92,25 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  // Static assets — cache-first, fetch and cache on miss (GET only)
   if (request.method !== 'GET') return;
+
+  // App code (JS/CSS) — network-first so a freshly-loaded index.html is never
+  // paired with stale cached scripts (which crashes on removed/renamed globals).
+  // Falls back to cache only when offline.
+  if (/\.(?:js|css)$/.test(url.pathname)) {
+    e.respondWith(
+      fetch(request).then(res => {
+        if (res.ok) {
+          const clone = res.clone();
+          caches.open(CACHE).then(c => c.put(request, clone));
+        }
+        return res;
+      }).catch(() => caches.match(request))
+    );
+    return;
+  }
+
+  // Other static assets (icons, images) — cache-first, fetch and cache on miss
   e.respondWith(
     caches.match(request).then(cached => {
       if (cached) return cached;

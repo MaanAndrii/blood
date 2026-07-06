@@ -96,8 +96,8 @@ function setPdfMode(m) {
   document.getElementById('pdfModeShort').classList.toggle('active', m === 'short');
   document.getElementById('pdfModeExtended').classList.toggle('active', m === 'extended');
   document.getElementById('pdfModeHint').textContent = m === 'extended'
-    ? 'Таблиця показників + статистика та аналітика (WHO/ESH 2023)'
-    : 'Таблиця показників за вибраний період';
+    ? 'Кольорова таблиця + огляд періоду, статистика й аналітика (WHO/ESH 2023)'
+    : 'Кольорова таблиця показників за вибраний період';
 }
 
 function openPdfModal() {

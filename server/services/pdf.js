@@ -107,13 +107,112 @@ function bpCategoryLabel(sys, dia) {
   return 'Оптимальний';
 }
 
+// ── Health-status colour coding (coloured report) ────────────────────────────
+// Status palette (good/warning/serious/critical) — reserved for severity, not
+// arbitrary category hues. Colour is a light cell tint (dark-ish text stays
+// legible in B/W); an icon duplicates the status so colour is never the only
+// signal (none / ⚠ / ‼).
+const BP_STATUS_STYLE = {
+  good:     { bg: '#e6f5e6', fg: '#0a7d0a', icon: '' },
+  warning:  { bg: '#fdf3d9', fg: '#8a6100', icon: '⚠' },
+  serious:  { bg: '#fbe6db', fg: '#a8481a', icon: '⚠' },
+  critical: { bg: '#f8dada', fg: '#a81f1f', icon: '‼' },
+};
+const BP_CAT_STATUS = {
+  'Оптимальний': 'good', 'Нормальний': 'good',
+  'Висок. нормальний': 'warning', 'Гіпертензія 1 ст.': 'warning',
+  'Ізол. сист. АГ': 'serious', 'Ізол. діаст. АГ': 'serious', 'Гіпертензія 2 ст.': 'serious',
+  'Гіпертензія 3 ст.': 'critical',
+};
+const STATUS_ORDER = { good: 0, warning: 1, serious: 2, critical: 3 };
+
+function bpStatus(sys, dia) {
+  const cat = bpCategoryLabel(sys, dia);
+  if (cat === '—') return null;
+  const status = BP_CAT_STATUS[cat];
+  return status ? { status, cat, ...BP_STATUS_STYLE[status] } : null;
+}
+
+// A coloured <td> for a BP reading
+function bpCell(sys, dia) {
+  const val = bpStr(sys, dia);
+  const s = bpStatus(sys, dia);
+  if (!s) return `<td>${val}</td>`;
+  return `<td style="background:${s.bg};color:${s.fg};font-weight:600">${val}${s.icon ? ' ' + s.icon : ''}</td>`;
+}
+
+// A pulse <td> marked ↓ (<60, bradycardia) / ↑ (>100, tachycardia)
+function pulseCell(p) {
+  if (p == null) return '<td>—</td>';
+  if (p < 60)  return `<td style="color:#1c6fb4;font-weight:600">${p} ↓</td>`;
+  if (p > 100) return `<td style="color:#a81f1f;font-weight:600">${p} ↑</td>`;
+  return `<td>${p}</td>`;
+}
+
+// True when a day has a systolic arm difference >10 mmHg (morning or evening)
+function armDiffFlag(e) {
+  const md = e.m_sys_l != null && e.m_sys_r != null && Math.abs(e.m_sys_l - e.m_sys_r) > 10;
+  const ed = e.e_sys_l != null && e.e_sys_r != null && Math.abs(e.e_sys_l - e.e_sys_r) > 10;
+  return md || ed;
+}
+
+// Worst BP status across a day's four readings (for the period-overview panel)
+function dayWorstStatus(e) {
+  let worst = null;
+  for (const [s, d] of [[e.m_sys_l, e.m_dia_l], [e.m_sys_r, e.m_dia_r], [e.e_sys_l, e.e_dia_l], [e.e_sys_r, e.e_dia_r]]) {
+    const st = bpStatus(s, d);
+    if (st && (worst == null || STATUS_ORDER[st.status] > STATUS_ORDER[worst])) worst = st.status;
+  }
+  return worst;
+}
+
+// ── Lab-result helpers (ESC very-high-risk targets) ──────────────────────────
+function labNum(v) { return v != null ? Number(v) : null; }
+function fmtLab(v) { return v != null ? String(+Number(v).toFixed(2)) : '—'; }
+
+function labEvalText(key, v, sex) {
+  if (v == null) return '';
+  switch (key) {
+    case 'hba1c':         return v < 5.7 ? 'норма' : v < 6.5 ? 'предіабет' : 'діабет';
+    case 'total_chol':    return v < 5.0 ? 'оптимально' : v < 6.2 ? 'погранично' : 'підвищено';
+    case 'hdl':           return v >= (sex === 'female' ? 1.2 : 1.0) ? 'захисний' : 'низький';
+    case 'triglycerides': return v < 1.7 ? 'норма' : v < 2.3 ? 'погранично' : 'підвищено';
+    case 'ldl':           return v < 1.4 ? 'ціль ✓' : v < 1.8 ? 'близько до цілі' : 'вище цілі';
+    default:              return '';
+  }
+}
+
+// Lab value → severity status (reuses the BP status palette)
+function labStatus(key, v, sex) {
+  if (v == null) return null;
+  switch (key) {
+    case 'hba1c':         return v < 5.7 ? 'good' : v < 6.5 ? 'warning' : 'critical';
+    case 'total_chol':    return v < 5.0 ? 'good' : v < 6.2 ? 'warning' : 'serious';
+    case 'hdl':           return v >= (sex === 'female' ? 1.2 : 1.0) ? 'good' : 'warning';
+    case 'triglycerides': return v < 1.7 ? 'good' : v < 2.3 ? 'warning' : 'serious';
+    case 'ldl':           return v < 1.4 ? 'good' : v < 1.8 ? 'warning' : 'critical';
+    case 'nonhdl':        return v < 2.2 ? 'good' : v < 3.4 ? 'warning' : 'serious';
+    default:              return null;
+  }
+}
+
+// Coloured <td> for a lab value
+function labCell(key, v, sex) {
+  const txt = fmtLab(v);
+  const st = labStatus(key, v, sex);
+  if (!st) return `<td>${txt}</td>`;
+  const s = BP_STATUS_STYLE[st];
+  return `<td style="background:${s.bg};color:${s.fg};font-weight:600">${txt}</td>`;
+}
+
 const _iconPath = path.join(__dirname, '..', '..', 'client', 'icons', 'icon-192.svg');
 const _iconSvgRaw = fs.readFileSync(_iconPath, 'utf8');
 const LOGO_SVG = _iconSvgRaw
   .replace(/<\?xml[^?]*\?>/, '')
   .replace(/<svg /, '<svg width="56" height="56" ');
 
-function buildHtml(user, entries, dateFrom, dateTo, mode = 'short') {
+function buildHtml(user, entries, labs, dateFrom, dateTo, mode = 'short') {
+  labs = Array.isArray(labs) ? labs : [];
   const today = fmtDateUk(new Date().toISOString().slice(0, 10));
   const dob = user.date_of_birth ? fmtDateUk(user.date_of_birth) : '—';
   let age = '—';
@@ -137,13 +236,13 @@ function buildHtml(user, entries, dateFrom, dateTo, mode = 'short') {
   // ── Table rows ────────────────────────────────────────────────────────────
   const rows = filtered.map(e => `
     <tr>
-      <td>${fmtDateUk(String(e.date).slice(0,10))}</td>
-      <td>${bpStr(e.m_sys_l, e.m_dia_l)}</td>
-      <td>${bpStr(e.m_sys_r, e.m_dia_r)}</td>
-      <td>${fmtVal(e.m_pulse)}</td>
-      <td>${bpStr(e.e_sys_l, e.e_dia_l)}</td>
-      <td>${bpStr(e.e_sys_r, e.e_dia_r)}</td>
-      <td>${fmtVal(e.e_pulse)}</td>
+      <td>${fmtDateUk(String(e.date).slice(0,10))}${armDiffFlag(e) ? ' <span title="Різниця рук >10 мм">⚖️</span>' : ''}</td>
+      ${bpCell(e.m_sys_l, e.m_dia_l)}
+      ${bpCell(e.m_sys_r, e.m_dia_r)}
+      ${pulseCell(e.m_pulse)}
+      ${bpCell(e.e_sys_l, e.e_dia_l)}
+      ${bpCell(e.e_sys_r, e.e_dia_r)}
+      ${pulseCell(e.e_pulse)}
       <td>${e.weight != null ? parseFloat(e.weight).toFixed(1) : '—'}</td>
       ${hasNotes ? `<td style="text-align:left;font-size:9px">${escHtml(e.notes) || ''}</td>` : ''}
     </tr>`).join('');
@@ -332,6 +431,103 @@ function buildHtml(user, entries, dateFrom, dateTo, mode = 'short') {
     </div>
   </div>` : '';
 
+  // ── Lab results section (extended only) ───────────────────────────────────
+  const sex = user.sex || null;
+  const labsSorted = labs.slice().sort((a, b) =>
+    String(a.date).slice(0, 10).localeCompare(String(b.date).slice(0, 10)));
+  const labsInPeriod = labsSorted.filter(l => {
+    const d = String(l.date).slice(0, 10);
+    return (!dateFrom || d >= dateFrom) && (!dateTo || d <= dateTo);
+  });
+  const labsShown = labsInPeriod.length ? labsInPeriod
+    : (labsSorted.length ? [labsSorted[labsSorted.length - 1]] : []);
+  const latestLab = labsShown.length ? labsShown[labsShown.length - 1] : null;
+  const outOfPeriodNote = (!labsInPeriod.length && latestLab) ? ' (останній доступний, поза періодом)' : '';
+
+  const labRows = labsShown.map(l => {
+    const t = labNum(l.total_chol), h = labNum(l.hdl);
+    const nonHdl = (t != null && h != null) ? +(t - h).toFixed(2) : null;
+    return `<tr>
+      <td>${fmtDateUk(String(l.date).slice(0,10))}</td>
+      ${labCell('hba1c', labNum(l.hba1c), sex)}
+      ${labCell('total_chol', t, sex)}
+      ${labCell('hdl', h, sex)}
+      ${labCell('ldl', labNum(l.ldl), sex)}
+      ${labCell('triglycerides', labNum(l.triglycerides), sex)}
+      ${labCell('nonhdl', nonHdl, sex)}
+    </tr>`;
+  }).join('');
+
+  let labEvalBlock = '';
+  if (latestLab) {
+    const t = labNum(latestLab.total_chol), h = labNum(latestLab.hdl);
+    const ldl = labNum(latestLab.ldl), tg = labNum(latestLab.triglycerides), a1c = labNum(latestLab.hba1c);
+    const nonHdl = (t != null && h != null) ? +(t - h).toFixed(2) : null;
+    const nonHdlNote = nonHdl == null ? '—'
+      : nonHdl + ' ммоль/л (' + (nonHdl < 2.2 ? 'ціль ✓' : nonHdl < 3.4 ? 'близько до цілі' : 'вище цілі') + ', ціль <2.2)';
+    labEvalBlock = `
+  <div class="stats-grid">
+    <div class="stats-block">
+      <div class="stats-block-title">Оцінка останнього аналізу (${fmtDateUk(String(latestLab.date).slice(0,10))}) — цілі ESC, дуже високий ризик</div>
+      <table class="stats-table">
+        ${sr('HbA1c', a1c != null ? fmtLab(a1c) + ' % (' + labEvalText('hba1c', a1c, sex) + ')' : '—')}
+        ${sr('ЛПНЩ (LDL)', ldl != null ? fmtLab(ldl) + ' ммоль/л (' + labEvalText('ldl', ldl, sex) + ', ціль <1.4)' : '—')}
+        ${sr('non-HDL (розрах.)', nonHdlNote)}
+        ${sr('Тригліцериди', tg != null ? fmtLab(tg) + ' ммоль/л (' + labEvalText('triglycerides', tg, sex) + ')' : '—')}
+      </table>
+    </div>
+  </div>`;
+  }
+
+  const labSection = (mode === 'extended' && labsShown.length) ? `
+  <div class="section-title">🧪 Лабораторні показники${outOfPeriodNote}</div>
+  <table class="data">
+    <thead>
+      <tr>
+        <th>Дата</th>
+        <th>HbA1c<br/>%</th>
+        <th>Загальний<br/>ммоль/л</th>
+        <th>ЛПВЩ<br/>ммоль/л</th>
+        <th>ЛПНЩ<br/>ммоль/л</th>
+        <th>Тригліц.<br/>ммоль/л</th>
+        <th>non-HDL<br/>ммоль/л</th>
+      </tr>
+    </thead>
+    <tbody>${labRows}</tbody>
+  </table>
+  ${labEvalBlock}` : '';
+
+  // ── Period overview panel (extended only) ─────────────────────────────────
+  const overviewPanel = (mode === 'extended' && filtered.length) ? (() => {
+    const tally = { good: 0, warning: 0, serious: 0, critical: 0, none: 0 };
+    filtered.forEach(e => { tally[dayWorstStatus(e) || 'none']++; });
+    const tile = (label, n, st) => {
+      const s = BP_STATUS_STYLE[st];
+      return `<div class="glance-tile" style="background:${s.bg};color:${s.fg}">
+        <div class="glance-num">${n}</div><div class="glance-lbl">${label}</div></div>`;
+    };
+    return `
+  <div class="section-title">🩺 Огляд періоду (за найгіршим виміром дня)</div>
+  <div class="glance-grid">
+    ${tile('у нормі', tally.good, 'good')}
+    ${tile('погранично', tally.warning, 'warning')}
+    ${tile('підвищений', tally.serious, 'serious')}
+    ${tile('критичний', tally.critical, 'critical')}
+  </div>`;
+  })() : '';
+
+  // ── Colour legend (both modes) ────────────────────────────────────────────
+  const legend = `
+  <div class="legend">
+    <span class="legend-title">Позначення:</span>
+    <span class="chip" style="background:#e6f5e6;color:#0a7d0a">Оптим. / Норм.</span>
+    <span class="chip" style="background:#fdf3d9;color:#8a6100">⚠ Вис. норм. / АГ 1 ст.</span>
+    <span class="chip" style="background:#fbe6db;color:#a8481a">⚠ Ізол. АГ / АГ 2 ст.</span>
+    <span class="chip" style="background:#f8dada;color:#a81f1f">‼ АГ 3 ст.</span>
+    <span class="legend-plain">⚖️ різниця рук &gt;10 мм</span>
+    <span class="legend-plain">пульс ↓ &lt;60 / ↑ &gt;100</span>
+  </div>`;
+
   const notesColspan = hasNotes ? 9 : 8;
 
   return `<!DOCTYPE html>
@@ -374,11 +570,22 @@ function buildHtml(user, entries, dateFrom, dateTo, mode = 'short') {
 
     .footer { margin-top: 20px; font-size: 10px; color: #888; text-align: right; border-top: 1px solid #ddd; padding-top: 8px; }
 
+    .legend { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; font-size: 9px; color: #444; border-top: 1px solid #ddd; padding-top: 8px; }
+    .legend-title { font-weight: 700; color: #333; }
+    .legend .chip { padding: 1px 6px; border-radius: 8px; font-weight: 600; }
+    .legend-plain { padding: 1px 4px; }
+
+    .glance-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 4px; }
+    .glance-tile { border: 1px solid #0001; border-radius: 6px; padding: 8px 6px; text-align: center; }
+    .glance-num { font-size: 22px; font-weight: 700; line-height: 1.1; }
+    .glance-lbl { font-size: 9px; margin-top: 2px; }
+
     @media print {
       body { padding: 10mm; }
       thead { display: table-header-group; }
       tr { page-break-inside: avoid; }
       .stats-grid, .stats-grid-4 { page-break-inside: avoid; }
+      .glance-grid { page-break-inside: avoid; }
     }
   </style>
 </head>
@@ -398,6 +605,8 @@ function buildHtml(user, entries, dateFrom, dateTo, mode = 'short') {
     <tr><td>Сформовано:</td><td>${today}</td></tr>
     <tr><td>Всього записів:</td><td>${filtered.length}</td></tr>
   </table>
+
+  ${overviewPanel}
 
   <table class="data">
     <thead>
@@ -425,6 +634,10 @@ function buildHtml(user, entries, dateFrom, dateTo, mode = 'short') {
 
   ${statsSection}
 
+  ${labSection}
+
+  ${legend}
+
   <div class="footer">
     Документ сформовано автоматично системою моніторингу здоров'я &bull; ${today} &bull; WHO/ESH 2023
   </div>
@@ -432,8 +645,8 @@ function buildHtml(user, entries, dateFrom, dateTo, mode = 'short') {
 </html>`;
 }
 
-async function generatePdf(user, entries, dateFrom, dateTo, mode = 'short') {
-  const html = buildHtml(user, entries, dateFrom, dateTo, mode);
+async function generatePdf(user, entries, labs, dateFrom, dateTo, mode = 'short') {
+  const html = buildHtml(user, entries, labs, dateFrom, dateTo, mode);
   const browser = await puppeteer.launch({
     headless: 'new',
     executablePath: process.env.CHROMIUM_PATH || '/usr/bin/chromium',

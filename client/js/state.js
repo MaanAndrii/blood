@@ -1,6 +1,6 @@
 // ── DATA LAYER ──────────────────────────────────────────────────────────────
 const DB_KEY        = 'health_entries_v2';
-const APP_VERSION   = '3.04';
+const APP_VERSION   = '3.13';
 const REMINDER_KEY  = 'health_reminders';
 
 // ── Constants (U) ────────────────────────────────────────────────────────────
@@ -10,6 +10,7 @@ const FILTER_DEBOUNCE  = 120;  // ms debounce for filter changes
 const HISTORY_MONTHS   = 3;    // max months shown in charts by default
 
 let entries = [];
+let labResults = [];
 let currentUser = null;
 let isDataStale = false;
 let journalPage = 0;

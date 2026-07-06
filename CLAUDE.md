@@ -6,7 +6,7 @@
 - `client/js/state.js` → `const APP_VERSION = 'X.XX'`
 - `client/sw.js` → `const CACHE = 'health-vN'` і `const API_CACHE = 'health-api-vN'` (N — ціле, збільшувати на 1)
 
-Поточна версія: **3.04** (SW: health-v53).
+Поточна версія: **3.13** (SW: health-v62).
 
 ## Stack
 
@@ -35,6 +35,7 @@ server/
     push.js             — VAPID key, push subscription
     backup.js           — Drive backup/restore (status, create, list, restore, disconnect)
     export.js           — CSV/JSON export, JSON import (tier-gated via tierGuard)
+    labs.js             — GET/POST/DELETE /api/labs (dated lab_results panels)
   services/
     drive.js            — Google Drive API (token refresh, folder, upload, list, download)
     pdf.js              — Puppeteer PDF report generation
@@ -43,8 +44,8 @@ server/
 client/
   index.html            — SPA shell (HTML + CSS); JS split into client/js/*.js modules
   js/                    — state.js, api.js, queue.js, auth.js, ui.js, rollers.js,
-                            entries.js, home.js, risk.js, journal.js, drive.js, charts.js,
-                            export.js, reminders.js, init.js (loaded in this order)
+                            entries.js, home.js, risk.js, labs.js, journal.js, drive.js,
+                            charts.js, export.js, reminders.js, init.js (loaded in this order)
   sw.js                  — Service Worker (offline mode: app shell + API GET cache)
   landing.html           — public landing page + embedded login/register form
   admin.html             — admin panel (user list, tier changes, invite)
@@ -88,12 +89,13 @@ Development happens on short-lived `claude/*` feature branches merged into `main
 - [x] Google OAuth 2.0 login
 - [x] **Local email/password registration + login** (bcryptjs, 10 rounds)
 - [x] **User tiers: Admin / Premium / Demo / Free** (all new users = Premium; Demo auto-downgrades to Free after 7 days; tier badge in user chip)
-- [x] PDF report (Puppeteer)
+- [x] PDF report (Puppeteer) — short/extended modes, both colour-coded: BP cells tinted by WHO/ESH status (good/warning/serious/critical) with ⚠/‼ icons (never colour-only), pulse ↓/↑ (brady/tachy) and per-day arm-difference ⚖️ markers, colour legend; extended adds a period-overview panel, stats/trends/correlations and the latest lab panel
 - [x] CSV + JSON export / import (CSV includes `notes` column; JSON capped at 5 MB)
 - [x] Web Push reminders (VAPID, node-cron)
 - [x] User profile (name, date of birth, height)
 - [x] **WHO/ESH 2023 BP classification** (8 categories: Optimal → Grade 3 + Isolated Systolic/Diastolic)
-- [x] **Cardiovascular risk estimation** (`client/js/risk.js`): 10-year CVD risk on home page via two models — Framingham non-laboratory/BMI (D'Agostino 2008) and SCORE2/SCORE2-OP (ESC 2021, «very high risk» region for Ukraine). New profile fields: `sex`, `smoker`, `diabetic`, `on_bp_meds`, `total_cholesterol`, `hdl_cholesterol` (mmol/L). SBP taken from mean of home readings over last 30 days; card shows disclaimer (orientation only, home-BP calibration caveat)
+- [x] **Cardiovascular risk estimation** (`client/js/risk.js`): 10-year CVD risk in the «Аналіз» tab (after the WHO/ESH card; rendered from `renderCharts()`) via two models — Framingham non-laboratory/BMI (D'Agostino 2008) and SCORE2/SCORE2-OP (ESC 2021, «very high risk» region for Ukraine). Profile risk fields: `sex`, `smoker`, `diabetic` (fallback), `on_bp_meds`. SBP taken from mean of home readings over last 30 days; total/HDL cholesterol come from the latest lab panel; diabetes status derived from latest HbA1c (≥6.5%) with the profile flag as fallback. Card shows disclaimer (orientation only, home-BP calibration caveat)
+- [x] **Lab results** (`lab_results` table, `client/js/labs.js`): dated blood-work panels (HbA1c %, total/HDL/LDL cholesterol, triglycerides in mmol/L), one row per date, newest feeds the risk models. «Лабораторні показники» card lives in the «Аналіз» tab (rendered early in `renderCharts()` so a later chart error can't block it); the home page has only a «🧪 Додати аналіз крові» quick-add button. Card shows per-value evaluation vs ESC very-high-risk targets (LDL <1.4, non-HDL <2.2), computed non-HDL & TG/HDL, Friedewald cross-check, add/edit/delete modal + history. Latest panel also appears in the extended PDF report. Legacy `users.total_cholesterol`/`hdl_cholesterol` migrated into a seed lab row on startup
 - [x] **BMI calculation** (`calcBmi`/`bmiCategory`): shown in summary card + profile modal preview; stored as `height_cm` in users table
 - [x] **GDPR compliance**: consent at registration (`consented_at`), Privacy Policy modal, delete account (`DELETE /api/users/me`)
 - [x] XSS-safe rendering (`escHtml`)

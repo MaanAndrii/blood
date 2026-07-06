@@ -41,3 +41,36 @@ async function deleteEntryFromServer(date) {
   }
 }
 
+// ── LAB RESULTS ───────────────────────────────────────────────────────────────
+async function fetchLabs() {
+  try {
+    const r = await fetch('/api/labs');
+    if (!r.ok) { labResults = []; return; }
+    labResults = await r.json();
+  } catch (err) {
+    console.warn('fetchLabs failed:', err);
+    labResults = [];
+  }
+}
+
+async function saveLabToServer(lab) {
+  const r = await fetch('/api/labs', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(lab),
+  });
+  if (!r.ok) {
+    const data = await r.json().catch(() => ({}));
+    throw new Error(data.error || `HTTP ${r.status}`);
+  }
+  return r.json();
+}
+
+async function deleteLabFromServer(date) {
+  const r = await fetch('/api/labs/' + date, { method: 'DELETE' });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    throw new Error(err.error || `HTTP ${r.status}`);
+  }
+}
+

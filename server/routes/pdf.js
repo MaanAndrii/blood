@@ -28,7 +28,7 @@ router.post('/', requireAuth, async (req, res) => {
 
     // Get user info + tier
     const userResult = await pool.query(
-      'SELECT id, name, date_of_birth, subscription_tier, subscription_expires_at FROM users WHERE id = $1',
+      'SELECT id, name, date_of_birth, sex, subscription_tier, subscription_expires_at FROM users WHERE id = $1',
       [userId]
     );
     if (!userResult.rows.length) {
@@ -49,7 +49,14 @@ router.post('/', requireAuth, async (req, res) => {
       [userId, dateFrom, dateTo]
     );
 
-    const pdfBuffer = await generatePdf(user, entriesResult.rows, dateFrom, dateTo, mode);
+    // Get all lab panels (for the extended report's lab section)
+    const labsResult = await pool.query(
+      `SELECT date, hba1c, total_chol, hdl, ldl, triglycerides
+       FROM lab_results WHERE user_id = $1 ORDER BY date ASC`,
+      [userId]
+    );
+
+    const pdfBuffer = await generatePdf(user, entriesResult.rows, labsResult.rows, dateFrom, dateTo, mode);
 
     const filename = `health_report_${dateFrom}_${dateTo}.pdf`;
     res.set({

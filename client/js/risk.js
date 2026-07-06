@@ -148,6 +148,19 @@ function score2Category(pct, age) {
   return                { label: 'Високий',  color: '#ef4444' };
 }
 
+// Newest lab panel (API returns newest first), or null.
+function latestLab() {
+  return (Array.isArray(labResults) && labResults.length) ? labResults[0] : null;
+}
+
+// Diabetes status for risk models: derived from the latest HbA1c (≥6.5% = diabetes)
+// when available, otherwise the manual profile flag.
+function isDiabetic() {
+  const lab = latestLab();
+  if (lab && lab.hba1c != null) return lab.hba1c >= 6.5;
+  return !!(currentUser && currentUser.diabetic);
+}
+
 // ── Card rendering ────────────────────────────────────────────────────────────
 function renderRiskCard() {
   const el = document.getElementById('riskCard');
@@ -158,15 +171,17 @@ function renderRiskCard() {
   const sbpInfo = recentSystolic(30);
   const lastWeight = entries.find(e => e.weight != null)?.weight;
   const bmi = lastWeight && u.height_cm ? calcBmi(Number(lastWeight), u.height_cm) : null;
-  const totalChol = u.total_cholesterol != null ? Number(u.total_cholesterol) : null;
-  const hdl = u.hdl_cholesterol != null ? Number(u.hdl_cholesterol) : null;
+  const lab = latestLab();
+  const totalChol = lab && lab.total_chol != null ? lab.total_chol : null;
+  const hdl = lab && lab.hdl != null ? lab.hdl : null;
+  const diabetic = isDiabetic();
 
   // Prompt if the essentials (sex + DOB) are missing.
   if (!u.sex || age == null) {
     el.innerHTML = `
-      <div class="card" style="padding:14px">
-        <div style="font-weight:600;margin-bottom:6px">❤️ Серцево-судинний ризик</div>
-        <div style="font-size:12px;color:var(--muted);margin-bottom:10px">
+      <div class="stat-card" style="margin-bottom:10px">
+        <div class="stat-title">❤️ Серцево-судинний ризик</div>
+        <div style="font-size:12px;color:var(--muted);margin:6px 0 10px">
           Вкажіть стать і дату народження у профілі, щоб оцінити 10-річний ризик серцево-судинних подій.
         </div>
         <button class="btn-outline" style="width:100%" onclick="openProfileModal()">Заповнити профіль</button>
@@ -176,9 +191,9 @@ function renderRiskCard() {
 
   if (!sbpInfo) {
     el.innerHTML = `
-      <div class="card" style="padding:14px">
-        <div style="font-weight:600;margin-bottom:6px">❤️ Серцево-судинний ризик</div>
-        <div style="font-size:12px;color:var(--muted)">
+      <div class="stat-card" style="margin-bottom:10px">
+        <div class="stat-title">❤️ Серцево-судинний ризик</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:6px">
           Немає вимірювань тиску за останні 30 днів — внесіть показники, щоб розрахувати ризик.
         </div>
       </div>`;
@@ -188,11 +203,11 @@ function renderRiskCard() {
   const treated = !!u.on_bp_meds;
   const fr = framinghamNonLab({
     sex: u.sex, age, bmi, sbp: sbpInfo.mean,
-    treated, smoker: u.smoker, diabetic: u.diabetic,
+    treated, smoker: u.smoker, diabetic,
   });
   const sc = score2VeryHigh({
     sex: u.sex, age, sbp: sbpInfo.mean,
-    smoker: u.smoker, diabetic: u.diabetic, totalChol, hdl,
+    smoker: u.smoker, diabetic, totalChol, hdl,
   });
 
   const gauge = (pct, cat) => `
@@ -225,14 +240,14 @@ function renderRiskCard() {
     </div>`;
   } else {
     const need = (totalChol == null || hdl == null)
-      ? 'загальний і HDL холестерин у профілі'
+      ? 'загальний і HDL холестерин у розділі «Лабораторні показники»'
       : (age < 40 ? 'вік ≥ 40 років' : 'дані');
     body += `<div style="font-size:11px;color:var(--muted);margin-bottom:6px;padding-top:8px;border-top:1px solid var(--border)">SCORE2: додайте ${need}.</div>`;
   }
 
   el.innerHTML = `
-    <div class="card" style="padding:14px">
-      <div style="font-weight:600;margin-bottom:10px">❤️ Серцево-судинний ризик</div>
+    <div class="stat-card" style="margin-bottom:10px">
+      <div class="stat-title" style="margin-bottom:10px">❤️ Серцево-судинний ризик</div>
       ${body}
       <div style="font-size:10px;color:var(--muted);margin-top:8px;line-height:1.4">
         Розрахунок за середнім систолічним тиском ${sbpInfo.mean} мм рт. ст. (${sbpInfo.n} вимір.

@@ -21,7 +21,7 @@
     return parseInt(d) + ' ' + MONTHS_SHORT[parseInt(m) - 1] + ' ' + y;
   }
 
-  const CSS_VER = '5';
+  const CSS_VER = '6';
   const CSS = `
 .rdp{position:relative;display:inline-flex;align-items:center;gap:6px;width:100%}
 .rdp-bar{
@@ -48,6 +48,9 @@
   position:fixed;inset:0;z-index:9999;
   display:none;align-items:center;justify-content:center;
   padding:16px;box-sizing:border-box;
+  /* Stay interactive even when opened over a modal whose backdrop sets
+     body{pointer-events:none} to disable the UI behind it. */
+  pointer-events:auto;
 }
 .rdp-overlay.rdp-mobile{background:rgba(0,0,0,.55)}
 .rdp-overlay.rdp-mobile .rdp-cell{padding:12px 2px 11px;font-size:16px}

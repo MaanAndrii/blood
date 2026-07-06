@@ -281,9 +281,12 @@
 </div><!-- /#appShell -->
 
 <!-- ══ PDF MODAL ══ -->
-<div class="modal-overlay" id="pdfModal">
+<div class="modal-overlay" id="pdfModal" onclick="if(event.target===this)closePdfModal()">
   <div class="modal-box">
-    <div class="modal-title">📋 PDF Довідка для лікаря</div>
+    <div class="modal-title" style="display:flex;justify-content:space-between;align-items:center">
+      <span>📋 PDF Довідка для лікаря</span>
+      <button onclick="closePdfModal()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;line-height:1;padding:0" aria-label="Закрити">✕</button>
+    </div>
     <div class="field" style="margin-bottom:14px">
       <label>Діапазон дат</label>
       <div id="pdfDatePicker" style="margin-top:6px"></div>

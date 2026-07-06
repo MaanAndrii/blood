@@ -148,6 +148,8 @@
       align-items: center; justify-content: center;
     }
     .modal-overlay.open { display: flex; }
+    body:has(.modal-overlay.open) { overflow: hidden; pointer-events: none; }
+    body:has(.modal-overlay.open) .modal-overlay.open { pointer-events: auto; }
     .modal-box {
       background: var(--card);
       border: 1px solid var(--border);
@@ -227,7 +229,10 @@
 <!-- Tier modal -->
 <div class="modal-overlay" id="adminTierModal" onclick="if(event.target===this)closeAdminTierModal()">
   <div class="modal-box">
-    <div class="modal-title" id="adminTierTitle">Доступ</div>
+    <div class="modal-title" style="display:flex;justify-content:space-between;align-items:center">
+      <span id="adminTierTitle">Доступ</span>
+      <button onclick="closeAdminTierModal()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;line-height:1;padding:0" aria-label="Закрити">✕</button>
+    </div>
 
     <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Тип доступу</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">

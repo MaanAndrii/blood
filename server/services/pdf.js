@@ -647,12 +647,18 @@ function buildHtml(user, entries, labs, dateFrom, dateTo, mode = 'short') {
 
 async function generatePdf(user, entries, labs, dateFrom, dateTo, mode = 'short') {
   const html = buildHtml(user, entries, labs, dateFrom, dateTo, mode);
-  const browser = await puppeteer.launch({
+  const launchOptions = {
     headless: 'new',
-    executablePath: process.env.CHROMIUM_PATH || '/usr/bin/chromium',
     args: ['--no-sandbox', '--disable-setuid-sandbox'],
     timeout: 15000,
-  });
+  };
+  // Use an explicit system Chromium ONLY when CHROMIUM_PATH is set (e.g. arm64 /
+  // Raspberry Pi, where Puppeteer has no bundled build). Otherwise fall back to
+  // Puppeteer's own managed Chromium — portable across servers and free of the
+  // snap-confinement issues that break the snap `chromium`.
+  const cp = (process.env.CHROMIUM_PATH || '').trim();
+  if (cp) launchOptions.executablePath = cp;
+  const browser = await puppeteer.launch(launchOptions);
   try {
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: 'networkidle0', timeout: 30000 });

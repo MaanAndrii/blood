@@ -74,3 +74,28 @@ async function deleteLabFromServer(date) {
   }
 }
 
+// Re-pull the current user profile from the server
+async function refreshUser() {
+  try {
+    const r = await fetch('/api/auth/me');
+    if (r.ok) currentUser = await r.json();
+  } catch {}
+}
+
+// After an import/restore, reload entries + labs + profile and re-render views
+async function refreshAfterRestore() {
+  await fetchEntries();
+  await fetchLabs();
+  await refreshUser();
+  try {
+    if (typeof showDayOnHome === 'function') showDayOnHome(selectedWeekDate || todayStr());
+    if (typeof renderWeekStrip === 'function') renderWeekStrip();
+    if (typeof renderHomeChart === 'function') renderHomeChart();
+    if (typeof renderRiskCard === 'function') renderRiskCard();
+    if (typeof renderLabsCard === 'function') renderLabsCard();
+    const active = document.querySelector('.page.active')?.id;
+    if (active === 'page-history' && typeof renderHistory === 'function') renderHistory();
+    else if (active === 'page-stats' && typeof renderCharts === 'function') renderCharts();
+  } catch (e) { console.error('refreshAfterRestore render failed:', e); }
+}
+

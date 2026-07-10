@@ -100,7 +100,7 @@ async function deleteFromDrive(fileId, filename) {
 }
 
 async function restoreFromDrive(fileId, filename) {
-  if (!confirm(`Відновити дані з файлу ${filename}?\nНаявні записи НЕ будуть видалені — додадуться лише нові дати.`)) return;
+  if (!confirm(`Відновити дані з файлу ${filename}?\nЗаписи й аналізи НЕ будуть видалені — додадуться лише нові дати; профіль оновиться зі збереженого.`)) return;
   showLoading('Відновлення з Drive…');
   try {
     const r = await fetch('/api/backup/drive/restore', {
@@ -110,11 +110,12 @@ async function restoreFromDrive(fileId, filename) {
     });
     const data = await r.json();
     if (!r.ok) throw new Error(data.error || 'Помилка');
-    await fetchEntries();
-    renderHistory();
-    renderTodaySummary();
+    await refreshAfterRestore();
     closeDriveModal();
-    showToast(`✅ Відновлено: +${data.imported} нових, ${data.skipped} пропущено`);
+    const extra = [];
+    if (data.labsImported)    extra.push(`${data.labsImported} аналізів`);
+    if (data.profileRestored) extra.push('профіль');
+    showToast(`✅ Відновлено: +${data.imported} записів${extra.length ? ' + ' + extra.join(', ') : ''}, ${data.skipped} пропущено`);
   } catch (err) {
     showToast('❌ ' + err.message, 'var(--warn)');
   } finally {

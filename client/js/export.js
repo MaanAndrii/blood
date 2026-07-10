@@ -56,9 +56,12 @@ function importJSON(event) {
       });
       if (r.status === 403) { showToast('🔒 Імпорт недоступний у демо-версії', 'var(--warn)'); return; }
       if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'Помилка');
-      const { imported } = await r.json();
-      await fetchEntries();
-      showToast(`✅ Імпортовано ${imported} записів!`);
+      const res = await r.json();
+      await refreshAfterRestore();
+      const extra = [];
+      if (res.labsImported)   extra.push(`${res.labsImported} аналізів`);
+      if (res.profileRestored) extra.push('профіль');
+      showToast(`✅ Імпортовано ${res.imported} записів${extra.length ? ' + ' + extra.join(', ') : ''}!`);
       renderExportStats();
     } catch (err) { showToast('❌ ' + (err.message || 'Помилка файлу'), 'var(--warn)'); }
   };

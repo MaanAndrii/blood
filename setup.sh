@@ -85,8 +85,28 @@ cd "$APP_DIR"
 # від HOME користувача). CHROMIUM_PATH лишається порожнім → pdf.js бере власний.
 # Виняток — arm64/armv7 (Raspberry Pi): збірки немає, тож там системний Chromium.
 PUPPETEER_CACHE_DIR="${APP_DIR}/.puppeteer-cache"
-export PUPPETEER_CACHE_DIR
 mkdir -p "$PUPPETEER_CACHE_DIR"
+
+# Деякі VPS/LXC монтують /root, /home, /tmp з noexec — тоді Chrome НЕ запуститься
+# з тієї теки ("Syntax error: ) unexpected" при exec). Перевіряємо й за потреби
+# переносимо кеш браузера на exec-дозволену теку.
+_exec_ok() {
+  local d="$1" t
+  mkdir -p "$d" 2>/dev/null || return 1
+  t="$d/.exectest_$$"
+  printf '#!/bin/sh\ntrue\n' > "$t" 2>/dev/null || { rm -f "$t" 2>/dev/null; return 1; }
+  chmod +x "$t" 2>/dev/null || { rm -f "$t" 2>/dev/null; return 1; }
+  if "$t" >/dev/null 2>&1; then rm -f "$t" 2>/dev/null; return 0; fi
+  rm -f "$t" 2>/dev/null; return 1
+}
+if ! _exec_ok "$PUPPETEER_CACHE_DIR"; then
+  warn "$PUPPETEER_CACHE_DIR примонтовано з noexec — шукаю exec-дозволену теку для Chrome..."
+  for alt in /opt/blood-puppeteer /usr/local/lib/blood-puppeteer /var/lib/blood-puppeteer; do
+    if _exec_ok "$alt"; then PUPPETEER_CACHE_DIR="$alt"; ok "Кеш браузера → $alt (exec дозволено)"; break; fi
+  done
+  _exec_ok "$PUPPETEER_CACHE_DIR" || warn "Не знайшов exec-дозволеної теки — PDF може не працювати (перевірте noexec-монтування)."
+fi
+export PUPPETEER_CACHE_DIR
 
 ARCH=$(uname -m)
 if [[ "$ARCH" == "x86_64" ]]; then
@@ -316,7 +336,7 @@ PORT=3000
 BASE_URL=${EFFECTIVE_BASE_URL}
 APP_URL=${EFFECTIVE_BASE_URL}
 CHROMIUM_PATH=${CHROMIUM_PATH}
-PUPPETEER_CACHE_DIR=${APP_DIR}/.puppeteer-cache
+PUPPETEER_CACHE_DIR=${PUPPETEER_CACHE_DIR}
 RESEND_API_KEY=${RESEND_API_KEY}
 RESEND_FROM=${RESEND_FROM}
 EOF

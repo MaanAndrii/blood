@@ -92,6 +92,10 @@ ARCH=$(uname -m)
 if [[ "$ARCH" == "x86_64" ]]; then
   info "npm install (з власним Chromium Puppeteer)..."
   npm install
+  # Явно докачуємо браузер (ідемпотентно) — потрібно й для повторних запусків,
+  # де node_modules уже є і postinstall Puppeteer не спрацьовує.
+  npx --yes puppeteer browsers install chrome >/tmp/pptr_chromium.log 2>&1 \
+    || warn "Не вдалося докачати Chromium — див. /tmp/pptr_chromium.log"
   CHROMIUM_PATH=""
   chown -R "${SERVICE_USER}:${SERVICE_USER}" "$PUPPETEER_CACHE_DIR" 2>/dev/null || true
   ok "Залежності + Chromium (керований Puppeteer) → $PUPPETEER_CACHE_DIR"

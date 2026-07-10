@@ -37,6 +37,10 @@ step "Крок 1 — Системні пакети"
 info "Оновлення списку пакетів..."
 apt-get update -qq
 
+info "Встановлення базових утиліт (git, curl, ...)..."
+apt-get install -y git curl ca-certificates gnupg &>/dev/null
+ok "git $(git --version | awk '{print $3}')"
+
 info "Встановлення Node.js 20..."
 if ! command -v node &>/dev/null || [[ "$(node --version)" != v20* ]]; then
   curl -fsSL https://deb.nodesource.com/setup_20.x | bash - &>/dev/null
@@ -52,16 +56,31 @@ systemctl enable postgresql &>/dev/null
 systemctl start postgresql
 ok "PostgreSQL $(psql --version | awk '{print $3}')"
 
-info "Встановлення Chromium та залежностей Puppeteer..."
-CHROMIUM_PKG="chromium"
-apt-get install -y "$CHROMIUM_PKG" \
+info "Встановлення бібліотек-залежностей Puppeteer..."
+apt-get install -y \
   libgbm1 libxkbcommon0 libatk1.0-0 libatk-bridge2.0-0 \
   libcups2 libdrm2 libxcomposite1 libxdamage1 libxfixes3 \
-  libxrandr2 libpango-1.0-0 libcairo2 libasound2 2>&1 \
-  | grep -E '(Err|error|cannot|already installed|upgraded|newly installed)' || true
+  libxrandr2 libpango-1.0-0 libcairo2 libasound2 &>/dev/null || true
 
-CHROMIUM_PATH=$(which chromium 2>/dev/null || which chromium-browser 2>/dev/null || echo "")
-[[ -n "$CHROMIUM_PATH" ]] || err "Chromium не знайдено. Запустіть: sudo apt install chromium"
+info "Встановлення Chromium..."
+# Різні дистрибутиви пакують Chromium по-різному: Debian → chromium,
+# Ubuntu → chromium-browser (часто snap), деякі мінімальні образи — лише snap.
+# Пробуємо по черзі й приймаємо перший, що дав робочий бінарник.
+CHROMIUM_PATH=""
+detect_chromium() {
+  command -v chromium 2>/dev/null || command -v chromium-browser 2>/dev/null \
+    || { [[ -x /snap/bin/chromium ]] && echo /snap/bin/chromium; } || true
+}
+CHROMIUM_PATH=$(detect_chromium)
+if [[ -z "$CHROMIUM_PATH" ]]; then apt-get install -y chromium &>/dev/null || true; CHROMIUM_PATH=$(detect_chromium); fi
+if [[ -z "$CHROMIUM_PATH" ]]; then apt-get install -y chromium-browser &>/dev/null || true; CHROMIUM_PATH=$(detect_chromium); fi
+if [[ -z "$CHROMIUM_PATH" ]]; then
+  warn "Chromium через apt недоступний — пробуємо snap..."
+  command -v snap &>/dev/null || apt-get install -y snapd &>/dev/null || true
+  if command -v snap &>/dev/null; then snap install chromium &>/dev/null || true; fi
+  CHROMIUM_PATH=$(detect_chromium)
+fi
+[[ -n "$CHROMIUM_PATH" ]] || err "Chromium не вдалося встановити. Спробуйте вручну: sudo snap install chromium  (або sudo apt install chromium)"
 ok "Chromium → $CHROMIUM_PATH"
 
 # =============================================================================
@@ -404,50 +423,78 @@ EOF
 
   else
     # ── Повний Tunnel з доменом ───────────────────────────────────────────────
-    echo ""
-    info "Авторизація в Cloudflare (відкриється посилання)..."
-    sudo -u "$SERVICE_USER" cloudflared tunnel login
+    # Усе виконуємо від root: cloudflared тримає cert/креденшали в /root/.cloudflared,
+    # а для системної служби копіюємо конфіг+креденшали в /etc/cloudflared
+    # (єдина тека → жодних конфліктів /root vs /etc при `service install`).
+    CF_HOME="/root/.cloudflared"
+    CF_SYS="/etc/cloudflared"
+    TUNNEL_NAME="blood-health"
+    mkdir -p "$CF_HOME" "$CF_SYS"
 
-    info "Створення тунелю 'blood-health'..."
-    TUNNEL_OUTPUT=$(sudo -u "$SERVICE_USER" cloudflared tunnel create blood-health 2>&1) || true
-    # `|| true` guards against set -e + pipefail aborting silently when grep finds
-    # no UUID (e.g. the tunnel already exists from a previous run) — so the
-    # `tunnel list` fallback below can recover the ID.
-    TUNNEL_ID=$(echo "$TUNNEL_OUTPUT" | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' | head -1 || true)
+    echo ""
+    if [[ ! -f "$CF_HOME/cert.pem" ]]; then
+      info "Авторизація в Cloudflare (відкриється посилання)..."
+      cloudflared tunnel login
+    else
+      ok "Cloudflare авторизація вже є ($CF_HOME/cert.pem)"
+    fi
+
+    # UUID наявного тунелю (точний збіг по імені в колонці NAME)
+    TUNNEL_ID=$(cloudflared tunnel list 2>/dev/null | awk -v n="$TUNNEL_NAME" '$2==n{print $1; exit}' || true)
+
+    # Тунель існує, але локальних креденшалів нема → його неможливо запустити, перестворюємо
+    if [[ -n "$TUNNEL_ID" && ! -f "$CF_HOME/${TUNNEL_ID}.json" ]]; then
+      warn "Тунель '$TUNNEL_NAME' існує ($TUNNEL_ID), але креденшалів немає локально — перестворюю."
+      cloudflared tunnel delete -f "$TUNNEL_NAME" &>/dev/null || true
+      TUNNEL_ID=""
+    fi
 
     if [[ -z "$TUNNEL_ID" ]]; then
-      TUNNEL_ID=$(sudo -u "$SERVICE_USER" cloudflared tunnel list 2>/dev/null \
-        | awk '/blood-health/{print $1}' | head -1 || true)
+      info "Створення тунелю '$TUNNEL_NAME'..."
+      cloudflared tunnel create "$TUNNEL_NAME" >/dev/null 2>&1 || true
+      TUNNEL_ID=$(cloudflared tunnel list 2>/dev/null | awk -v n="$TUNNEL_NAME" '$2==n{print $1; exit}' || true)
     fi
     [[ -n "$TUNNEL_ID" ]] || err "Не вдалось отримати UUID тунелю"
-    ok "Тунель ID: $TUNNEL_ID"
+    [[ -f "$CF_HOME/${TUNNEL_ID}.json" ]] || err "Немає файлу креденшалів $CF_HOME/${TUNNEL_ID}.json"
+    ok "Тунель: $TUNNEL_NAME ($TUNNEL_ID)"
 
-    info "DNS запис для ${APP_DOMAIN}..."
-    sudo -u "$SERVICE_USER" cloudflared tunnel route dns blood-health "$APP_DOMAIN" 2>/dev/null \
-      && ok "DNS запис створено" \
-      || warn "DNS запис вже існує або помилка — перевірте вручну"
-
-    CRED_FILE="/home/${SERVICE_USER}/.cloudflared/${TUNNEL_ID}.json"
-    CONFIG_DIR="/home/${SERVICE_USER}/.cloudflared"
-
-    cat > "${CONFIG_DIR}/config.yml" <<EOF
-tunnel: blood-health
-credentials-file: ${CRED_FILE}
+    # Креденшали + config у системну теку
+    cp -f "$CF_HOME/${TUNNEL_ID}.json" "$CF_SYS/${TUNNEL_ID}.json"
+    cat > "$CF_SYS/config.yml" <<EOF
+tunnel: ${TUNNEL_ID}
+credentials-file: ${CF_SYS}/${TUNNEL_ID}.json
 
 ingress:
   - hostname: ${APP_DOMAIN}
     service: http://localhost:3000
   - service: http_status:404
 EOF
+    rm -f "$CF_HOME/config.yml"   # прибрати можливий конфлікт-конфіг
+    ok "config.yml → $CF_SYS/config.yml"
 
-    chown "${SERVICE_USER}:${SERVICE_USER}" "${CONFIG_DIR}/config.yml"
-    ok "config.yml створено"
+    # DNS-маршрут (ідемпотентно)
+    info "DNS запис для ${APP_DOMAIN}..."
+    DNS_OUT=$(cloudflared tunnel route dns "$TUNNEL_ID" "$APP_DOMAIN" 2>&1 || true)
+    if echo "$DNS_OUT" | grep -qi "already"; then
+      if echo "$DNS_OUT" | grep -q "$TUNNEL_ID"; then
+        ok "DNS вже вказує на цей тунель"
+      else
+        warn "DNS ${APP_DOMAIN} указує на ІНШИЙ тунель — онови CNAME у Cloudflare → ${TUNNEL_ID}.cfargotunnel.com"
+      fi
+    else
+      ok "DNS запис створено"
+    fi
 
-    cloudflared --config "${CONFIG_DIR}/config.yml" service install
+    # Служба systemd — чисто перевстановлюємо на наш конфіг
+    systemctl stop cloudflared &>/dev/null || true
+    cloudflared service uninstall &>/dev/null || true
+    rm -f /etc/systemd/system/cloudflared.service
+    systemctl daemon-reload
+    cloudflared --config "$CF_SYS/config.yml" service install
     systemctl enable cloudflared &>/dev/null
     systemctl restart cloudflared
 
-    sleep 3
+    sleep 4
     systemctl is-active cloudflared &>/dev/null && ok "Cloudflare Tunnel запущено" \
       || warn "Тунель не запустився. Перевірте: journalctl -u cloudflared -n 30"
   fi

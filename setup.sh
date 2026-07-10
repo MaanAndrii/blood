@@ -410,11 +410,14 @@ EOF
 
     info "Створення тунелю 'blood-health'..."
     TUNNEL_OUTPUT=$(sudo -u "$SERVICE_USER" cloudflared tunnel create blood-health 2>&1) || true
-    TUNNEL_ID=$(echo "$TUNNEL_OUTPUT" | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' | head -1)
+    # `|| true` guards against set -e + pipefail aborting silently when grep finds
+    # no UUID (e.g. the tunnel already exists from a previous run) — so the
+    # `tunnel list` fallback below can recover the ID.
+    TUNNEL_ID=$(echo "$TUNNEL_OUTPUT" | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' | head -1 || true)
 
     if [[ -z "$TUNNEL_ID" ]]; then
       TUNNEL_ID=$(sudo -u "$SERVICE_USER" cloudflared tunnel list 2>/dev/null \
-        | awk '/blood-health/{print $1}')
+        | awk '/blood-health/{print $1}' | head -1 || true)
     fi
     [[ -n "$TUNNEL_ID" ]] || err "Не вдалось отримати UUID тунелю"
     ok "Тунель ID: $TUNNEL_ID"

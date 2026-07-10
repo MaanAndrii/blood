@@ -56,32 +56,19 @@ systemctl enable postgresql &>/dev/null
 systemctl start postgresql
 ok "PostgreSQL $(psql --version | awk '{print $3}')"
 
-info "Встановлення бібліотек-залежностей Puppeteer..."
+info "Встановлення бібліотек, потрібних Chromium/Puppeteer..."
 apt-get install -y \
   libgbm1 libxkbcommon0 libatk1.0-0 libatk-bridge2.0-0 \
   libcups2 libdrm2 libxcomposite1 libxdamage1 libxfixes3 \
-  libxrandr2 libpango-1.0-0 libcairo2 libasound2 &>/dev/null || true
+  libxrandr2 libpango-1.0-0 libcairo2 libasound2 libnss3 libxshmfence1 fonts-liberation &>/dev/null || true
+ok "Бібліотеки Chromium встановлено"
 
-info "Встановлення Chromium..."
-# Різні дистрибутиви пакують Chromium по-різному: Debian → chromium,
-# Ubuntu → chromium-browser (часто snap), деякі мінімальні образи — лише snap.
-# Пробуємо по черзі й приймаємо перший, що дав робочий бінарник.
+# Chromium купуємо в кроці 2 (після npm) — Puppeteer керує власним бінарником.
 CHROMIUM_PATH=""
 detect_chromium() {
   command -v chromium 2>/dev/null || command -v chromium-browser 2>/dev/null \
     || { [[ -x /snap/bin/chromium ]] && echo /snap/bin/chromium; } || true
 }
-CHROMIUM_PATH=$(detect_chromium)
-if [[ -z "$CHROMIUM_PATH" ]]; then apt-get install -y chromium &>/dev/null || true; CHROMIUM_PATH=$(detect_chromium); fi
-if [[ -z "$CHROMIUM_PATH" ]]; then apt-get install -y chromium-browser &>/dev/null || true; CHROMIUM_PATH=$(detect_chromium); fi
-if [[ -z "$CHROMIUM_PATH" ]]; then
-  warn "Chromium через apt недоступний — пробуємо snap..."
-  command -v snap &>/dev/null || apt-get install -y snapd &>/dev/null || true
-  if command -v snap &>/dev/null; then snap install chromium &>/dev/null || true; fi
-  CHROMIUM_PATH=$(detect_chromium)
-fi
-[[ -n "$CHROMIUM_PATH" ]] || err "Chromium не вдалося встановити. Спробуйте вручну: sudo snap install chromium  (або sudo apt install chromium)"
-ok "Chromium → $CHROMIUM_PATH"
 
 # =============================================================================
 #  Крок 2 — npm залежності
@@ -89,14 +76,42 @@ ok "Chromium → $CHROMIUM_PATH"
 step "Крок 2 — npm залежності"
 
 cd "$APP_DIR"
-info "npm install..."
-PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=1 npm install
-ok "Залежності встановлено"
 
-# Шлях до Chromium передаємо через CHROMIUM_PATH у .env (крок 7) —
-# server/services/pdf.js уже читає process.env.CHROMIUM_PATH. НЕ патчимо
-# відстежуваний файл sed'ом (це ламало б `git pull` через локальні зміни).
-ok "Chromium для Puppeteer → через CHROMIUM_PATH у .env"
+# ── Chromium для Puppeteer ────────────────────────────────────────────────────
+# Портативний підхід: на x86_64 Puppeteer завантажує й керує ВЛАСНИМ браузером
+# (той самий білд, що очікує puppeteer.launch(); працює однаково на будь-якому
+# сервері, без проблем snap-confinement). Кеш — у фіксованій теці в проєкті,
+# щоб бінарник знаходився і при встановленні, і під час роботи служби (незалежно
+# від HOME користувача). CHROMIUM_PATH лишається порожнім → pdf.js бере власний.
+# Виняток — arm64/armv7 (Raspberry Pi): збірки немає, тож там системний Chromium.
+PUPPETEER_CACHE_DIR="${APP_DIR}/.puppeteer-cache"
+export PUPPETEER_CACHE_DIR
+mkdir -p "$PUPPETEER_CACHE_DIR"
+
+ARCH=$(uname -m)
+if [[ "$ARCH" == "x86_64" ]]; then
+  info "npm install (з власним Chromium Puppeteer)..."
+  npm install
+  # Явно докачуємо браузер (ідемпотентно) — потрібно й для повторних запусків,
+  # де node_modules уже є і postinstall Puppeteer не спрацьовує.
+  npx --yes puppeteer browsers install chrome >/tmp/pptr_chromium.log 2>&1 \
+    || warn "Не вдалося докачати Chromium — див. /tmp/pptr_chromium.log"
+  CHROMIUM_PATH=""
+  chown -R "${SERVICE_USER}:${SERVICE_USER}" "$PUPPETEER_CACHE_DIR" 2>/dev/null || true
+  ok "Залежності + Chromium (керований Puppeteer) → $PUPPETEER_CACHE_DIR"
+else
+  info "npm install (arm — системний Chromium)..."
+  PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=1 npm install
+  info "Встановлення системного Chromium..."
+  apt-get install -y chromium &>/dev/null || apt-get install -y chromium-browser &>/dev/null || true
+  if [[ -z "$(detect_chromium)" ]]; then
+    command -v snap &>/dev/null || apt-get install -y snapd &>/dev/null || true
+    command -v snap &>/dev/null && snap install chromium &>/dev/null || true
+  fi
+  CHROMIUM_PATH=$(detect_chromium)
+  [[ -n "$CHROMIUM_PATH" ]] || err "Chromium не встановлено. Спробуйте: sudo apt install chromium"
+  ok "Залежності встановлено · системний Chromium → $CHROMIUM_PATH"
+fi
 
 # =============================================================================
 #  Крок 3 — PostgreSQL: база даних
@@ -301,6 +316,7 @@ PORT=3000
 BASE_URL=${EFFECTIVE_BASE_URL}
 APP_URL=${EFFECTIVE_BASE_URL}
 CHROMIUM_PATH=${CHROMIUM_PATH}
+PUPPETEER_CACHE_DIR=${APP_DIR}/.puppeteer-cache
 RESEND_API_KEY=${RESEND_API_KEY}
 RESEND_FROM=${RESEND_FROM}
 EOF

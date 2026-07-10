@@ -93,14 +93,10 @@ info "npm install..."
 PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=1 npm install
 ok "Залежності встановлено"
 
-info "Patching Puppeteer — системний Chromium..."
-PDF_SERVICE="$APP_DIR/server/services/pdf.js"
-if grep -q "executablePath" "$PDF_SERVICE"; then
-  ok "executablePath вже налаштовано"
-else
-  sed -i "s|headless: 'new',|headless: 'new',\n    executablePath: '$CHROMIUM_PATH',|" "$PDF_SERVICE"
-  ok "executablePath → $CHROMIUM_PATH"
-fi
+# Шлях до Chromium передаємо через CHROMIUM_PATH у .env (крок 7) —
+# server/services/pdf.js уже читає process.env.CHROMIUM_PATH. НЕ патчимо
+# відстежуваний файл sed'ом (це ламало б `git pull` через локальні зміни).
+ok "Chromium для Puppeteer → через CHROMIUM_PATH у .env"
 
 # =============================================================================
 #  Крок 3 — PostgreSQL: база даних
@@ -304,6 +300,7 @@ NODE_ENV=production
 PORT=3000
 BASE_URL=${EFFECTIVE_BASE_URL}
 APP_URL=${EFFECTIVE_BASE_URL}
+CHROMIUM_PATH=${CHROMIUM_PATH}
 RESEND_API_KEY=${RESEND_API_KEY}
 RESEND_FROM=${RESEND_FROM}
 EOF

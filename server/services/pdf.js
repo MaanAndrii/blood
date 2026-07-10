@@ -649,7 +649,9 @@ async function generatePdf(user, entries, labs, dateFrom, dateTo, mode = 'short'
   const html = buildHtml(user, entries, labs, dateFrom, dateTo, mode);
   const launchOptions = {
     headless: 'new',
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    // Flags for running inside containers/VPS: no sandbox (LXC blocks it),
+    // don't rely on /dev/shm (often tiny in containers), no GPU.
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
     timeout: 15000,
   };
   // Use an explicit system Chromium ONLY when CHROMIUM_PATH is set (e.g. arm64 /

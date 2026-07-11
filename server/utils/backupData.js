@@ -153,4 +153,93 @@ async function restoreBackup(userId, data) {
   return { imported, skipped, profileRestored, labsImported, labsSkipped };
 }
 
-module.exports = { buildBackup, restoreBackup };
+// ── FULL-SYSTEM backup/restore (admin) ───────────────────────────────────────
+// Dumps/restores ALL users and their data — for migrating the whole deployment
+// to another server. Contains password hashes and OAuth tokens, so the endpoints
+// are admin-only. Column allow-lists (never arbitrary keys from the file) guard
+// against injection via a crafted backup.
+const SYS_USER_COLS = [
+  'email', 'name', 'avatar_url', 'google_id', 'refresh_token', 'is_admin',
+  'subscription_tier', 'date_of_birth', 'reminder_morning', 'reminder_evening',
+  'reminders_enabled', 'push_subscription', 'created_at', 'password_hash',
+  'height_cm', 'consented_at', 'subscription_expires_at', 'timezone',
+  'drive_access_token', 'drive_refresh_token', 'drive_token_expires_at',
+  'sex', 'smoker', 'diabetic', 'on_bp_meds',
+  'total_cholesterol', 'hdl_cholesterol', 'cholesterol_updated_at',
+];
+const SYS_ENTRY_COLS = [
+  'date', 'm_sys_l', 'm_dia_l', 'm_sys_r', 'm_dia_r', 'm_pulse',
+  'e_sys_l', 'e_dia_l', 'e_sys_r', 'e_dia_r', 'e_pulse',
+  'weight', 'notes', 'm_pulse_l', 'm_pulse_r', 'e_pulse_l', 'e_pulse_r',
+  'created_at', 'updated_at',
+];
+const SYS_LAB_COLS = ['date', 'hba1c', 'total_chol', 'hdl', 'ldl', 'triglycerides', 'created_at', 'updated_at'];
+
+async function buildSystemBackup() {
+  const [users, entries, labs] = await Promise.all([
+    pool.query('SELECT * FROM users ORDER BY id'),
+    pool.query('SELECT * FROM entries ORDER BY id'),
+    pool.query('SELECT * FROM lab_results ORDER BY id'),
+  ]);
+  return {
+    version:  'system-1',
+    exported: new Date().toISOString(),
+    counts:   { users: users.rowCount, entries: entries.rowCount, labs: labs.rowCount },
+    users:    users.rows,
+    entries:  entries.rows,
+    labs:     labs.rows,
+  };
+}
+
+async function restoreSystemBackup(data) {
+  const users     = Array.isArray(data?.users)   ? data.users   : [];
+  const entriesArr = Array.isArray(data?.entries) ? data.entries : [];
+  const labsArr    = Array.isArray(data?.labs)    ? data.labs    : [];
+
+  // Restore users by email (non-clobbering), mapping old id → target id.
+  const idMap = new Map();
+  let usersImported = 0, usersExisting = 0;
+  for (const u of users) {
+    if (!u || !u.email) continue;
+    const cols = SYS_USER_COLS.filter(c => u[c] !== undefined);
+    if (!cols.includes('email')) cols.unshift('email');
+    const vals = cols.map(c => u[c] ?? null);
+    const ph   = cols.map((_, i) => '$' + (i + 1));
+    const sql  = `INSERT INTO users (${cols.join(', ')}) VALUES (${ph.join(', ')})
+                  ON CONFLICT (email) DO UPDATE SET email = EXCLUDED.email
+                  RETURNING id, (xmax = 0) AS inserted`;
+    try {
+      const r = await pool.query(sql, vals);
+      if (u.id != null) idMap.set(u.id, r.rows[0].id);
+      if (r.rows[0].inserted) usersImported++; else usersExisting++;
+    } catch { /* skip malformed user row */ }
+  }
+
+  const insertRows = async (arr, table, cols) => {
+    let imported = 0, skipped = 0;
+    for (const row of arr) {
+      const tgt = idMap.get(row.user_id);
+      if (!tgt) { skipped++; continue; }            // user wasn't restored → skip
+      const use = cols.filter(c => row[c] !== undefined);
+      const allCols = ['user_id', ...use];
+      const vals = [tgt, ...use.map(c => row[c] ?? null)];
+      const ph   = allCols.map((_, i) => '$' + (i + 1));
+      const sql  = `INSERT INTO ${table} (${allCols.join(', ')}) VALUES (${ph.join(', ')})
+                    ON CONFLICT (user_id, date) DO NOTHING`;
+      try { const r = await pool.query(sql, vals); if (r.rowCount) imported++; else skipped++; }
+      catch { skipped++; }
+    }
+    return { imported, skipped };
+  };
+
+  const e = await insertRows(entriesArr, 'entries', SYS_ENTRY_COLS);
+  const l = await insertRows(labsArr, 'lab_results', SYS_LAB_COLS);
+
+  return {
+    usersImported, usersExisting,
+    entriesImported: e.imported, entriesSkipped: e.skipped,
+    labsImported: l.imported, labsSkipped: l.skipped,
+  };
+}
+
+module.exports = { buildBackup, restoreBackup, buildSystemBackup, restoreSystemBackup };

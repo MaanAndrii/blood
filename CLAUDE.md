@@ -116,6 +116,7 @@ Development happens on short-lived `claude/*` feature branches merged into `main
 - [x] **Frontend split into modules**: `client/index.html` is now shell-only; JS lives in `client/js/*.js` (see File structure)
 - [x] **Local password reset**: `forgot-password` / `reset-password` endpoints (hashed, 1h-expiry, single-use tokens) + Resend email (`server/services/email.js`), `client/reset-password.html`
 - [x] **Admin panel**: `client/admin.html` — list users with activity stats, invite by email, change tier/expiry, delete user (guards against removing the last admin)
+- [x] **Full-system backup/restore (admin)**: `GET/POST /api/users/admin/backup|restore` (admin-only) — dumps/restores ALL users (incl. password hashes, tokens, tiers) + every user's entries + labs, for migrating the whole deployment to a new server. Restore is non-clobbering (users matched by email, ids remapped; entries/labs `ON CONFLICT DO NOTHING`). Logic in `server/utils/backupData.js` (`buildSystemBackup`/`restoreSystemBackup`); restore endpoint uses a 50 MB JSON limit (global limit stays 500 KB). UI in the admin panel «Системний бекап» section
 
 ### 🔲 Pending / Known issues
 

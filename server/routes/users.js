@@ -1,8 +1,39 @@
 const express = require('express');
 const { pool } = require('../db');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
+const { buildSystemBackup, restoreSystemBackup } = require('../utils/backupData');
 
 const router = express.Router();
+
+// ── Full-system backup / restore (admin only) ────────────────────────────────
+// GET /api/users/admin/backup — download ALL users + entries + labs as JSON
+router.get('/admin/backup', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const backup = await buildSystemBackup();
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition',
+      `attachment; filename="system_backup_${new Date().toISOString().slice(0, 10)}.json"`);
+    res.send(JSON.stringify(backup));
+  } catch (err) {
+    console.error('GET /api/users/admin/backup error:', err);
+    res.status(500).json({ error: 'Backup failed' });
+  }
+});
+
+// POST /api/users/admin/restore — restore a full-system backup (large body)
+router.post('/admin/restore', requireAuth, requireAdmin, express.json({ limit: '50mb' }), async (req, res) => {
+  try {
+    const data = req.body;
+    if (!data || typeof data !== 'object' || !Array.isArray(data.users)) {
+      return res.status(400).json({ error: 'Invalid backup file' });
+    }
+    const result = await restoreSystemBackup(data);
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    console.error('POST /api/users/admin/restore error:', err);
+    res.status(500).json({ error: 'Restore failed' });
+  }
+});
 
 // PUT /api/users/me — update own profile (name, date_of_birth)
 router.put('/me', requireAuth, async (req, res) => {

@@ -41,7 +41,13 @@ const _origError = console.error.bind(console);
 console.error = (...args) => { _origError(...args); fs.appendFile(LOG_FILE, `${new Date().toISOString()} [ERROR] ${args.join(' ')}\n`, () => {}); };
 
 // ── Middleware ──────────────────────────────────────────────────────────────
-app.use(express.json({ limit: '500kb' }));
+// Full-system admin restore can carry a large body — it parses JSON itself with
+// a higher limit (see routes/users.js). All other routes stay at 500kb.
+const _jsonSmall = express.json({ limit: '500kb' });
+app.use((req, res, next) => {
+  if (req.method === 'POST' && req.path === '/api/users/admin/restore') return next();
+  return _jsonSmall(req, res, next);
+});
 app.use(cookieParser());
 app.use(passport.initialize());
 app.use('/api/', generalLimit);

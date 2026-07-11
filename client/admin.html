@@ -224,6 +224,20 @@
   <div id="adminUsersList">
     <div class="loading-box">Завантаження…</div>
   </div>
+
+  <div class="section-label" style="margin-top:24px">Системний бекап</div>
+  <div class="card" style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px">
+    <p style="font-size:13px;color:var(--muted);line-height:1.55;margin:0 0 14px">
+      Повний бекап <strong>усіх користувачів</strong> та їхніх даних (записи + аналізи) для перенесення системи на інший сервер.
+      Файл містить хеші паролів і токени — зберігайте його в безпечному місці.
+    </p>
+    <button class="btn btn-primary" style="width:100%;margin-bottom:10px" onclick="downloadSystemBackup()">⬇️ Завантажити повний бекап</button>
+    <label class="btn btn-outline" style="width:100%;display:flex;justify-content:center;cursor:pointer;box-sizing:border-box">
+      ⬆️ Відновити з файлу
+      <input type="file" accept=".json,application/json" id="systemRestoreFile" style="display:none" onchange="restoreSystemBackup(event)" />
+    </label>
+    <div id="systemBackupStatus" style="font-size:12px;color:var(--muted);margin-top:10px;line-height:1.5"></div>
+  </div>
 </main>
 
 <!-- Tier modal -->
@@ -429,6 +443,59 @@ async function saveTier() {
   } finally {
     btn.disabled = false;
   }
+}
+
+// ── System backup / restore ───────────────────────────────────────────────
+async function downloadSystemBackup() {
+  const st = document.getElementById('systemBackupStatus');
+  st.textContent = 'Готуємо бекап…';
+  try {
+    const r = await fetch('/api/users/admin/backup');
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `HTTP ${r.status}`);
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `system_backup_${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    st.textContent = '✅ Бекап завантажено. Зберігайте його в безпечному місці.';
+  } catch (err) {
+    st.textContent = '';
+    showToast('⚠️ ' + err.message, 'var(--warn)');
+  }
+}
+
+function restoreSystemBackup(event) {
+  const file = event.target.files[0];
+  event.target.value = '';
+  if (!file) return;
+  if (!confirm(`Відновити повний бекап із «${file.name}»?\nІснуючі користувачі й записи НЕ будуть перезаписані — додадуться лише відсутні.`)) return;
+  const st = document.getElementById('systemBackupStatus');
+  st.textContent = 'Відновлення… (може зайняти час)';
+  const reader = new FileReader();
+  reader.onload = async e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      const r = await fetch('/api/users/admin/restore', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const res = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(res.error || `HTTP ${r.status}`);
+      st.innerHTML = `✅ Відновлено:<br>` +
+        `• користувачів: ${res.usersImported} нових (${res.usersExisting} уже було)<br>` +
+        `• записів: ${res.entriesImported} (${res.entriesSkipped} пропущено)<br>` +
+        `• аналізів: ${res.labsImported} (${res.labsSkipped} пропущено)`;
+      await loadAdminUsers();
+      showToast('✅ Систему відновлено');
+    } catch (err) {
+      st.textContent = '';
+      showToast('⚠️ ' + err.message, 'var(--warn)');
+    }
+  };
+  reader.readAsText(file);
 }
 
 loadAdminUsers();

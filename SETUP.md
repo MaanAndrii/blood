@@ -378,13 +378,23 @@ cd ~/blood
 git status --short
 service_user=$(systemctl show blood -p User --value)
 git pull --ff-only origin main \
-  && PUPPETEER_SKIP_DOWNLOAD=1 npm ci \
+  && sudo -H -u "${service_user:-root}" env PUPPETEER_SKIP_DOWNLOAD=1 npm ci \
   && sudo -H -u "${service_user:-root}" /usr/bin/node -r dotenv/config scripts/check-pdf.js \
   && sudo systemctl restart blood \
   && sudo systemctl is-active blood
 ```
 
 Після успішної перевірки повторіть експорт у застосунку. Візард `setup.sh` призначений для нової інсталяції й створює `.env` та конфігурацію systemd. Якщо на `x86_64` служба використовує Chrome, керований Puppeteer, встановіть браузер після `npm ci` командою `./node_modules/.bin/puppeteer browsers install chrome` під користувачем служби з тим самим `PUPPETEER_CACHE_DIR`, що в `.env`, а потім перевірте PDF.
+
+Якщо попередня інсталяція виконувала `npm` від root і оновлення падає з `EACCES` у `node_modules`, виконайте в корені проєкту:
+
+```bash
+service_user=$(systemctl show blood -p User --value)
+service_user=${service_user:-root}
+sudo chown -R -- "$service_user:$(id -gn "$service_user")" ./node_modules
+```
+
+Після цього повторіть команди оновлення.
 
 ---
 

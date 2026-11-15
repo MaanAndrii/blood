@@ -113,7 +113,7 @@ if ! _exec_ok "$PUPPETEER_CACHE_DIR"; then
 fi
 export PUPPETEER_CACHE_DIR
 
-PUPPETEER_SKIP_DOWNLOAD=1 npm ci
+sudo -H -u "$SERVICE_USER" env PUPPETEER_SKIP_DOWNLOAD=1 npm ci
 if [[ "$ARCH" == "x86_64" ]]; then
   info "Встановлення Chrome, закріпленого у Puppeteer..."
   ./node_modules/.bin/puppeteer browsers install chrome

@@ -535,7 +535,6 @@ function buildHtml(user, entries, labs, dateFrom, dateTo, mode = 'short') {
 <head>
   <meta charset="UTF-8" />
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;600;700&display=swap');
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Noto Sans', Arial, sans-serif; font-size: 11px; color: #111; background: #fff; padding: 20mm 15mm; }
 
@@ -649,6 +648,7 @@ async function generatePdf(user, entries, labs, dateFrom, dateTo, mode = 'short'
   const html = buildHtml(user, entries, labs, dateFrom, dateTo, mode);
   const launchOptions = {
     headless: 'new',
+    pipe: true,
     // Flags for running inside containers/VPS: no sandbox (LXC blocks it),
     // don't rely on /dev/shm (often tiny in containers), no GPU.
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
@@ -663,7 +663,7 @@ async function generatePdf(user, entries, labs, dateFrom, dateTo, mode = 'short'
   const browser = await puppeteer.launch(launchOptions);
   try {
     const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: 'networkidle0', timeout: 30000 });
+    await page.setContent(html, { waitUntil: 'load', timeout: 30000 });
     const pdf = await page.pdf({
       format: 'A4',
       printBackground: true,

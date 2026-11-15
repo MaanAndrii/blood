@@ -20,6 +20,8 @@ sudo bash setup.sh
 
 Візард проведе через всі кроки інтерактивно (системні пакети, БД, режим доступу, Google OAuth, email для відновлення пароля, VAPID, `.env`, systemd, Cloudflare Tunnel, автоматичний бекап). Якщо щось пішло не так — читайте ручне встановлення нижче.
 
+Для нової інсталяції на **Ubuntu 24.04 ARM64**, зокрема у VPS на LXC, використовуйте цей візард. Він встановлює бібліотеки для Ubuntu, завантажує закріплену збірку Chrome for Testing для Linux ARM64 і записує її шлях у `CHROMIUM_PATH`. На Raspberry Pi OS візард встановлює системний Chromium, а на `x86_64` використовує версію Chrome, закріплену в Puppeteer. Перед налаштуванням бази та служби він генерує короткий і розширений PDF від імені користувача майбутньої служби.
+
 ---
 
 ## Ручне встановлення (покроково)
@@ -74,7 +76,7 @@ GRANT ALL PRIVILEGES ON DATABASE health TO health;
 sudo apt install -y chromium \
   libgbm1 libxkbcommon0 libatk1.0-0 libatk-bridge2.0-0 \
   libcups2 libdrm2 libxcomposite1 libxdamage1 libxfixes3 \
-  libxrandr2 libpango-1.0-0 libcairo2 libasound2
+  libxrandr2 libpango-1.0-0 libcairo2 libasound2 fonts-noto-core
 
 which chromium
 # /usr/bin/chromium
@@ -94,26 +96,22 @@ cd blood
 
 ### Крок 6 — npm залежності
 
-> **Важливо:** Встановіть змінну `PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=1` **перед** `npm install`. Без цього Puppeteer спробує завантажити власний Chromium (~300MB для ARM64) і `npm install` зависне на 30+ хвилин або впаде з помилкою мережі.
+На Raspberry Pi використовуйте системний Chromium, встановлений на кроці 4.
 
 ```bash
-PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=1 npm install
+PUPPETEER_SKIP_DOWNLOAD=1 npm ci
 ```
 
-Вказати системний Chromium у `server/services/pdf.js`:
+Додайте шлях, який повертає `command -v chromium`, до файлу `.env`:
 
 ```bash
-nano server/services/pdf.js
+CHROMIUM_PATH=/usr/bin/chromium
 ```
 
-Знайти `puppeteer.launch({` і додати `executablePath`:
+Перевірте обидва режими генерації з кореня проєкту:
 
-```javascript
-const browser = await puppeteer.launch({
-  headless: 'new',
-  executablePath: '/usr/bin/chromium',
-  args: ['--no-sandbox', '--disable-setuid-sandbox'],
-});
+```bash
+npm run check:pdf
 ```
 
 ---
@@ -261,7 +259,7 @@ journalctl -u blood -n 30 --no-pager
 |---|---|---|
 | `OAuth2Strategy requires a clientID` | `.env` не читається сервісом | `sudo chown $USER:$USER .env` |
 | `password authentication failed` | Неправильний пароль в `DATABASE_URL` | Перевірте пароль у `.env` |
-| `Cannot find module` | `node_modules` не встановлено | `PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=1 npm install` |
+| `Cannot find module` | `node_modules` не встановлено | `npm ci` (на Raspberry Pi з `PUPPETEER_SKIP_DOWNLOAD=1`) |
 | `EACCES permission denied` | Файли належать root | `sudo chown -R $USER:$USER ~/blood` |
 
 ---
@@ -373,12 +371,20 @@ curl -s http://localhost:3000/api/auth/me
 
 ## Оновлення застосунку
 
+Для наявної інсталяції з робочим `CHROMIUM_PATH` (Ubuntu ARM64 або Raspberry Pi) оновіть код і залежності, зберігши чинний `.env`:
+
 ```bash
 cd ~/blood
-git pull origin main
-PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=1 npm install
-sudo systemctl restart blood
+git status --short
+service_user=$(systemctl show blood -p User --value)
+git pull --ff-only origin main \
+  && PUPPETEER_SKIP_DOWNLOAD=1 npm ci \
+  && sudo -H -u "${service_user:-root}" /usr/bin/node -r dotenv/config scripts/check-pdf.js \
+  && sudo systemctl restart blood \
+  && sudo systemctl is-active blood
 ```
+
+Після успішної перевірки повторіть експорт у застосунку. Візард `setup.sh` призначений для нової інсталяції й створює `.env` та конфігурацію systemd. Якщо на `x86_64` служба використовує Chrome, керований Puppeteer, встановіть браузер після `npm ci` командою `./node_modules/.bin/puppeteer browsers install chrome` під користувачем служби з тим самим `PUPPETEER_CACHE_DIR`, що в `.env`, а потім перевірте PDF.
 
 ---
 
@@ -430,14 +436,26 @@ sudo systemctl restart blood
 **npm install зависає на 30+ хвилин**
 ```bash
 # Зупиніть Ctrl+C і запустіть правильно:
-PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=1 npm install
+PUPPETEER_SKIP_DOWNLOAD=1 npm ci  # Raspberry Pi із системним Chromium
 ```
 
-**Chromium не знайдено (помилка PDF)**
+**Застосунок показує `PDF generation failed`**
+
+Одразу після спроби експорту перевірте блок `POST /api/pdf error:` у журналі служби:
+
+```bash
+sudo journalctl -u blood -n 100 --no-pager
+```
+
+Запустіть `npm run check:pdf` із кореня проєкту під користувачем служби, щоб перевірити Chromium і генерацію з налаштуваннями з `.env`. Якщо перевірка проходить, а експорт у застосунку падає, журнал допоможе перевірити запит до бази та обробку даних.
+
+Якщо Raspberry Pi не знаходить Chromium:
 ```bash
 which chromium          # має бути /usr/bin/chromium
 sudo apt install -y chromium
 ```
+
+Вкажіть знайдений шлях у `CHROMIUM_PATH` у `.env` і перезапустіть службу командою `sudo systemctl restart blood`. Для Chromium, завантаженого Puppeteer, залиште `CHROMIUM_PATH` порожнім і перевірте, що користувач служби має доступ до каталогу `PUPPETEER_CACHE_DIR`.
 
 **Error 1016 — Origin DNS error (Cloudflare)**
 ```bash

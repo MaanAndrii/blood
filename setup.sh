@@ -18,6 +18,8 @@ ask()  { echo -e "${YELLOW}?${NC}  $*"; }
 ENV_FILE="$(cd "$(dirname "$0")" && pwd)/.env"
 APP_DIR="$(cd "$(dirname "$0")" && pwd)"
 SERVICE_USER="${SUDO_USER:-pi}"
+ARCH=$(uname -m)
+. /etc/os-release
 
 # =============================================================================
 #  Перевірка
@@ -57,13 +59,21 @@ systemctl start postgresql
 ok "PostgreSQL $(psql --version | awk '{print $3}')"
 
 info "Встановлення бібліотек, потрібних Chromium/Puppeteer..."
-apt-get install -y \
-  libgbm1 libxkbcommon0 libatk1.0-0 libatk-bridge2.0-0 \
-  libcups2 libdrm2 libxcomposite1 libxdamage1 libxfixes3 \
-  libxrandr2 libpango-1.0-0 libcairo2 libasound2 libnss3 libxshmfence1 fonts-liberation &>/dev/null || true
+chromium_libraries=(
+  libnspr4 libnss3 libgbm1 libxkbcommon0 libdrm2 libxcomposite1 libxdamage1
+  libxfixes3 libxrandr2 libpango-1.0-0 libcairo2 libxshmfence1
+  fonts-liberation fonts-noto-core
+)
+for package in libatk1.0-0 libatk-bridge2.0-0 libatspi2.0-0 libcups2 libasound2; do
+  if apt-cache show "${package}t64" >/dev/null 2>&1; then
+    chromium_libraries+=("${package}t64")
+  else
+    chromium_libraries+=("$package")
+  fi
+done
+apt-get install -y "${chromium_libraries[@]}"
 ok "Бібліотеки Chromium встановлено"
 
-# Chromium купуємо в кроці 2 (після npm) — Puppeteer керує власним бінарником.
 CHROMIUM_PATH=""
 detect_chromium() {
   command -v chromium 2>/dev/null || command -v chromium-browser 2>/dev/null \
@@ -78,12 +88,7 @@ step "Крок 2 — npm залежності"
 cd "$APP_DIR"
 
 # ── Chromium для Puppeteer ────────────────────────────────────────────────────
-# Портативний підхід: на x86_64 Puppeteer завантажує й керує ВЛАСНИМ браузером
-# (той самий білд, що очікує puppeteer.launch(); працює однаково на будь-якому
-# сервері, без проблем snap-confinement). Кеш — у фіксованій теці в проєкті,
-# щоб бінарник знаходився і при встановленні, і під час роботи служби (незалежно
-# від HOME користувача). CHROMIUM_PATH лишається порожнім → pdf.js бере власний.
-# Виняток — arm64/armv7 (Raspberry Pi): збірки немає, тож там системний Chromium.
+# Один і той самий каталог використовується під час інсталяції та роботи служби.
 PUPPETEER_CACHE_DIR="${APP_DIR}/.puppeteer-cache"
 mkdir -p "$PUPPETEER_CACHE_DIR"
 
@@ -93,7 +98,7 @@ mkdir -p "$PUPPETEER_CACHE_DIR"
 _exec_ok() {
   local d="$1" t
   mkdir -p "$d" 2>/dev/null || return 1
-  t="$d/.exectest_$$"
+  t=$(mktemp "$d/.exectest.XXXXXX") || return 1
   printf '#!/bin/sh\ntrue\n' > "$t" 2>/dev/null || { rm -f "$t" 2>/dev/null; return 1; }
   chmod +x "$t" 2>/dev/null || { rm -f "$t" 2>/dev/null; return 1; }
   if "$t" >/dev/null 2>&1; then rm -f "$t" 2>/dev/null; return 0; fi
@@ -104,24 +109,35 @@ if ! _exec_ok "$PUPPETEER_CACHE_DIR"; then
   for alt in /opt/blood-puppeteer /usr/local/lib/blood-puppeteer /var/lib/blood-puppeteer; do
     if _exec_ok "$alt"; then PUPPETEER_CACHE_DIR="$alt"; ok "Кеш браузера → $alt (exec дозволено)"; break; fi
   done
-  _exec_ok "$PUPPETEER_CACHE_DIR" || warn "Не знайшов exec-дозволеної теки — PDF може не працювати (перевірте noexec-монтування)."
+  _exec_ok "$PUPPETEER_CACHE_DIR" || err "Не знайшов каталогу, з якого можна запускати Chrome. Перевірте noexec-монтування."
 fi
 export PUPPETEER_CACHE_DIR
 
-ARCH=$(uname -m)
+PUPPETEER_SKIP_DOWNLOAD=1 npm ci
 if [[ "$ARCH" == "x86_64" ]]; then
-  info "npm install (з власним Chromium Puppeteer)..."
-  npm install
-  # Явно докачуємо браузер (ідемпотентно) — потрібно й для повторних запусків,
-  # де node_modules уже є і postinstall Puppeteer не спрацьовує.
-  npx --yes puppeteer browsers install chrome >/tmp/pptr_chromium.log 2>&1 \
-    || warn "Не вдалося докачати Chromium — див. /tmp/pptr_chromium.log"
-  CHROMIUM_PATH=""
-  chown -R "${SERVICE_USER}:${SERVICE_USER}" "$PUPPETEER_CACHE_DIR" 2>/dev/null || true
-  ok "Залежності + Chromium (керований Puppeteer) → $PUPPETEER_CACHE_DIR"
+  info "Встановлення Chrome, закріпленого у Puppeteer..."
+  ./node_modules/.bin/puppeteer browsers install chrome
+elif [[ "$ARCH" == "aarch64" && "$ID" == "ubuntu" ]]; then
+  # Версія Chrome for Testing, перевірена з генератором на Ubuntu ARM64.
+  chrome_version=157.0.8103.78
+  chrome_dir="$PUPPETEER_CACHE_DIR/chrome-for-testing-$chrome_version"
+  CHROMIUM_PATH="$chrome_dir/chrome-linux-arm64/chrome"
+  if [[ ! -x "$CHROMIUM_PATH" ]]; then
+    info "Встановлення Chrome for Testing $chrome_version (Linux ARM64)..."
+    apt-get install -y unzip
+    (
+      staging_dir=$(mktemp -d "$PUPPETEER_CACHE_DIR/.chrome-download.XXXXXX")
+      trap 'rm -rf -- "$staging_dir"' EXIT
+      curl -fL --retry 2 \
+        "https://storage.googleapis.com/chrome-for-testing-public/$chrome_version/linux-arm64/chrome-linux-arm64.zip" \
+        -o "$staging_dir/chrome.zip"
+      unzip -q "$staging_dir/chrome.zip" -d "$staging_dir"
+      [[ -x "$staging_dir/chrome-linux-arm64/chrome" ]] || err "В архіві відсутній виконуваний файл Chrome."
+      mkdir -p "$chrome_dir"
+      mv -T "$staging_dir/chrome-linux-arm64" "$chrome_dir/chrome-linux-arm64"
+    )
+  fi
 else
-  info "npm install (arm — системний Chromium)..."
-  PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=1 npm install
   info "Встановлення системного Chromium..."
   apt-get install -y chromium &>/dev/null || apt-get install -y chromium-browser &>/dev/null || true
   if [[ -z "$(detect_chromium)" ]]; then
@@ -132,6 +148,12 @@ else
   [[ -n "$CHROMIUM_PATH" ]] || err "Chromium не встановлено. Спробуйте: sudo apt install chromium"
   ok "Залежності встановлено · системний Chromium → $CHROMIUM_PATH"
 fi
+
+info "Перевірка генерації PDF від імені користувача служби..."
+sudo -u "$SERVICE_USER" -H env CHROMIUM_PATH="$CHROMIUM_PATH" \
+  PUPPETEER_CACHE_DIR="$PUPPETEER_CACHE_DIR" PUPPETEER_TMP_DIR=/tmp npm run check:pdf \
+  || err "Генерація PDF не працює. Усуньте помилку браузера, наведену вище, та запустіть setup.sh повторно."
+ok "Короткий і розширений PDF успішно згенеровано"
 
 # =============================================================================
 #  Крок 3 — PostgreSQL: база даних
